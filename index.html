@@ -35,6 +35,9 @@
         <a class="nav-item" href="#notes" data-view="notes">
           <span class="nav-icon">▥</span><span class="nav-label">메모</span>
         </a>
+        <a class="nav-item" href="#diary" data-view="diary">
+          <span class="nav-icon">▣</span><span class="nav-label">일기장</span>
+        </a>
         <a class="nav-item" href="#assistant" data-view="assistant">
           <span class="nav-icon">✦</span><span class="nav-label">비서에게 묻기</span>
         </a>
@@ -215,6 +218,14 @@
           </div>
         </div>
 
+        <div class="view" id="view-diary" hidden>
+          <div class="diary-header">
+            <h2>일기장</h2>
+            <button class="primary-btn" id="addDiaryBtn">+ 일기 쓰기</button>
+          </div>
+          <div class="diary-feed" id="diaryFeed"></div>
+        </div>
+
         <div class="view" id="view-assistant" hidden>
           <div class="panel">
             <div class="panel-header"><h2>비서에게 묻기</h2></div>
@@ -328,10 +339,40 @@
     </div>
   </div>
 
+  <!-- 일기 추가/수정 모달 -->
+  <div class="modal-overlay" id="diaryModalOverlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="diaryModalTitle">
+      <h3 id="diaryModalTitle">일기 쓰기</h3>
+      <form id="diaryForm">
+        <label>
+          날짜
+          <input type="date" id="diaryDateInput" required />
+        </label>
+        <label>
+          내용
+          <textarea id="diaryTextInput" rows="6" placeholder="오늘 하루는 어땠나요?"></textarea>
+        </label>
+        <label>
+          사진 추가 (최대 4장)
+          <input type="file" id="diaryPhotoInput" accept="image/*" multiple />
+        </label>
+        <div class="diary-photo-preview" id="diaryPhotoPreview"></div>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn danger" id="deleteDiaryBtn" hidden>삭제</button>
+          <div class="modal-actions-right">
+            <button type="button" class="ghost-btn" id="cancelDiaryBtn">취소</button>
+            <button type="submit" class="primary-btn">저장</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="scripts/store.js"></script>
   <script src="scripts/schedule.js"></script>
   <script src="scripts/reminder.js"></script>
   <script src="scripts/settings.js"></script>
+  <script src="scripts/diary.js"></script>
   <script src="scripts/main.js"></script>
 </body>
 </html>

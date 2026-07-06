@@ -55,6 +55,7 @@ const viewTitles = {
   schedule: "일정",
   tasks: "할 일",
   notes: "메모",
+  diary: "일기장",
   assistant: "비서에게 묻기",
   settings: "설정",
 };
@@ -103,4 +104,9 @@ if (window.ReminderEngine) {
 // ---------- Settings & shortcuts ----------
 if (window.SettingsView) {
   window.SettingsView.init();
+}
+
+// ---------- Diary feature ----------
+if (window.DiaryView) {
+  window.DiaryView.init();
 }
