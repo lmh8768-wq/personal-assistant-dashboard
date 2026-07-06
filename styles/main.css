@@ -95,7 +95,8 @@ button, input {
 }
 
 .sidebar.collapsed .brand-name,
-.sidebar.collapsed .nav-label {
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .shortcut-group-label {
   display: none;
 }
 
@@ -104,6 +105,22 @@ button, input {
   flex-direction: column;
   gap: 2px;
   flex: 1;
+}
+
+.shortcut-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
+.shortcut-group-label {
+  margin: 0 0 2px;
+  padding: 0 12px;
+  font-size: 11px;
+  color: var(--text-faint);
 }
 
 .sidebar-footer {
@@ -124,6 +141,15 @@ button, input {
   white-space: nowrap;
   overflow: hidden;
   transition: background 0.15s ease, color 0.15s ease;
+}
+
+button.nav-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .nav-item:hover {
@@ -596,6 +622,41 @@ button, input {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
+}
+
+/* ---------- Settings form ---------- */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 420px;
+}
+
+.settings-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-form input {
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+}
+
+.settings-form input:focus {
+  border-color: var(--accent);
+}
+
+.settings-form button {
+  align-self: flex-start;
 }
 
 /* ---------- Modal ---------- */

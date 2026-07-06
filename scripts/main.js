@@ -99,3 +99,8 @@ if (window.ScheduleView) {
 if (window.ReminderEngine) {
   window.ReminderEngine.init();
 }
+
+// ---------- Settings & shortcuts ----------
+if (window.SettingsView) {
+  window.SettingsView.init();
+}

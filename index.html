@@ -40,6 +40,19 @@
         </a>
       </nav>
 
+      <div class="shortcut-group">
+        <p class="shortcut-group-label">바로가기</p>
+        <button type="button" class="nav-item" id="shortcutBlog">
+          <span class="nav-icon">📝</span><span class="nav-label">네이버 블로그</span>
+        </button>
+        <button type="button" class="nav-item" id="shortcutCafe">
+          <span class="nav-icon">☕</span><span class="nav-label">네이버 카페</span>
+        </button>
+        <button type="button" class="nav-item" id="shortcutInstagram">
+          <span class="nav-icon">📷</span><span class="nav-label">인스타그램</span>
+        </button>
+      </div>
+
       <div class="sidebar-footer">
         <a class="nav-item" href="#settings" data-view="settings">
           <span class="nav-icon">⚙</span><span class="nav-label">설정</span>
@@ -215,10 +228,21 @@
         <div class="view" id="view-settings" hidden>
           <div class="panel">
             <div class="panel-header"><h2>설정</h2></div>
-            <div class="empty-state">
-              <span class="empty-icon">⚙</span>
-              <p>준비 중인 기능이에요</p>
-            </div>
+            <form id="settingsForm" class="settings-form">
+              <label>
+                네이버 블로그 주소
+                <input type="url" id="settingsBlogInput" placeholder="https://blog.naver.com/아이디" />
+              </label>
+              <label>
+                네이버 카페 주소
+                <input type="url" id="settingsCafeInput" placeholder="https://cafe.naver.com/카페이름" />
+              </label>
+              <label>
+                인스타그램 주소
+                <input type="url" id="settingsInstagramInput" placeholder="https://instagram.com/아이디" />
+              </label>
+              <button type="submit" class="primary-btn">저장</button>
+            </form>
           </div>
         </div>
 
@@ -307,6 +331,7 @@
   <script src="scripts/store.js"></script>
   <script src="scripts/schedule.js"></script>
   <script src="scripts/reminder.js"></script>
+  <script src="scripts/settings.js"></script>
   <script src="scripts/main.js"></script>
 </body>
 </html>
