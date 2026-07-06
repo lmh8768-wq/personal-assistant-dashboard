@@ -48,6 +48,7 @@ document.addEventListener("click", (e) => {
 // ---------- Nav switching ----------
 const navItems = document.querySelectorAll(".nav-item[data-view]");
 const pageTitle = document.getElementById("pageTitle");
+const viewSections = document.querySelectorAll(".view");
 
 const viewTitles = {
   dashboard: "대시보드",
@@ -58,12 +59,22 @@ const viewTitles = {
   settings: "설정",
 };
 
+function showView(viewName) {
+  viewSections.forEach((section) => {
+    section.hidden = section.id !== `view-${viewName}`;
+  });
+  if (viewName === "dashboard" && window.ScheduleView) {
+    window.ScheduleView.refreshDashboard();
+  }
+}
+
 navItems.forEach((item) => {
   item.addEventListener("click", (e) => {
     e.preventDefault();
     navItems.forEach((n) => n.classList.remove("active"));
     item.classList.add("active");
     pageTitle.textContent = viewTitles[item.dataset.view] ?? "";
+    showView(item.dataset.view);
     sidebar.classList.remove("mobile-open");
   });
 });
@@ -78,3 +89,8 @@ const formatter = new Intl.DateTimeFormat("ko-KR", {
   weekday: "long",
 });
 pageDate.textContent = formatter.format(today);
+
+// ---------- Schedule feature ----------
+if (window.ScheduleView) {
+  window.ScheduleView.init();
+}
