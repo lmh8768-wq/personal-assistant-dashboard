@@ -48,6 +48,18 @@
     const title = document.createElement("div");
     title.className = "schedule-item-title";
     title.textContent = item.title;
+    if (item.repeat && item.repeat.type !== "none") {
+      const badge = document.createElement("span");
+      badge.className = "schedule-item-badge";
+      badge.textContent = "🔁";
+      title.appendChild(badge);
+    }
+    if (item.reminderMinutes) {
+      const badge = document.createElement("span");
+      badge.className = "schedule-item-badge";
+      badge.textContent = "🔔";
+      title.appendChild(badge);
+    }
     body.appendChild(title);
 
     if (item.memo) {
@@ -88,7 +100,7 @@
       num.textContent = d.getDate();
       cell.appendChild(num);
 
-      if (window.ScheduleStore.countByDate(dStr) > 0) {
+      if (window.ScheduleStore.countOccurrences(dStr) > 0) {
         const dot = document.createElement("span");
         dot.className = "dot";
         cell.appendChild(dot);
@@ -112,7 +124,7 @@
 
     const list = document.getElementById("scheduleList");
     list.innerHTML = "";
-    const items = window.ScheduleStore.getByDate(toDateStr(selectedDate));
+    const items = window.ScheduleStore.getOccurrences(toDateStr(selectedDate));
 
     if (items.length === 0) {
       list.innerHTML = `<li class="schedule-empty">이 날에는 일정이 없어요</li>`;
@@ -125,7 +137,7 @@
     const list = document.getElementById("dashboardScheduleList");
     if (!list) return;
 
-    const items = window.ScheduleStore.getByDate(toDateStr(new Date()));
+    const items = window.ScheduleStore.getOccurrences(toDateStr(new Date()));
     const statEl = document.getElementById("statTodayCount");
     if (statEl) statEl.textContent = items.length;
 
@@ -141,6 +153,14 @@
     renderCalendar();
     renderDayList();
     renderDashboardSchedule();
+    if (window.ReminderEngine) window.ReminderEngine.check();
+  }
+
+  function updateRepeatFieldsVisibility() {
+    const repeatType = document.getElementById("scheduleRepeatInput").value;
+    const isRepeating = repeatType !== "none";
+    document.getElementById("repeatUntilRow").hidden = !isRepeating;
+    document.getElementById("repeatNote").hidden = !isRepeating;
   }
 
   function openModal(mode, data) {
@@ -151,6 +171,10 @@
     document.getElementById("scheduleStartInput").value = data?.startTime || "";
     document.getElementById("scheduleEndInput").value = data?.endTime || "";
     document.getElementById("scheduleMemoInput").value = data?.memo || "";
+    document.getElementById("scheduleRepeatInput").value = data?.repeat?.type || "none";
+    document.getElementById("scheduleRepeatUntilInput").value = data?.repeat?.until || "";
+    document.getElementById("scheduleReminderInput").value = data?.reminderMinutes ? String(data.reminderMinutes) : "";
+    updateRepeatFieldsVisibility();
     document.getElementById("deleteScheduleBtn").hidden = mode !== "edit";
     document.getElementById("scheduleModalOverlay").hidden = false;
     document.getElementById("scheduleTitleInput").focus();
@@ -159,17 +183,25 @@
   function closeModal() {
     document.getElementById("scheduleModalOverlay").hidden = true;
     document.getElementById("scheduleForm").reset();
+    updateRepeatFieldsVisibility();
     editingId = null;
   }
 
   function handleSubmit(e) {
     e.preventDefault();
+    const repeatType = document.getElementById("scheduleRepeatInput").value;
+    const reminderValue = document.getElementById("scheduleReminderInput").value;
     const payload = {
       title: document.getElementById("scheduleTitleInput").value.trim(),
       date: document.getElementById("scheduleDateInput").value,
       startTime: document.getElementById("scheduleStartInput").value,
       endTime: document.getElementById("scheduleEndInput").value,
       memo: document.getElementById("scheduleMemoInput").value.trim(),
+      repeat: {
+        type: repeatType,
+        until: repeatType !== "none" ? (document.getElementById("scheduleRepeatUntilInput").value || null) : null,
+      },
+      reminderMinutes: reminderValue ? Number(reminderValue) : null,
     };
     if (!payload.title || !payload.date) return;
 
@@ -220,6 +252,7 @@
     document.getElementById("scheduleForm").addEventListener("submit", handleSubmit);
     document.getElementById("cancelScheduleBtn").addEventListener("click", closeModal);
     document.getElementById("deleteScheduleBtn").addEventListener("click", handleDelete);
+    document.getElementById("scheduleRepeatInput").addEventListener("change", updateRepeatFieldsVisibility);
 
     document.getElementById("scheduleModalOverlay").addEventListener("click", (e) => {
       if (e.target.id === "scheduleModalOverlay") closeModal();

@@ -94,3 +94,8 @@ pageDate.textContent = formatter.format(today);
 if (window.ScheduleView) {
   window.ScheduleView.init();
 }
+
+// ---------- Reminder feature ----------
+if (window.ReminderEngine) {
+  window.ReminderEngine.init();
+}

@@ -230,6 +230,12 @@ button, input {
   color: var(--accent);
 }
 
+.icon-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .mobile-menu-btn {
   display: none;
 }
@@ -456,6 +462,11 @@ button, input {
   font-weight: 600;
 }
 
+.schedule-item-badge {
+  margin-left: 6px;
+  font-size: 11px;
+}
+
 .schedule-item-memo {
   font-size: 12px;
   color: var(--text-muted);
@@ -603,6 +614,15 @@ button, input {
   font-weight: 700;
 }
 
+.modal-note {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
 .modal form {
   display: flex;
   flex-direction: column;
@@ -667,6 +687,28 @@ button, input {
 .ghost-btn.danger:hover {
   border-color: #e5687a;
   color: #e5687a;
+}
+
+/* ---------- Toast notifications ---------- */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+}
+
+.toast {
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  max-width: 300px;
+  box-shadow: var(--shadow);
 }
 
 /* ---------- Responsive ---------- */
