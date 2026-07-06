@@ -239,6 +239,15 @@
           날짜
           <input type="date" id="scheduleDateInput" required />
         </label>
+        <div class="star-rating" id="scheduleImportanceStars">
+          <span class="star-rating-label">중요도</span>
+          <button type="button" class="star-btn" data-value="1" aria-label="중요도 1점">★</button>
+          <button type="button" class="star-btn" data-value="2" aria-label="중요도 2점">★</button>
+          <button type="button" class="star-btn" data-value="3" aria-label="중요도 3점">★</button>
+          <button type="button" class="star-btn" data-value="4" aria-label="중요도 4점">★</button>
+          <button type="button" class="star-btn" data-value="5" aria-label="중요도 5점">★</button>
+          <input type="hidden" id="scheduleImportanceInput" value="3" />
+        </div>
         <div class="time-row">
           <label>
             시작 시간
@@ -267,9 +276,14 @@
               <option value="30">30분 전</option>
               <option value="60">1시간 전</option>
               <option value="1440">하루 전</option>
+              <option value="custom">직접 입력</option>
             </select>
           </label>
         </div>
+        <label id="reminderCustomRow" hidden>
+          몇 분 전
+          <input type="number" id="scheduleReminderCustomInput" min="1" placeholder="예: 15" />
+        </label>
         <label id="repeatUntilRow" hidden>
           반복 종료일 (선택)
           <input type="date" id="scheduleRepeatUntilInput" />

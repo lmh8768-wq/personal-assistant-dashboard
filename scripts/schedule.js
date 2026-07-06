@@ -4,6 +4,8 @@
   let editingId = null;
 
   const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+  const REMINDER_PRESETS = ["10", "30", "60", "1440"];
+  const DEFAULT_IMPORTANCE = 3;
 
   function pad2(n) {
     return String(n).padStart(2, "0");
@@ -30,6 +32,19 @@
 
   function formatDayLabel(d) {
     return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS[d.getDay()]})`;
+  }
+
+  function buildImportanceStars(importance) {
+    const value = importance || DEFAULT_IMPORTANCE;
+    const wrap = document.createElement("span");
+    wrap.className = "schedule-item-stars";
+    for (let i = 1; i <= 5; i++) {
+      const star = document.createElement("span");
+      star.className = i <= value ? "star-filled" : "star-empty";
+      star.textContent = "★";
+      wrap.appendChild(star);
+    }
+    return wrap;
   }
 
   function renderScheduleItem(item, onClick) {
@@ -60,6 +75,7 @@
       badge.textContent = "🔔";
       title.appendChild(badge);
     }
+    title.appendChild(buildImportanceStars(item.importance));
     body.appendChild(title);
 
     if (item.memo) {
@@ -163,6 +179,19 @@
     document.getElementById("repeatNote").hidden = !isRepeating;
   }
 
+  function paintImportanceStars(value) {
+    document.querySelectorAll("#scheduleImportanceStars .star-btn").forEach((btn) => {
+      const starValue = Number(btn.dataset.value);
+      btn.classList.toggle("filled", starValue <= value);
+    });
+    document.getElementById("scheduleImportanceInput").value = String(value);
+  }
+
+  function updateReminderCustomVisibility() {
+    const isCustom = document.getElementById("scheduleReminderInput").value === "custom";
+    document.getElementById("reminderCustomRow").hidden = !isCustom;
+  }
+
   function openModal(mode, data) {
     editingId = mode === "edit" ? data.id : null;
     document.getElementById("modalTitle").textContent = mode === "edit" ? "일정 수정" : "일정 추가";
@@ -173,7 +202,21 @@
     document.getElementById("scheduleMemoInput").value = data?.memo || "";
     document.getElementById("scheduleRepeatInput").value = data?.repeat?.type || "none";
     document.getElementById("scheduleRepeatUntilInput").value = data?.repeat?.until || "";
-    document.getElementById("scheduleReminderInput").value = data?.reminderMinutes ? String(data.reminderMinutes) : "";
+    paintImportanceStars(data?.importance || DEFAULT_IMPORTANCE);
+
+    const reminderMinutes = data?.reminderMinutes;
+    if (reminderMinutes && REMINDER_PRESETS.includes(String(reminderMinutes))) {
+      document.getElementById("scheduleReminderInput").value = String(reminderMinutes);
+      document.getElementById("scheduleReminderCustomInput").value = "";
+    } else if (reminderMinutes) {
+      document.getElementById("scheduleReminderInput").value = "custom";
+      document.getElementById("scheduleReminderCustomInput").value = String(reminderMinutes);
+    } else {
+      document.getElementById("scheduleReminderInput").value = "";
+      document.getElementById("scheduleReminderCustomInput").value = "";
+    }
+    updateReminderCustomVisibility();
+
     updateRepeatFieldsVisibility();
     document.getElementById("deleteScheduleBtn").hidden = mode !== "edit";
     document.getElementById("scheduleModalOverlay").hidden = false;
@@ -184,6 +227,8 @@
     document.getElementById("scheduleModalOverlay").hidden = true;
     document.getElementById("scheduleForm").reset();
     updateRepeatFieldsVisibility();
+    paintImportanceStars(DEFAULT_IMPORTANCE);
+    updateReminderCustomVisibility();
     editingId = null;
   }
 
@@ -191,6 +236,15 @@
     e.preventDefault();
     const repeatType = document.getElementById("scheduleRepeatInput").value;
     const reminderValue = document.getElementById("scheduleReminderInput").value;
+
+    let reminderMinutes = null;
+    if (reminderValue === "custom") {
+      const customMinutes = Number(document.getElementById("scheduleReminderCustomInput").value);
+      reminderMinutes = customMinutes > 0 ? customMinutes : null;
+    } else if (reminderValue) {
+      reminderMinutes = Number(reminderValue);
+    }
+
     const payload = {
       title: document.getElementById("scheduleTitleInput").value.trim(),
       date: document.getElementById("scheduleDateInput").value,
@@ -201,7 +255,8 @@
         type: repeatType,
         until: repeatType !== "none" ? (document.getElementById("scheduleRepeatUntilInput").value || null) : null,
       },
-      reminderMinutes: reminderValue ? Number(reminderValue) : null,
+      reminderMinutes,
+      importance: Number(document.getElementById("scheduleImportanceInput").value) || DEFAULT_IMPORTANCE,
     };
     if (!payload.title || !payload.date) return;
 
@@ -253,6 +308,11 @@
     document.getElementById("cancelScheduleBtn").addEventListener("click", closeModal);
     document.getElementById("deleteScheduleBtn").addEventListener("click", handleDelete);
     document.getElementById("scheduleRepeatInput").addEventListener("change", updateRepeatFieldsVisibility);
+    document.getElementById("scheduleReminderInput").addEventListener("change", updateReminderCustomVisibility);
+
+    document.querySelectorAll("#scheduleImportanceStars .star-btn").forEach((btn) => {
+      btn.addEventListener("click", () => paintImportanceStars(Number(btn.dataset.value)));
+    });
 
     document.getElementById("scheduleModalOverlay").addEventListener("click", (e) => {
       if (e.target.id === "scheduleModalOverlay") closeModal();
