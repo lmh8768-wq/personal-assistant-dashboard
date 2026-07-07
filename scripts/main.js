@@ -56,6 +56,7 @@ const viewTitles = {
   tasks: "할 일",
   notes: "메모",
   diary: "일기장",
+  photos: "사진첩",
   assistant: "비서에게 묻기",
   settings: "설정",
 };
@@ -109,4 +110,9 @@ if (window.SettingsView) {
 // ---------- Diary feature ----------
 if (window.DiaryView) {
   window.DiaryView.init();
+}
+
+// ---------- Photo library feature ----------
+if (window.PhotoLibraryView) {
+  window.PhotoLibraryView.init();
 }
