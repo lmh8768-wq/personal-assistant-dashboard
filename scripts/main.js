@@ -116,3 +116,10 @@ if (window.DiaryView) {
 if (window.PhotoLibraryView) {
   window.PhotoLibraryView.init();
 }
+
+// ---------- Open Claude app (stand-in for AI features) ----------
+document.querySelectorAll(".open-claude-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    window.open("https://claude.ai", "_blank", "noopener");
+  });
+});
