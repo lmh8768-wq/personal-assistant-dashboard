@@ -78,5 +78,19 @@
     remove(id) {
       saveSchedules(loadSchedules().filter((s) => s.id !== id));
     },
+    toggleCompleted(id, occurrenceDate) {
+      const schedules = loadSchedules();
+      const idx = schedules.findIndex((s) => s.id === id);
+      if (idx === -1) return null;
+      const dates = new Set(schedules[idx].completedDates || []);
+      if (dates.has(occurrenceDate)) {
+        dates.delete(occurrenceDate);
+      } else {
+        dates.add(occurrenceDate);
+      }
+      schedules[idx] = { ...schedules[idx], completedDates: [...dates] };
+      saveSchedules(schedules);
+      return schedules[idx];
+    },
   };
 })();

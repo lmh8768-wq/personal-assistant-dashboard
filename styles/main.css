@@ -468,6 +468,23 @@ button.nav-item {
   background: var(--accent-soft);
 }
 
+.schedule-item.completed {
+  opacity: 0.6;
+}
+
+.schedule-item.completed .schedule-item-title {
+  text-decoration: line-through;
+}
+
+.schedule-item-checkbox {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .schedule-item-time {
   flex-shrink: 0;
   min-width: 44px;

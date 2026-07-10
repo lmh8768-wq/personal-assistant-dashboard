@@ -51,6 +51,21 @@
     const li = document.createElement("li");
     li.className = "schedule-item";
 
+    const isDone = (item.completedDates || []).includes(item.occurrenceDate);
+    if (isDone) li.classList.add("completed");
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "schedule-item-checkbox";
+    checkbox.checked = isDone;
+    checkbox.setAttribute("aria-label", "완료 표시");
+    checkbox.addEventListener("click", (e) => {
+      e.stopPropagation();
+      window.ScheduleStore.toggleCompleted(item.id, item.occurrenceDate);
+      refreshAll();
+    });
+    li.appendChild(checkbox);
+
     const time = document.createElement("div");
     time.className = "schedule-item-time";
     time.textContent = item.startTime
@@ -156,6 +171,14 @@
     const items = window.ScheduleStore.getOccurrences(toDateStr(new Date()));
     const statEl = document.getElementById("statTodayCount");
     if (statEl) statEl.textContent = items.length;
+
+    const pendingEl = document.getElementById("statPendingCount");
+    if (pendingEl) {
+      const pendingCount = items.filter(
+        (item) => !(item.completedDates || []).includes(item.occurrenceDate)
+      ).length;
+      pendingEl.textContent = pendingCount;
+    }
 
     list.innerHTML = "";
     if (items.length === 0) {

@@ -27,10 +27,7 @@
           <span class="nav-icon">▦</span><span class="nav-label">대시보드</span>
         </a>
         <a class="nav-item" href="#schedule" data-view="schedule">
-          <span class="nav-icon">▤</span><span class="nav-label">일정</span>
-        </a>
-        <a class="nav-item" href="#tasks" data-view="tasks">
-          <span class="nav-icon">▧</span><span class="nav-label">할 일</span>
+          <span class="nav-icon">▤</span><span class="nav-label">일정 · 할 일</span>
         </a>
         <a class="nav-item" href="#notes" data-view="notes">
           <span class="nav-icon">▥</span><span class="nav-label">메모</span>
@@ -110,7 +107,7 @@
             </div>
             <div class="stat-card">
               <span class="stat-label">남은 할 일</span>
-              <span class="stat-value">—</span>
+              <span class="stat-value" id="statPendingCount">—</span>
             </div>
             <div class="stat-card">
               <span class="stat-label">이번 주 메모</span>
@@ -131,17 +128,6 @@
                 <button class="ghost-btn" id="dashboardAddScheduleBtn">+ 추가</button>
               </div>
               <ul class="schedule-list" id="dashboardScheduleList"></ul>
-            </div>
-
-            <div class="panel panel-tasks">
-              <div class="panel-header">
-                <h2>할 일</h2>
-                <button class="ghost-btn">+ 추가</button>
-              </div>
-              <div class="empty-state">
-                <span class="empty-icon">▧</span>
-                <p>할 일이 없어요</p>
-              </div>
             </div>
 
             <div class="panel panel-notes">
@@ -198,16 +184,6 @@
         </div>
 
         <!-- 준비 중인 뷰 -->
-        <div class="view" id="view-tasks" hidden>
-          <div class="panel">
-            <div class="panel-header"><h2>할 일</h2></div>
-            <div class="empty-state">
-              <span class="empty-icon">▧</span>
-              <p>준비 중인 기능이에요</p>
-            </div>
-          </div>
-        </div>
-
         <div class="view" id="view-notes" hidden>
           <div class="panel">
             <div class="panel-header"><h2>메모</h2></div>

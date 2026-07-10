@@ -52,8 +52,7 @@ const viewSections = document.querySelectorAll(".view");
 
 const viewTitles = {
   dashboard: "대시보드",
-  schedule: "일정",
-  tasks: "할 일",
+  schedule: "일정 · 할 일",
   notes: "메모",
   diary: "일기장",
   photos: "사진첩",
