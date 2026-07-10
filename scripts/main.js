@@ -67,6 +67,9 @@ function showView(viewName) {
   if (viewName === "dashboard" && window.ScheduleView) {
     window.ScheduleView.refreshDashboard();
   }
+  if (viewName === "settings" && window.SettingsView) {
+    window.SettingsView.refreshStorage();
+  }
 }
 
 navItems.forEach((item) => {
@@ -116,9 +119,37 @@ if (window.PhotoLibraryView) {
   window.PhotoLibraryView.init();
 }
 
+// ---------- Notes feature ----------
+if (window.NotesView) {
+  window.NotesView.init();
+}
+
+// ---------- Global search ----------
+if (window.GlobalSearch) {
+  window.GlobalSearch.init();
+}
+
 // ---------- Open Claude app (stand-in for AI features) ----------
 document.querySelectorAll(".open-claude-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     window.open("https://claude.ai", "_blank", "noopener");
   });
+});
+
+// ---------- Keyboard shortcuts ----------
+document.addEventListener("keydown", (e) => {
+  const tag = document.activeElement?.tagName;
+  const isTyping = tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable;
+
+  if (e.key === "/" && !isTyping) {
+    e.preventDefault();
+    window.GlobalSearch?.focusInput();
+    return;
+  }
+
+  if (e.key === "n" && !isTyping && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault();
+    document.querySelector('.nav-item[data-view="schedule"]')?.click();
+    window.ScheduleView?.openAddModal();
+  }
 });

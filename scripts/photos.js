@@ -4,6 +4,9 @@
 
   let editingId = null;
   let activeTag = null;
+  let sortOrder = "newest";
+  let selectMode = false;
+  let selectedIds = new Set();
 
   function loadPhotos() {
     try {
@@ -23,8 +26,12 @@
   }
 
   const PhotoStore = {
-    getAll() {
-      return loadPhotos().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    getAll(order) {
+      const sorted = loadPhotos().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+      return order === "oldest" ? sorted.reverse() : sorted;
+    },
+    getById(id) {
+      return loadPhotos().find((p) => p.id === id) || null;
     },
     add(photo) {
       const photos = loadPhotos();
@@ -44,7 +51,12 @@
     remove(id) {
       savePhotos(loadPhotos().filter((p) => p.id !== id));
     },
+    removeMany(ids) {
+      const idSet = new Set(ids);
+      savePhotos(loadPhotos().filter((p) => !idSet.has(p.id)));
+    },
   };
+  window.PhotoStore = PhotoStore;
 
   function resizeImage(file) {
     return new Promise((resolve, reject) => {
@@ -111,9 +123,17 @@
     });
   }
 
+  function updateSelectToolbar() {
+    const toolbar = document.getElementById("photoSelectToolbar");
+    const countEl = document.getElementById("photoSelectCount");
+    if (!toolbar) return;
+    toolbar.hidden = !selectMode;
+    if (countEl) countEl.textContent = `${selectedIds.size}장 선택됨`;
+  }
+
   function renderGrid() {
     const grid = document.getElementById("photoGrid");
-    let photos = PhotoStore.getAll();
+    let photos = PhotoStore.getAll(sortOrder);
     if (activeTag) {
       photos = photos.filter((p) => (p.tags || []).includes(activeTag));
     }
@@ -121,12 +141,14 @@
     grid.innerHTML = "";
     if (photos.length === 0) {
       grid.innerHTML = `<div class="empty-state"><span class="empty-icon">🖼</span><p>사진이 없어요</p></div>`;
+      updateSelectToolbar();
       return;
     }
 
     photos.forEach((photo) => {
       const cell = document.createElement("div");
       cell.className = "photo-cell";
+      if (selectMode && selectedIds.has(photo.id)) cell.classList.add("selected");
 
       const img = document.createElement("img");
       img.src = photo.dataUrl;
@@ -140,9 +162,27 @@
         cell.appendChild(tagOverlay);
       }
 
-      cell.addEventListener("click", () => openModal(photo));
+      if (selectMode) {
+        const check = document.createElement("span");
+        check.className = "photo-cell-check";
+        check.textContent = selectedIds.has(photo.id) ? "✓" : "";
+        cell.appendChild(check);
+      }
+
+      cell.addEventListener("click", () => {
+        if (selectMode) {
+          if (selectedIds.has(photo.id)) selectedIds.delete(photo.id);
+          else selectedIds.add(photo.id);
+          updateSelectToolbar();
+          renderGrid();
+        } else {
+          openModal(photo);
+        }
+      });
       grid.appendChild(cell);
     });
+
+    updateSelectToolbar();
   }
 
   function openModal(photo) {
@@ -169,10 +209,44 @@
   }
 
   function handleDelete() {
-    if (editingId) PhotoStore.remove(editingId);
+    if (!editingId) return;
+    const removed = PhotoStore.getById(editingId);
+    PhotoStore.remove(editingId);
     closeModal();
     renderTagFilterBar();
     renderGrid();
+    if (removed && window.Toast) {
+      window.Toast.show("사진을 삭제했어요", {
+        actionLabel: "실행취소",
+        onAction: () => {
+          PhotoStore.add(removed);
+          renderTagFilterBar();
+          renderGrid();
+        },
+      });
+    }
+  }
+
+  function handleDeleteSelected() {
+    if (selectedIds.size === 0) return;
+    const ids = [...selectedIds];
+    const removedPhotos = ids.map((id) => PhotoStore.getById(id)).filter(Boolean);
+    PhotoStore.removeMany(ids);
+    const count = removedPhotos.length;
+    selectedIds.clear();
+    selectMode = false;
+    renderTagFilterBar();
+    renderGrid();
+    if (window.Toast) {
+      window.Toast.show(`사진 ${count}장을 삭제했어요`, {
+        actionLabel: "실행취소",
+        onAction: () => {
+          removedPhotos.forEach((p) => PhotoStore.add(p));
+          renderTagFilterBar();
+          renderGrid();
+        },
+      });
+    }
   }
 
   async function handleUploadChange(e) {
@@ -187,6 +261,14 @@
     }
     e.target.value = "";
     renderTagFilterBar();
+    renderGrid();
+  }
+
+  function toggleSelectMode() {
+    selectMode = !selectMode;
+    selectedIds.clear();
+    const btn = document.getElementById("photoSelectModeBtn");
+    if (btn) btn.textContent = selectMode ? "선택 취소" : "선택";
     renderGrid();
   }
 
@@ -207,6 +289,14 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !document.getElementById("photoModalOverlay").hidden) closeModal();
     });
+
+    document.getElementById("photoSortSelect").addEventListener("change", (e) => {
+      sortOrder = e.target.value;
+      renderGrid();
+    });
+
+    document.getElementById("photoSelectModeBtn").addEventListener("click", toggleSelectMode);
+    document.getElementById("photoDeleteSelectedBtn").addEventListener("click", handleDeleteSelected);
 
     renderTagFilterBar();
     renderGrid();

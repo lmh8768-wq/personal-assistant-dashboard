@@ -33,27 +33,12 @@
     return loadNotified().includes(key);
   }
 
-  function showToast(message) {
-    let container = document.getElementById("toastContainer");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "toastContainer";
-      container.className = "toast-container";
-      document.body.appendChild(container);
-    }
-    const toast = document.createElement("div");
-    toast.className = "toast";
-    toast.textContent = message;
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 6000);
-  }
-
   function fireNotification(occ) {
     const body = `${occ.startTime || ""} ${occ.title}${occ.memo ? " · " + occ.memo : ""}`.trim();
     if (window.Notification && Notification.permission === "granted") {
       new Notification("🔔 일정 알림", { body });
     } else {
-      showToast(`🔔 ${body}`);
+      window.Toast.show(`🔔 ${body}`, { duration: 6000 });
     }
   }
 
@@ -106,7 +91,7 @@
       btn.addEventListener("click", () => {
         if (!("Notification" in window)) return;
         if (Notification.permission === "granted") {
-          showToast("이미 알림이 켜져 있어요. 끄려면 브라우저 사이트 설정에서 변경하세요.");
+          window.Toast.show("이미 알림이 켜져 있어요. 끄려면 브라우저 사이트 설정에서 변경하세요.");
           return;
         }
         Notification.requestPermission().then(updateToggleUI);

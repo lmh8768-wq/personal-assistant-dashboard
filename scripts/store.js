@@ -94,3 +94,41 @@
     },
   };
 })();
+
+// ---------- Schedule templates (localStorage) ----------
+(function () {
+  const TEMPLATES_KEY = "assistant.templates.v1";
+
+  function loadTemplates() {
+    try {
+      const raw = localStorage.getItem(TEMPLATES_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveTemplates(templates) {
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+  }
+
+  function createId() {
+    return `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  window.TemplateStore = {
+    getAll() {
+      return loadTemplates();
+    },
+    add(template) {
+      const templates = loadTemplates();
+      const item = { id: createId(), ...template };
+      templates.push(item);
+      saveTemplates(templates);
+      return item;
+    },
+    remove(id) {
+      saveTemplates(loadTemplates().filter((t) => t.id !== id));
+    },
+  };
+})();
