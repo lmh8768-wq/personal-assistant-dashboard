@@ -67,10 +67,18 @@ function showView(viewName) {
   if (viewName === "dashboard" && window.ScheduleView) {
     window.ScheduleView.refreshDashboard();
   }
+  if (viewName === "dashboard" && window.DashboardWidgets) {
+    window.DashboardWidgets.refresh();
+  }
   if (viewName === "settings" && window.SettingsView) {
     window.SettingsView.refreshStorage();
   }
 }
+
+document.getElementById("sidebarTodayBtn").addEventListener("click", () => {
+  document.querySelector('.nav-item[data-view="schedule"]')?.click();
+  window.ScheduleView?.goToToday();
+});
 
 navItems.forEach((item) => {
   item.addEventListener("click", (e) => {
@@ -127,6 +135,11 @@ if (window.NotesView) {
 // ---------- Global search ----------
 if (window.GlobalSearch) {
   window.GlobalSearch.init();
+}
+
+// ---------- Dashboard widgets ----------
+if (window.DashboardWidgets) {
+  window.DashboardWidgets.init();
 }
 
 // ---------- Open Claude app (stand-in for AI features) ----------

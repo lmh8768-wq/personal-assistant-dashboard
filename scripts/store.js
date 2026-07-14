@@ -39,6 +39,11 @@
         return parseDateStr(item.date).getDay() === parseDateStr(dateStr).getDay();
       case "monthly":
         return parseDateStr(item.date).getDate() === parseDateStr(dateStr).getDate();
+      case "yearly": {
+        const anchor = parseDateStr(item.date);
+        const target = parseDateStr(dateStr);
+        return anchor.getMonth() === target.getMonth() && anchor.getDate() === target.getDate();
+      }
       default:
         return dateStr === item.date;
     }
@@ -132,3 +137,68 @@
     },
   };
 })();
+
+// ---------- Schedule categories (localStorage) ----------
+(function () {
+  const CATEGORIES_KEY = "assistant.categories.v1";
+  const DEFAULTS = [
+    { key: "work", label: "업무", color: "#60a5fa" },
+    { key: "personal", label: "개인", color: "#a78bfa" },
+    { key: "health", label: "건강", color: "#f87171" },
+    { key: "study", label: "공부", color: "#4ade80" },
+    { key: "etc", label: "기타", color: "#94a3b8" },
+  ];
+
+  function loadCategories() {
+    try {
+      const raw = localStorage.getItem(CATEGORIES_KEY);
+      return raw ? JSON.parse(raw) : DEFAULTS;
+    } catch {
+      return DEFAULTS;
+    }
+  }
+
+  function saveCategories(categories) {
+    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
+  }
+
+  window.CategoryStore = {
+    getAll() {
+      return loadCategories();
+    },
+    getByKey(key) {
+      return loadCategories().find((c) => c.key === key) || DEFAULTS[DEFAULTS.length - 1];
+    },
+    update(key, patch) {
+      const categories = loadCategories();
+      const idx = categories.findIndex((c) => c.key === key);
+      if (idx === -1) return null;
+      categories[idx] = { ...categories[idx], ...patch };
+      saveCategories(categories);
+      return categories[idx];
+    },
+  };
+})();
+
+// ---------- Korean public holidays (2026, static) ----------
+window.KoreanHolidays = {
+  "2026-01-01": "신정",
+  "2026-02-16": "설날 연휴",
+  "2026-02-17": "설날",
+  "2026-02-18": "설날 연휴",
+  "2026-03-01": "삼일절",
+  "2026-03-02": "대체공휴일",
+  "2026-05-05": "어린이날",
+  "2026-05-24": "부처님오신날",
+  "2026-05-25": "대체공휴일",
+  "2026-06-06": "현충일",
+  "2026-08-15": "광복절",
+  "2026-08-17": "대체공휴일",
+  "2026-09-24": "추석 연휴",
+  "2026-09-25": "추석",
+  "2026-09-26": "추석 연휴",
+  "2026-10-03": "개천절",
+  "2026-10-05": "대체공휴일",
+  "2026-10-09": "한글날",
+  "2026-12-25": "크리스마스",
+};

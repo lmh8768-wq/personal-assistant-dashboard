@@ -1,5 +1,8 @@
 (function () {
   const NOTIFIED_KEY = "assistant.notified.v1";
+  const SNOOZE_KEY = "assistant.snoozed.v1";
+  const SOUND_KEY = "assistant.notifySound.v1";
+  const SNOOZE_MINUTES = 10;
 
   function pad2(n) {
     return String(n).padStart(2, "0");
@@ -29,16 +32,73 @@
     localStorage.setItem(NOTIFIED_KEY, JSON.stringify(arr.slice(-500)));
   }
 
+  function unmarkNotified(key) {
+    localStorage.setItem(NOTIFIED_KEY, JSON.stringify(loadNotified().filter((k) => k !== key)));
+  }
+
   function isNotified(key) {
     return loadNotified().includes(key);
   }
 
-  function fireNotification(occ) {
+  function loadSnoozeMap() {
+    try {
+      const raw = localStorage.getItem(SNOOZE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function setSnooze(key, minutes) {
+    const map = loadSnoozeMap();
+    map[key] = Date.now() + minutes * 60000;
+    localStorage.setItem(SNOOZE_KEY, JSON.stringify(map));
+    unmarkNotified(key);
+  }
+
+  function isSnoozed(key) {
+    const map = loadSnoozeMap();
+    return typeof map[key] === "number" && Date.now() < map[key];
+  }
+
+  function isSoundEnabled() {
+    return localStorage.getItem(SOUND_KEY) !== "false";
+  }
+
+  function playBeep() {
+    if (!isSoundEnabled()) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = 880;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.4);
+    } catch {
+      // ignore environments without audio support
+    }
+  }
+
+  function fireNotification(occ, key) {
     const body = `${occ.startTime || ""} ${occ.title}${occ.memo ? " · " + occ.memo : ""}`.trim();
+    playBeep();
     if (window.Notification && Notification.permission === "granted") {
       new Notification("🔔 일정 알림", { body });
+      window.Toast.show(`🔔 ${body}`, {
+        duration: 8000,
+        actions: [{ label: `${SNOOZE_MINUTES}분 후 다시`, onAction: () => setSnooze(key, SNOOZE_MINUTES) }],
+      });
     } else {
-      window.Toast.show(`🔔 ${body}`, { duration: 6000 });
+      window.Toast.show(`🔔 ${body}`, {
+        duration: 8000,
+        actions: [{ label: `${SNOOZE_MINUTES}분 후 다시`, onAction: () => setSnooze(key, SNOOZE_MINUTES) }],
+      });
     }
   }
 
@@ -59,8 +119,8 @@
         const notifyAt = new Date(target.getTime() - occ.reminderMinutes * 60000);
         const key = `${occ.id}_${dateStr}`;
 
-        if (now >= notifyAt && now < target && !isNotified(key)) {
-          fireNotification(occ);
+        if (now >= notifyAt && now < target && !isNotified(key) && !isSnoozed(key)) {
+          fireNotification(occ, key);
           markNotified(key);
         }
       });
@@ -101,5 +161,10 @@
     setInterval(check, 30000);
   }
 
-  window.ReminderEngine = { init, check };
+  window.ReminderEngine = {
+    init,
+    check,
+    isSoundEnabled,
+    setSoundEnabled: (enabled) => localStorage.setItem(SOUND_KEY, String(enabled)),
+  };
 })();

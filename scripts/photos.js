@@ -7,6 +7,7 @@
   let sortOrder = "newest";
   let selectMode = false;
   let selectedIds = new Set();
+  let currentPhotoList = [];
 
   function loadPhotos() {
     try {
@@ -137,6 +138,7 @@
     if (activeTag) {
       photos = photos.filter((p) => (p.tags || []).includes(activeTag));
     }
+    currentPhotoList = photos;
 
     grid.innerHTML = "";
     if (photos.length === 0) {
@@ -190,12 +192,39 @@
     document.getElementById("photoModalImage").src = photo.dataUrl;
     document.getElementById("photoTagsInput").value = (photo.tags || []).join(", ");
     document.getElementById("photoModalOverlay").hidden = false;
+    updatePhotoNavButtons();
+  }
+
+  function updatePhotoNavButtons() {
+    const idx = currentPhotoList.findIndex((p) => p.id === editingId);
+    const prevBtn = document.getElementById("photoPrevBtn");
+    const nextBtn = document.getElementById("photoNextBtn");
+    if (!prevBtn || !nextBtn) return;
+    prevBtn.hidden = idx <= 0;
+    nextBtn.hidden = idx === -1 || idx >= currentPhotoList.length - 1;
+  }
+
+  function navigatePhoto(direction) {
+    const idx = currentPhotoList.findIndex((p) => p.id === editingId);
+    if (idx === -1) return;
+    const nextIdx = idx + direction;
+    if (nextIdx < 0 || nextIdx >= currentPhotoList.length) return;
+    openModal(currentPhotoList[nextIdx]);
   }
 
   function closeModal() {
     document.getElementById("photoModalOverlay").hidden = true;
     document.getElementById("photoForm").reset();
     editingId = null;
+  }
+
+  function handleDownload() {
+    const photo = PhotoStore.getById(editingId);
+    if (!photo) return;
+    const a = document.createElement("a");
+    a.href = photo.dataUrl;
+    a.download = `photo-${photo.id}.jpg`;
+    a.click();
   }
 
   function handleSubmit(e) {
@@ -206,6 +235,7 @@
     closeModal();
     renderTagFilterBar();
     renderGrid();
+    window.Toast.show("사진 태그를 저장했어요");
   }
 
   function handleDelete() {
@@ -281,13 +311,19 @@
     document.getElementById("photoForm").addEventListener("submit", handleSubmit);
     document.getElementById("cancelPhotoBtn").addEventListener("click", closeModal);
     document.getElementById("deletePhotoBtn").addEventListener("click", handleDelete);
+    document.getElementById("downloadPhotoBtn").addEventListener("click", handleDownload);
+    document.getElementById("photoPrevBtn").addEventListener("click", () => navigatePhoto(-1));
+    document.getElementById("photoNextBtn").addEventListener("click", () => navigatePhoto(1));
 
     document.getElementById("photoModalOverlay").addEventListener("click", (e) => {
       if (e.target.id === "photoModalOverlay") closeModal();
     });
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !document.getElementById("photoModalOverlay").hidden) closeModal();
+      if (document.getElementById("photoModalOverlay").hidden) return;
+      if (e.key === "Escape") closeModal();
+      if (e.key === "ArrowLeft") navigatePhoto(-1);
+      if (e.key === "ArrowRight") navigatePhoto(1);
     });
 
     document.getElementById("photoSortSelect").addEventListener("change", (e) => {

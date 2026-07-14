@@ -5,6 +5,8 @@
 
   let editingId = null;
   let pendingPhotos = [];
+  let selectedMood = "";
+  let miniCalendarDate = new Date();
   const filterState = { text: "", from: "", to: "" };
 
   function pad2(n) {
@@ -141,6 +143,12 @@
     const date = document.createElement("div");
     date.className = "diary-card-date";
     date.textContent = formatDateLabel(entry.date);
+    if (entry.mood) {
+      const mood = document.createElement("span");
+      mood.className = "diary-card-mood";
+      mood.textContent = entry.mood;
+      date.appendChild(mood);
+    }
     card.appendChild(date);
 
     if (entry.text) {
@@ -191,12 +199,81 @@
     entries.forEach((entry) => feed.appendChild(renderDiaryCard(entry, (e) => openModal("edit", e))));
   }
 
+  // ---------- Streak ----------
+  function renderStreak() {
+    const el = document.getElementById("diaryStreak");
+    if (!el) return;
+    const dateSet = new Set(loadEntries().map((e) => e.date));
+
+    let streak = 0;
+    const cursor = new Date();
+    if (!dateSet.has(toDateStr(cursor))) {
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    while (dateSet.has(toDateStr(cursor))) {
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    if (streak > 0) {
+      el.hidden = false;
+      el.textContent = `🔥 ${streak}일 연속 작성 중`;
+    } else {
+      el.hidden = true;
+    }
+  }
+
+  // ---------- Mini calendar ----------
+  function renderMiniCalendar() {
+    const grid = document.getElementById("diaryMiniCalendar");
+    const title = document.getElementById("diaryMiniCalendarTitle");
+    if (!grid || !title) return;
+
+    const year = miniCalendarDate.getFullYear();
+    const month = miniCalendarDate.getMonth();
+    title.textContent = `${year}년 ${month + 1}월`;
+
+    const dateSet = new Set(loadEntries().map((e) => e.date));
+    const firstOfMonth = new Date(year, month, 1);
+    const start = new Date(year, month, 1 - firstOfMonth.getDay());
+
+    grid.innerHTML = "";
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const dStr = toDateStr(d);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "diary-mini-day";
+      if (d.getMonth() !== month) btn.classList.add("outside");
+      if (dateSet.has(dStr)) btn.classList.add("has-entry");
+      btn.textContent = d.getDate();
+      btn.title = dStr;
+      btn.addEventListener("click", () => {
+        document.getElementById("diaryFilterFrom").value = dStr;
+        document.getElementById("diaryFilterTo").value = dStr;
+        filterState.from = dStr;
+        filterState.to = dStr;
+        renderFeed();
+      });
+      grid.appendChild(btn);
+    }
+  }
+
+  function paintMood(mood) {
+    selectedMood = mood;
+    document.getElementById("diaryMoodInput").value = mood;
+    document.querySelectorAll(".mood-btn").forEach((btn) => {
+      btn.classList.toggle("selected", btn.dataset.mood === mood);
+    });
+  }
+
   function openModal(mode, data) {
     editingId = mode === "edit" ? data.id : null;
     pendingPhotos = data?.photos ? [...data.photos] : [];
     document.getElementById("diaryModalTitle").textContent = mode === "edit" ? "일기 수정" : "일기 쓰기";
     document.getElementById("diaryDateInput").value = data?.date || toDateStr(new Date());
     document.getElementById("diaryTextInput").value = data?.text || "";
+    paintMood(data?.mood || "");
     document.getElementById("deleteDiaryBtn").hidden = mode !== "edit";
     renderPhotoPreview();
     document.getElementById("diaryModalOverlay").hidden = false;
@@ -206,6 +283,7 @@
     document.getElementById("diaryModalOverlay").hidden = true;
     document.getElementById("diaryForm").reset();
     pendingPhotos = [];
+    paintMood("");
     renderPhotoPreview();
     editingId = null;
   }
@@ -215,6 +293,7 @@
     const payload = {
       date: document.getElementById("diaryDateInput").value,
       text: document.getElementById("diaryTextInput").value.trim(),
+      mood: selectedMood,
       photos: [...pendingPhotos],
     };
     if (!payload.date) return;
@@ -227,6 +306,9 @@
 
     closeModal();
     renderFeed();
+    renderStreak();
+    renderMiniCalendar();
+    window.Toast.show("일기를 저장했어요");
   }
 
   function handleDelete() {
@@ -235,12 +317,16 @@
     DiaryStore.remove(editingId);
     closeModal();
     renderFeed();
+    renderStreak();
+    renderMiniCalendar();
     if (removed && window.Toast) {
       window.Toast.show("일기를 삭제했어요", {
         actionLabel: "실행취소",
         onAction: () => {
           DiaryStore.add(removed);
           renderFeed();
+          renderStreak();
+          renderMiniCalendar();
         },
       });
     }
@@ -270,10 +356,23 @@
     document.getElementById("deleteDiaryBtn").addEventListener("click", handleDelete);
     document.getElementById("diaryPhotoInput").addEventListener("change", handlePhotoInputChange);
 
+    document.querySelectorAll(".mood-btn").forEach((btn) => {
+      btn.addEventListener("click", () => paintMood(btn.dataset.mood));
+    });
+
     document.getElementById("diarySearchInput").addEventListener("input", handleFilterChange);
     document.getElementById("diaryFilterFrom").addEventListener("change", handleFilterChange);
     document.getElementById("diaryFilterTo").addEventListener("change", handleFilterChange);
     document.getElementById("diaryFilterResetBtn").addEventListener("click", resetFilters);
+
+    document.getElementById("diaryMiniPrevBtn").addEventListener("click", () => {
+      miniCalendarDate = new Date(miniCalendarDate.getFullYear(), miniCalendarDate.getMonth() - 1, 1);
+      renderMiniCalendar();
+    });
+    document.getElementById("diaryMiniNextBtn").addEventListener("click", () => {
+      miniCalendarDate = new Date(miniCalendarDate.getFullYear(), miniCalendarDate.getMonth() + 1, 1);
+      renderMiniCalendar();
+    });
 
     document.getElementById("diaryModalOverlay").addEventListener("click", (e) => {
       if (e.target.id === "diaryModalOverlay") closeModal();
@@ -284,6 +383,8 @@
     });
 
     renderFeed();
+    renderStreak();
+    renderMiniCalendar();
   }
 
   window.DiaryView = { init };

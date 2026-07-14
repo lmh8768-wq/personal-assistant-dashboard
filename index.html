@@ -29,6 +29,9 @@
         <a class="nav-item" href="#schedule" data-view="schedule">
           <span class="nav-icon">▤</span><span class="nav-label">일정 · 할 일</span>
         </a>
+        <button type="button" class="nav-item nav-today-btn" id="sidebarTodayBtn">
+          <span class="nav-icon">◎</span><span class="nav-label">오늘로 이동</span>
+        </button>
         <a class="nav-item" href="#notes" data-view="notes">
           <span class="nav-icon">▥</span><span class="nav-label">메모</span>
         </a>
@@ -54,6 +57,7 @@
         <button type="button" class="nav-item" id="shortcutInstagram">
           <span class="nav-icon">📷</span><span class="nav-label">인스타그램</span>
         </button>
+        <div id="sidebarCustomShortcuts"></div>
       </div>
 
       <div class="sidebar-footer">
@@ -160,32 +164,75 @@
 
           </section>
 
+          <!-- 위젯 행: 명언, 미니 캘린더, 이번 달 요약 -->
+          <section class="widget-row">
+            <div class="panel panel-quote">
+              <p class="quote-text" id="dashboardQuoteText"></p>
+            </div>
+
+            <div class="panel panel-mini-calendar">
+              <div class="panel-header">
+                <h2 id="dashboardMiniCalTitle"></h2>
+              </div>
+              <div class="dashboard-mini-calendar" id="dashboardMiniCalendar"></div>
+            </div>
+
+            <div class="panel panel-monthly-summary">
+              <div class="panel-header"><h2>이번 달 요약</h2></div>
+              <ul class="monthly-summary-list" id="monthlySummaryList"></ul>
+            </div>
+          </section>
+
         </div>
 
         <!-- 일정 뷰 -->
         <div class="view" id="view-schedule" hidden>
+          <div class="quick-add-row">
+            <input type="text" id="quickAddInput" placeholder="빠른 입력 (예: 내일 3시 회의)" />
+            <button type="button" class="ghost-btn" id="quickAddBtn">추가</button>
+          </div>
+
+          <div class="view-mode-tabs" id="viewModeTabs">
+            <button type="button" class="view-mode-tab active" data-mode="month">월간</button>
+            <button type="button" class="view-mode-tab" data-mode="week">주간</button>
+            <button type="button" class="view-mode-tab" data-mode="agenda">목록</button>
+          </div>
+
           <div class="schedule-layout">
 
             <div class="calendar-panel">
               <div class="calendar-header">
-                <button class="icon-btn" id="prevMonthBtn" aria-label="이전 달">‹</button>
+                <button class="icon-btn" id="prevMonthBtn" aria-label="이전">‹</button>
                 <h2 id="calendarTitle"></h2>
-                <button class="icon-btn" id="nextMonthBtn" aria-label="다음 달">›</button>
+                <button class="icon-btn" id="nextMonthBtn" aria-label="다음">›</button>
                 <button class="ghost-btn" id="todayBtn">오늘</button>
                 <button class="icon-btn" id="printScheduleBtn" aria-label="인쇄" title="이번 달 일정 인쇄">🖨</button>
+                <button class="icon-btn" id="exportIcsBtn" aria-label="캘린더로 내보내기" title="iCalendar(.ics)로 내보내기">📤</button>
               </div>
-              <div class="calendar-weekdays">
+              <div class="calendar-weekdays" id="calendarWeekdays">
                 <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
               </div>
               <div class="calendar-grid" id="calendarGrid"></div>
+              <div class="agenda-list" id="agendaList" hidden></div>
             </div>
 
             <div class="day-panel">
               <div class="day-panel-header">
                 <h2 id="selectedDateLabel"></h2>
-                <button class="primary-btn" id="addScheduleBtn">+ 일정 추가</button>
+                <div class="day-panel-header-actions">
+                  <button type="button" class="ghost-btn" id="scheduleSelectModeBtn">선택</button>
+                  <button class="primary-btn" id="addScheduleBtn">+ 일정 추가</button>
+                </div>
+              </div>
+              <div class="schedule-select-toolbar" id="scheduleSelectToolbar" hidden>
+                <span id="scheduleSelectCount">0개 선택됨</span>
+                <div>
+                  <button type="button" class="ghost-btn" id="scheduleBulkCompleteBtn">완료 처리</button>
+                  <button type="button" class="ghost-btn danger" id="scheduleBulkDeleteBtn">삭제</button>
+                </div>
               </div>
               <div class="template-chip-row" id="templateChipRow"></div>
+              <div class="schedule-filter-bar" id="scheduleFilterBar"></div>
               <div class="day-panel-toolbar">
                 <button type="button" class="ghost-btn" id="toggleHideCompletedBtn">완료 항목 숨기기</button>
               </div>
@@ -200,12 +247,16 @@
             <h2>메모</h2>
             <button class="primary-btn" id="addNoteBtn">+ 메모 추가</button>
           </div>
+          <div class="notes-filter-bar">
+            <input type="text" id="noteSearchInput" placeholder="메모 검색..." />
+          </div>
+          <div class="schedule-filter-bar" id="noteTagFilterBar"></div>
           <ul class="notes-list notes-list-full" id="notesFullList"></ul>
         </div>
 
         <div class="view" id="view-diary" hidden>
           <div class="diary-header">
-            <h2>일기장</h2>
+            <h2>일기장 <span class="diary-streak" id="diaryStreak" hidden></span></h2>
             <button class="primary-btn" id="addDiaryBtn">+ 일기 쓰기</button>
           </div>
           <div class="diary-filter-bar">
@@ -215,6 +266,12 @@
             <input type="date" id="diaryFilterTo" aria-label="종료일" />
             <button type="button" class="ghost-btn" id="diaryFilterResetBtn">초기화</button>
           </div>
+          <div class="diary-mini-calendar-header">
+            <button type="button" class="icon-btn" id="diaryMiniPrevBtn">‹</button>
+            <span id="diaryMiniCalendarTitle"></span>
+            <button type="button" class="icon-btn" id="diaryMiniNextBtn">›</button>
+          </div>
+          <div class="diary-mini-calendar" id="diaryMiniCalendar"></div>
           <div class="diary-feed" id="diaryFeed"></div>
         </div>
 
@@ -282,12 +339,68 @@
           </div>
 
           <div class="panel">
+            <div class="panel-header"><h2>화면</h2></div>
+            <div class="settings-form">
+              <span class="settings-subtitle">강조색</span>
+              <div class="accent-swatch-row" id="accentSwatchRow">
+                <button type="button" class="accent-swatch" data-accent="#7c9eff" style="background:#7c9eff"></button>
+                <button type="button" class="accent-swatch" data-accent="#4ade80" style="background:#4ade80"></button>
+                <button type="button" class="accent-swatch" data-accent="#f472b6" style="background:#f472b6"></button>
+                <button type="button" class="accent-swatch" data-accent="#fb923c" style="background:#fb923c"></button>
+                <button type="button" class="accent-swatch" data-accent="#a78bfa" style="background:#a78bfa"></button>
+                <button type="button" class="accent-swatch" data-accent="#f87171" style="background:#f87171"></button>
+              </div>
+              <label>
+                글자 크기
+                <select id="fontSizeSelect">
+                  <option value="small">작게</option>
+                  <option value="medium" selected>보통</option>
+                  <option value="large">크게</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header"><h2>일정 카테고리</h2></div>
+            <form id="categoryForm" class="category-settings-form">
+              <div id="categoryEditRows"></div>
+              <button type="submit" class="primary-btn">카테고리 저장</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header"><h2>나만의 바로가기</h2></div>
+            <ul class="custom-shortcut-list" id="customShortcutList"></ul>
+            <form id="customShortcutForm" class="custom-shortcut-form">
+              <input type="text" id="customShortcutNameInput" placeholder="이름 (예: 유튜브)" required />
+              <input type="url" id="customShortcutUrlInput" placeholder="https://..." required />
+              <button type="submit" class="ghost-btn">+ 추가</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header"><h2>알림</h2></div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="notifySoundInput" checked />
+              <span>알림 소리 켜기</span>
+            </label>
+          </div>
+
+          <div class="panel">
             <div class="panel-header"><h2>데이터 관리</h2></div>
             <div class="storage-usage" id="storageUsage"></div>
             <div class="data-actions">
               <button type="button" class="ghost-btn" id="exportDataBtn">데이터 내보내기</button>
               <input type="file" id="importDataInput" accept="application/json" hidden />
               <button type="button" class="ghost-btn" id="importDataBtn">데이터 가져오기</button>
+            </div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="importMergeInput" />
+              <span>가져올 때 기존 데이터와 병합 (해제 시 덮어쓰기)</span>
+            </label>
+            <div class="danger-zone">
+              <button type="button" class="ghost-btn danger" id="resetDataBtn">전체 데이터 초기화</button>
             </div>
           </div>
         </div>
@@ -312,13 +425,17 @@
           </label>
           <label>
             카테고리
-            <select id="scheduleCategoryInput">
-              <option value="work">🔵 업무</option>
-              <option value="personal">🟣 개인</option>
-              <option value="health">🔴 건강</option>
-              <option value="study">🟢 공부</option>
-              <option value="etc" selected>⚪ 기타</option>
-            </select>
+            <select id="scheduleCategoryInput"></select>
+          </label>
+        </div>
+        <div class="time-row">
+          <label>
+            장소 (선택)
+            <input type="text" id="scheduleLocationInput" placeholder="예: 강남역 스타벅스" />
+          </label>
+          <label>
+            링크 (선택)
+            <input type="url" id="scheduleUrlInput" placeholder="https://..." />
           </label>
         </div>
         <label class="checkbox-row">
@@ -352,6 +469,7 @@
               <option value="daily">매일</option>
               <option value="weekly">매주</option>
               <option value="monthly">매월</option>
+              <option value="yearly">매년</option>
             </select>
           </label>
           <label>
@@ -379,7 +497,18 @@
           메모
           <textarea id="scheduleMemoInput" rows="3" placeholder="메모 (선택)"></textarea>
         </label>
-        <button type="button" class="ghost-btn template-save-btn" id="saveAsTemplateBtn">＋ 템플릿으로 저장</button>
+        <div class="checklist-section">
+          <span class="checklist-label">체크리스트</span>
+          <ul class="checklist-items" id="scheduleChecklistItems"></ul>
+          <div class="checklist-add-row">
+            <input type="text" id="scheduleChecklistInput" placeholder="항목 추가 후 Enter" />
+            <button type="button" class="ghost-btn" id="scheduleChecklistAddBtn">추가</button>
+          </div>
+        </div>
+        <div class="modal-actions-secondary">
+          <button type="button" class="ghost-btn" id="saveAsTemplateBtn">＋ 템플릿으로 저장</button>
+          <button type="button" class="ghost-btn" id="duplicateScheduleBtn" hidden>⧉ 복제</button>
+        </div>
         <div class="modal-actions">
           <button type="button" class="ghost-btn danger" id="deleteScheduleBtn" hidden>삭제</button>
           <div class="modal-actions-right">
@@ -400,6 +529,15 @@
           날짜
           <input type="date" id="diaryDateInput" required />
         </label>
+        <div class="mood-picker" id="diaryMoodPicker">
+          <span class="mood-picker-label">오늘 기분</span>
+          <button type="button" class="mood-btn" data-mood="😊">😊</button>
+          <button type="button" class="mood-btn" data-mood="😐">😐</button>
+          <button type="button" class="mood-btn" data-mood="😢">😢</button>
+          <button type="button" class="mood-btn" data-mood="😡">😡</button>
+          <button type="button" class="mood-btn" data-mood="😴">😴</button>
+          <input type="hidden" id="diaryMoodInput" value="" />
+        </div>
         <label>
           내용
           <textarea id="diaryTextInput" rows="6" placeholder="오늘 하루는 어땠나요?"></textarea>
@@ -424,7 +562,12 @@
   <div class="modal-overlay" id="photoModalOverlay" hidden>
     <div class="modal photo-modal" role="dialog" aria-modal="true" aria-labelledby="photoModalTitle">
       <h3 id="photoModalTitle">사진</h3>
-      <img class="photo-modal-image" id="photoModalImage" alt="" />
+      <div class="photo-modal-image-wrap">
+        <button type="button" class="photo-nav-btn photo-nav-prev" id="photoPrevBtn" aria-label="이전 사진">‹</button>
+        <img class="photo-modal-image" id="photoModalImage" alt="" />
+        <button type="button" class="photo-nav-btn photo-nav-next" id="photoNextBtn" aria-label="다음 사진">›</button>
+      </div>
+      <button type="button" class="ghost-btn" id="downloadPhotoBtn">⬇ 다운로드</button>
       <form id="photoForm">
         <label>
           태그 (쉼표로 구분)
@@ -450,10 +593,15 @@
           내용
           <textarea id="noteTextInput" rows="6" placeholder="메모를 입력하세요" required></textarea>
         </label>
+        <label>
+          태그 (쉼표로 구분)
+          <input type="text" id="noteTagsInput" placeholder="예: 아이디어, 업무" />
+        </label>
         <label class="checkbox-row">
           <input type="checkbox" id="notePinnedInput" />
           <span>상단에 고정</span>
         </label>
+        <button type="button" class="ghost-btn" id="convertNoteToScheduleBtn">📅 일정으로 변환</button>
         <div class="modal-actions">
           <button type="button" class="ghost-btn danger" id="deleteNoteBtn" hidden>삭제</button>
           <div class="modal-actions-right">
@@ -474,6 +622,7 @@
   <script src="scripts/photos.js"></script>
   <script src="scripts/notes.js"></script>
   <script src="scripts/search.js"></script>
+  <script src="scripts/dashboard-widgets.js"></script>
   <script src="scripts/main.js"></script>
 </body>
 </html>

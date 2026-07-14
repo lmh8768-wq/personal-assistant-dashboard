@@ -24,18 +24,24 @@
     toast.appendChild(text);
 
     let timer;
-    if (opts.actionLabel && typeof opts.onAction === "function") {
+
+    // Backward-compatible single action, or a list of actions (e.g. snooze + dismiss).
+    const actions = opts.actions || (opts.actionLabel && opts.onAction
+      ? [{ label: opts.actionLabel, onAction: opts.onAction }]
+      : []);
+
+    actions.forEach((action) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "toast-action";
-      btn.textContent = opts.actionLabel;
+      btn.textContent = action.label;
       btn.addEventListener("click", () => {
         clearTimeout(timer);
-        opts.onAction();
+        action.onAction();
         toast.remove();
       });
       toast.appendChild(btn);
-    }
+    });
 
     container.appendChild(toast);
     timer = setTimeout(() => toast.remove(), duration);
