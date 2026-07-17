@@ -378,14 +378,13 @@ button.nav-item {
 
 .grid {
   display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  grid-template-rows: auto auto;
+  grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
 
 .widget-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
   margin-top: 14px;
 }
@@ -403,12 +402,6 @@ button.nav-item {
   color: var(--text-muted);
   text-align: center;
   font-style: italic;
-}
-
-.dashboard-mini-calendar {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 3px;
 }
 
 .monthly-summary-list {
@@ -507,11 +500,6 @@ button.nav-item {
 .empty-state p {
   margin: 0;
   font-size: 13px;
-}
-
-.panel-assistant {
-  grid-column: 2;
-  grid-row: 1 / span 2;
 }
 
 .assistant-box {
@@ -1970,10 +1958,6 @@ button.nav-item {
 @media (max-width: 960px) {
   .grid {
     grid-template-columns: 1fr;
-  }
-  .panel-assistant {
-    grid-column: 1;
-    grid-row: auto;
   }
   .widget-row {
     grid-template-columns: 1fr;

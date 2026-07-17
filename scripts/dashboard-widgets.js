@@ -38,41 +38,6 @@
     el.textContent = `“${QUOTES[idx]}”`;
   }
 
-  function renderMiniCalendar() {
-    const grid = document.getElementById("dashboardMiniCalendar");
-    const title = document.getElementById("dashboardMiniCalTitle");
-    if (!grid || !title || !window.ScheduleStore) return;
-
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    title.textContent = `${year}년 ${month + 1}월`;
-
-    const firstOfMonth = new Date(year, month, 1);
-    const start = new Date(year, month, 1 - firstOfMonth.getDay());
-    const todayStr = toDateStr(now);
-
-    grid.innerHTML = "";
-    for (let i = 0; i < 42; i++) {
-      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
-      const dStr = toDateStr(d);
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "diary-mini-day";
-      if (d.getMonth() !== month) btn.classList.add("outside");
-      if (dStr === todayStr) btn.classList.add("has-entry");
-      btn.textContent = d.getDate();
-      if (window.ScheduleStore.countOccurrences(dStr) > 0) {
-        btn.style.fontWeight = "700";
-      }
-      btn.addEventListener("click", () => {
-        document.querySelector('.nav-item[data-view="schedule"]')?.click();
-        window.ScheduleView?.goToDate(dStr);
-      });
-      grid.appendChild(btn);
-    }
-  }
-
   function renderMonthlySummary() {
     const list = document.getElementById("monthlySummaryList");
     if (!list) return;
@@ -113,7 +78,6 @@
 
   function refresh() {
     renderQuote();
-    renderMiniCalendar();
     renderMonthlySummary();
   }
 

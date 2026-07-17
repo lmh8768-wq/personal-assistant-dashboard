@@ -990,12 +990,5 @@
       setViewMode("month");
       renderDayList();
     },
-    goToDate: (dateStr) => {
-      const d = parseDateStr(dateStr);
-      viewDate = new Date(d.getFullYear(), d.getMonth(), 1);
-      selectedDate = d;
-      setViewMode("month");
-      renderDayList();
-    },
   };
 })();
