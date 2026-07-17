@@ -12,18 +12,27 @@
         }
       });
     }
-    if (window.NotesStore) {
-      window.NotesStore.getAll().forEach((n) => {
-        if ((n.text || "").toLowerCase().includes(q)) {
-          results.push({ type: "메모", label: n.text.length > 30 ? n.text.slice(0, 30) + "…" : n.text, view: "notes" });
-        }
-      });
-    }
     if (window.DiaryStore) {
       window.DiaryStore.getAll().forEach((d) => {
         if ((d.text || "").toLowerCase().includes(q)) {
           const label = d.text ? (d.text.length > 30 ? d.text.slice(0, 30) + "…" : d.text) : d.date;
           results.push({ type: "일기", label, view: "diary" });
+        }
+      });
+    }
+    if (window.PracticeStore) {
+      window.PracticeStore.getAll().forEach((p) => {
+        if ((p.text || "").toLowerCase().includes(q)) {
+          const label = p.text.length > 30 ? p.text.slice(0, 30) + "…" : p.text;
+          results.push({ type: "연습", label, view: "practice" });
+        }
+      });
+    }
+    if (window.StudyDiaryStore) {
+      window.StudyDiaryStore.getAll().forEach((s) => {
+        if ((s.text || "").toLowerCase().includes(q)) {
+          const label = s.text.length > 30 ? s.text.slice(0, 30) + "…" : s.text;
+          results.push({ type: "공부", label, view: "study" });
         }
       });
     }

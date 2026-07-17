@@ -89,10 +89,6 @@
       });
     }
 
-    const notesThisMonth = window.NotesStore
-      ? window.NotesStore.getAll().filter((n) => (n.createdAt || "").startsWith(monthPrefix)).length
-      : 0;
-
     const diaryThisMonth = window.DiaryStore
       ? window.DiaryStore.getAll().filter((e) => (e.date || "").startsWith(monthPrefix)).length
       : 0;
@@ -103,7 +99,6 @@
 
     const rows = [
       ["완료한 일정", completedSchedules],
-      ["작성한 메모", notesThisMonth],
       ["작성한 일기", diaryThisMonth],
       ["추가한 사진", photosThisMonth],
     ];

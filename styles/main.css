@@ -33,6 +33,7 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 :root[data-font-size="small"] .app {
@@ -59,7 +60,7 @@ button, input {
 /* ---------- Layout ---------- */
 .app {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 /* ---------- Sidebar ---------- */
@@ -113,6 +114,8 @@ button, input {
   flex-direction: column;
   gap: 2px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .shortcut-group {
@@ -122,6 +125,7 @@ button, input {
   border-top: 1px solid var(--border);
   padding-top: 10px;
   margin-top: 10px;
+  flex-shrink: 0;
 }
 
 .shortcut-group-label {
@@ -507,7 +511,7 @@ button.nav-item {
 
 .panel-assistant {
   grid-column: 2;
-  grid-row: 1 / span 3;
+  grid-row: 1 / span 2;
 }
 
 .assistant-box {
@@ -558,61 +562,6 @@ button.nav-item {
   color: var(--text-faint);
   font-size: 13px;
   padding: 30px 0;
-}
-
-/* ---------- Notes ---------- */
-.notes-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-  overflow-y: auto;
-}
-
-.notes-list-full {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
-}
-
-.note-item {
-  position: relative;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
-  background: var(--bg-elevated);
-}
-
-.note-item:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.note-item.pinned {
-  border-color: var(--accent);
-}
-
-.note-item-pin {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  font-size: 12px;
-}
-
-.note-item-text {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text);
-  white-space: pre-wrap;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
 }
 
 .checkbox-row {
@@ -890,29 +839,7 @@ button.nav-item {
   margin-bottom: 8px;
 }
 
-/* ---------- Schedule: quick add, view tabs, filters ---------- */
-.quick-add-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.quick-add-row input {
-  flex: 1;
-  font-family: inherit;
-  background: var(--bg-elevated-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 9px 12px;
-  font-size: 13px;
-  color: var(--text);
-  outline: none;
-}
-
-.quick-add-row input:focus {
-  border-color: var(--accent);
-}
-
+/* ---------- Schedule: view tabs, filters ---------- */
 .view-mode-tabs {
   display: flex;
   gap: 4px;
@@ -1096,6 +1023,18 @@ button.nav-item {
   outline: none;
 }
 
+.checklist-add-row select {
+  flex-shrink: 0;
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
 .schedule-item-checklist-badge {
   font-size: 11px;
   color: var(--text-muted);
@@ -1127,42 +1066,6 @@ button.nav-item {
   gap: 8px;
   margin-bottom: 16px;
   flex-wrap: wrap;
-}
-
-.notes-filter-bar {
-  margin-bottom: 10px;
-}
-
-.notes-filter-bar input[type="text"] {
-  width: 100%;
-  max-width: 320px;
-  font-family: inherit;
-  background: var(--bg-elevated-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 9px 12px;
-  font-size: 13px;
-  color: var(--text);
-  outline: none;
-}
-
-.notes-filter-bar input[type="text"]:focus {
-  border-color: var(--accent);
-}
-
-.note-item-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-}
-
-.note-item-tag {
-  font-size: 10px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: 999px;
-  padding: 2px 8px;
 }
 
 .diary-filter-bar input[type="text"] {
@@ -1273,6 +1176,131 @@ button.nav-item {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* ---------- Bass practice log ---------- */
+.practice-card-checklist {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+#view-practice .diary-header > div,
+#view-study .diary-header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-toggle-btn {
+  font-size: 12px;
+}
+
+#practiceSheetGrid {
+  margin-bottom: 28px;
+}
+
+#practiceSheetGrid .diary-thumb-remove {
+  top: 6px;
+  right: 6px;
+}
+
+.practice-sheet-file {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  border-radius: 8px;
+  background: var(--bg-elevated-2);
+}
+
+.practice-sheet-file span {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  right: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Study planner ---------- */
+.exam-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.exam-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.exam-item:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.exam-item.past {
+  opacity: 0.55;
+}
+
+.exam-item.urgent {
+  border-color: #f87171;
+}
+
+.exam-dday-badge {
+  flex-shrink: 0;
+  min-width: 52px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.exam-item.urgent .exam-dday-badge {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+.exam-item-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.exam-item-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+#subjectManageSection {
+  margin-bottom: 28px;
+}
+
+.checklist-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 10px 0 2px;
+}
+
+.checklist-group-label:first-child {
+  margin-top: 0;
 }
 
 /* ---------- Photo library ---------- */
@@ -1738,15 +1766,6 @@ button.nav-item {
   color: var(--text);
 }
 
-.nav-today-btn {
-  width: 100%;
-  border: none;
-  background: transparent;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
 .dashboard-greeting {
   margin: 0 0 16px;
   font-size: 15px;
@@ -2008,6 +2027,7 @@ button.nav-item {
     display: none !important;
   }
 
+  html,
   body,
   .app,
   .main,
@@ -2015,6 +2035,8 @@ button.nav-item {
     background: #fff !important;
     color: #000 !important;
     display: block !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   .schedule-layout {

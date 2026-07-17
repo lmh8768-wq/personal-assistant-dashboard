@@ -2,14 +2,16 @@
   const SETTINGS_KEY = "assistant.settings.v1";
   const STORAGE_ESTIMATE_BYTES = 5 * 1024 * 1024; // typical localStorage quota
   const CUSTOM_SHORTCUTS_KEY = "assistant.customShortcuts.v1";
+  const DEFAULT_SETTINGS = { naverBlogUrl: "https://blog.naver.com/minhyeogi50" };
   let resetArmed = false;
 
   function loadSettings() {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
-      return raw ? JSON.parse(raw) : {};
+      const parsed = raw ? JSON.parse(raw) : {};
+      return { ...DEFAULT_SETTINGS, ...parsed, naverBlogUrl: parsed.naverBlogUrl || DEFAULT_SETTINGS.naverBlogUrl };
     } catch {
-      return {};
+      return { ...DEFAULT_SETTINGS };
     }
   }
 

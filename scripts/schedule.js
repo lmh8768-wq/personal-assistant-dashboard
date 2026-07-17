@@ -841,94 +841,6 @@
     });
   }
 
-  // ---------- Natural language quick add ----------
-  function parseNaturalLanguage(raw) {
-    let text = raw.trim();
-    const today = new Date();
-    let date = toDateStr(today);
-    let startTime = "";
-
-    const relDayMap = { "오늘": 0, "내일": 1, "모레": 2, "글피": 3 };
-    for (const [word, offset] of Object.entries(relDayMap)) {
-      if (text.includes(word)) {
-        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
-        date = toDateStr(d);
-        text = text.replace(word, "");
-        break;
-      }
-    }
-
-    const weekdayMatch = text.match(/(다음\s*주|이번\s*주)?\s*(일|월|화|수|목|금|토)요일/);
-    if (weekdayMatch) {
-      const targetDay = WEEKDAYS.indexOf(weekdayMatch[2]);
-      const isNextWeek = !!weekdayMatch[1] && weekdayMatch[1].replace(/\s/g, "") === "다음주";
-      let diff = targetDay - today.getDay();
-      if (diff < 0 || (diff === 0 && !weekdayMatch[1])) diff += 7;
-      if (isNextWeek) diff += 7;
-      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + diff);
-      date = toDateStr(d);
-      text = text.replace(weekdayMatch[0], "");
-    }
-
-    const hhmmMatch = text.match(/(\d{1,2}):(\d{2})/);
-    const koreanTimeMatch = text.match(/(오전|오후)?\s*(\d{1,2})시\s*(\d{1,2})?분?/);
-    if (hhmmMatch) {
-      startTime = `${pad2(Number(hhmmMatch[1]))}:${hhmmMatch[2]}`;
-      text = text.replace(hhmmMatch[0], "");
-    } else if (koreanTimeMatch) {
-      let hour = Number(koreanTimeMatch[2]);
-      const minute = koreanTimeMatch[3] ? Number(koreanTimeMatch[3]) : 0;
-      if (koreanTimeMatch[1] === "오후" && hour < 12) hour += 12;
-      if (koreanTimeMatch[1] === "오전" && hour === 12) hour = 0;
-      // No AM/PM given: assume typical daytime hours (1~6시) mean afternoon,
-      // since that's the more common reading for casual schedule entries.
-      if (!koreanTimeMatch[1] && hour >= 1 && hour <= 6) hour += 12;
-      startTime = `${pad2(hour)}:${pad2(minute)}`;
-      text = text.replace(koreanTimeMatch[0], "");
-    }
-
-    const title = text
-      .replace(/\s+/g, " ")
-      .replace(/^[에\s]+|[에\s]+$/g, "")
-      .trim();
-
-    return { title, date, startTime };
-  }
-
-  function handleQuickAdd() {
-    const input = document.getElementById("quickAddInput");
-    const raw = input.value.trim();
-    if (!raw) return;
-
-    const parsed = parseNaturalLanguage(raw);
-    if (!parsed.title) {
-      window.Toast.show("일정 제목을 인식하지 못했어요");
-      return;
-    }
-
-    window.ScheduleStore.add({
-      title: parsed.title,
-      date: parsed.date,
-      startTime: parsed.startTime,
-      endTime: "",
-      memo: "",
-      location: "",
-      url: "",
-      category: "etc",
-      importance: DEFAULT_IMPORTANCE,
-      favorite: false,
-      repeat: { type: "none", until: null },
-      reminderMinutes: null,
-      checklist: [],
-    });
-
-    input.value = "";
-    selectedDate = parseDateStr(parsed.date);
-    viewDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-    refreshAll();
-    window.Toast.show(`"${parsed.title}" 일정을 추가했어요 (${parsed.date}${parsed.startTime ? " " + parsed.startTime : ""})`);
-  }
-
   // ---------- iCalendar export ----------
   function escapeIcsText(s) {
     return (s || "").replace(/[\\;,]/g, (m) => "\\" + m).replace(/\n/g, "\\n");
@@ -1044,14 +956,6 @@
       if (e.key === "Enter") {
         e.preventDefault();
         handleAddChecklistItem();
-      }
-    });
-
-    document.getElementById("quickAddBtn").addEventListener("click", handleQuickAdd);
-    document.getElementById("quickAddInput").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleQuickAdd();
       }
     });
 
