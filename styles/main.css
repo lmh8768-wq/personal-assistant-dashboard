@@ -546,16 +546,6 @@ button.nav-item {
   border-style: solid;
 }
 
-.schedule-item-link {
-  display: block;
-  text-decoration: none;
-  color: var(--accent) !important;
-}
-
-.schedule-item-link:hover {
-  text-decoration: underline;
-}
-
 .schedule-item.completed .schedule-item-title {
   text-decoration: line-through;
 }

@@ -139,24 +139,6 @@
       body.appendChild(memo);
     }
 
-    if (item.location) {
-      const loc = document.createElement("div");
-      loc.className = "schedule-item-memo";
-      loc.textContent = `📍 ${item.location}`;
-      body.appendChild(loc);
-    }
-
-    if (item.url) {
-      const link = document.createElement("a");
-      link.className = "schedule-item-memo schedule-item-link";
-      link.href = item.url;
-      link.target = "_blank";
-      link.rel = "noopener";
-      link.textContent = `🔗 ${item.url}`;
-      link.addEventListener("click", (e) => e.stopPropagation());
-      body.appendChild(link);
-    }
-
     li.appendChild(body);
     li.addEventListener("click", () => onClick(item));
     return li;
@@ -555,8 +537,6 @@
     document.getElementById("scheduleTitleInput").value = data?.title || "";
     document.getElementById("scheduleDateInput").value = data?.date || toDateStr(selectedDate);
     document.getElementById("scheduleMemoInput").value = data?.memo || "";
-    document.getElementById("scheduleLocationInput").value = data?.location || "";
-    document.getElementById("scheduleUrlInput").value = data?.url || "";
     document.getElementById("scheduleRepeatInput").value = data?.repeat?.type || "none";
     const repeatUntilValue = data?.repeat?.until || "";
     document.getElementById("scheduleRepeatUntilModeInput").value = repeatUntilValue ? "date" : "never";
@@ -589,8 +569,6 @@
       title: document.getElementById("scheduleTitleInput").value.trim(),
       date: document.getElementById("scheduleDateInput").value,
       memo: document.getElementById("scheduleMemoInput").value.trim(),
-      location: document.getElementById("scheduleLocationInput").value.trim(),
-      url: document.getElementById("scheduleUrlInput").value.trim(),
       repeat: {
         type: repeatType,
         until: repeatType !== "none" && repeatUntilMode === "date"
@@ -727,8 +705,6 @@
       lines.push(`DTSTART;VALUE=DATE:${formatIcsDate(item.date)}`);
       lines.push(`SUMMARY:${escapeIcsText(item.title)}`);
       if (item.memo) lines.push(`DESCRIPTION:${escapeIcsText(item.memo)}`);
-      if (item.location) lines.push(`LOCATION:${escapeIcsText(item.location)}`);
-      if (item.url) lines.push(`URL:${item.url}`);
 
       const repeat = item.repeat || { type: "none" };
       const freqMap = { daily: "DAILY", weekly: "WEEKLY", monthly: "MONTHLY", yearly: "YEARLY" };
