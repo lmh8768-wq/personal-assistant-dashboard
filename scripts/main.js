@@ -70,6 +70,9 @@ function showView(viewName) {
   if (viewName === "settings" && window.SettingsView) {
     window.SettingsView.refreshStorage();
   }
+  if (viewName === "settings" && window.CloudSync) {
+    window.CloudSync.renderDebugLog();
+  }
 }
 
 navItems.forEach((item) => {

@@ -378,6 +378,16 @@
       e.target.value = "";
     });
     document.getElementById("resetDataBtn").addEventListener("click", handleResetData);
+
+    document.getElementById("copySyncLogBtn")?.addEventListener("click", async () => {
+      const text = document.getElementById("cloudSyncLog")?.textContent || "";
+      try {
+        await navigator.clipboard.writeText(text);
+        window.Toast.show("로그를 복사했어요");
+      } catch {
+        window.Toast.show("복사에 실패했어요. 로그를 길게 눌러 직접 선택해주세요.");
+      }
+    });
   }
 
   window.SettingsView = { init, refreshStorage: renderStorageUsage, refreshCategories: renderCategoryEditor };
