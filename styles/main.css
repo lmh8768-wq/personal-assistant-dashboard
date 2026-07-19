@@ -317,12 +317,6 @@ button.nav-item {
   color: var(--accent);
 }
 
-.icon-btn.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
 .mobile-menu-btn {
   display: none;
 }
@@ -380,50 +374,6 @@ button.nav-item {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-}
-
-.widget-row {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-  margin-top: 14px;
-}
-
-.panel-quote {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.quote-text {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--text-muted);
-  text-align: center;
-  font-style: italic;
-}
-
-.monthly-summary-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.monthly-summary-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.monthly-summary-list li strong {
-  color: var(--text);
-  font-size: 15px;
 }
 
 .panel {
@@ -627,14 +577,6 @@ button.nav-item {
   margin-top: 6px;
 }
 
-.schedule-item-time {
-  flex-shrink: 0;
-  min-width: 44px;
-  font-size: 12px;
-  color: var(--text-muted);
-  padding-top: 1px;
-}
-
 .schedule-item-title {
   font-size: 13px;
   font-weight: 600;
@@ -643,6 +585,13 @@ button.nav-item {
 .schedule-item-badge {
   margin-left: 6px;
   font-size: 11px;
+}
+
+.schedule-item-upcoming-date {
+  margin-right: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .schedule-item-stars {
@@ -1651,9 +1600,6 @@ button.nav-item {
 /* ---------- Responsive ---------- */
 @media (max-width: 960px) {
   .grid {
-    grid-template-columns: 1fr;
-  }
-  .widget-row {
     grid-template-columns: 1fr;
   }
   .stat-row {

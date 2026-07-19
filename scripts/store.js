@@ -56,8 +56,7 @@
     getOccurrences(dateStr) {
       return loadSchedules()
         .filter((item) => matchesDate(item, dateStr))
-        .map((item) => ({ ...item, occurrenceDate: dateStr }))
-        .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+        .map((item) => ({ ...item, occurrenceDate: dateStr }));
     },
     countOccurrences(dateStr) {
       return loadSchedules().filter((item) => matchesDate(item, dateStr)).length;
@@ -141,18 +140,28 @@
 // ---------- Schedule categories (localStorage) ----------
 (function () {
   const CATEGORIES_KEY = "assistant.categories.v1";
+  const OLD_DEFAULT_KEYS = ["work", "personal", "health", "study", "etc"];
   const DEFAULTS = [
-    { key: "work", label: "업무", color: "#60a5fa" },
-    { key: "personal", label: "개인", color: "#a78bfa" },
-    { key: "health", label: "건강", color: "#f87171" },
-    { key: "study", label: "공부", color: "#4ade80" },
+    { key: "appointment", label: "약속", color: "#60a5fa" },
+    { key: "event", label: "행사", color: "#a78bfa" },
+    { key: "academic", label: "학업", color: "#4ade80" },
+    { key: "hobby", label: "취미", color: "#f472b6" },
     { key: "etc", label: "기타", color: "#94a3b8" },
   ];
 
   function loadCategories() {
     try {
       const raw = localStorage.getItem(CATEGORIES_KEY);
-      return raw ? JSON.parse(raw) : DEFAULTS;
+      if (!raw) return DEFAULTS;
+      const parsed = JSON.parse(raw);
+      const isUnmodifiedOldDefaults =
+        parsed.length === OLD_DEFAULT_KEYS.length &&
+        parsed.every((c, i) => c.key === OLD_DEFAULT_KEYS[i]);
+      if (isUnmodifiedOldDefaults) {
+        saveCategories(DEFAULTS);
+        return DEFAULTS;
+      }
+      return parsed;
     } catch {
       return DEFAULTS;
     }

@@ -4,13 +4,10 @@
   let editingId = null;
   let viewMode = "month"; // "month" | "week" | "agenda"
   let categoryFilter = null;
-  let favoritesOnly = false;
   let scheduleSelectMode = false;
   let scheduleSelectedIds = new Set();
-  let pendingChecklist = [];
 
   const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
-  const REMINDER_PRESETS = ["10", "30", "60", "1440"];
   const DEFAULT_IMPORTANCE = 3;
   const HIDE_COMPLETED_KEY = "assistant.hideCompleted.v1";
 
@@ -73,13 +70,6 @@
     return wrap;
   }
 
-  function sortForDisplay(items) {
-    return [...items].sort((a, b) => {
-      if (!!a.favorite !== !!b.favorite) return a.favorite ? -1 : 1;
-      return (a.startTime || "").localeCompare(b.startTime || "");
-    });
-  }
-
   function applyHideCompleted(items) {
     if (!hideCompleted) return items;
     return items.filter((item) => !(item.completedDates || []).includes(item.occurrenceDate));
@@ -88,11 +78,6 @@
   function applyCategoryFilter(items) {
     if (!categoryFilter) return items;
     return items.filter((item) => (item.category || "etc") === categoryFilter);
-  }
-
-  function applyFavoritesFilter(items) {
-    if (!favoritesOnly) return items;
-    return items.filter((item) => item.favorite);
   }
 
   function renderScheduleItem(item, onClick) {
@@ -125,34 +110,16 @@
     });
     li.appendChild(checkbox);
 
-    const time = document.createElement("div");
-    time.className = "schedule-item-time";
-    time.textContent = item.startTime
-      ? item.startTime + (item.endTime ? `–${item.endTime}` : "")
-      : "종일";
-
     const body = document.createElement("div");
     body.className = "schedule-item-body";
 
     const title = document.createElement("div");
     title.className = "schedule-item-title";
     title.textContent = item.title;
-    if (item.favorite) {
-      const badge = document.createElement("span");
-      badge.className = "schedule-item-badge";
-      badge.textContent = "⭐";
-      title.appendChild(badge);
-    }
     if (item.repeat && item.repeat.type !== "none") {
       const badge = document.createElement("span");
       badge.className = "schedule-item-badge";
       badge.textContent = "🔁";
-      title.appendChild(badge);
-    }
-    if (item.reminderMinutes) {
-      const badge = document.createElement("span");
-      badge.className = "schedule-item-badge";
-      badge.textContent = "🔔";
       title.appendChild(badge);
     }
     if (item.checklist && item.checklist.length > 0) {
@@ -190,7 +157,6 @@
       body.appendChild(link);
     }
 
-    li.appendChild(time);
     li.appendChild(body);
     li.addEventListener("click", () => onClick(item));
     return li;
@@ -304,8 +270,7 @@
       const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
       const dStr = toDateStr(d);
       let items = window.ScheduleStore.getOccurrences(dStr);
-      items = applyFavoritesFilter(applyCategoryFilter(applyHideCompleted(items)));
-      items = sortForDisplay(items);
+      items = applyCategoryFilter(applyHideCompleted(items));
       if (items.length === 0) continue;
       hasAny = true;
 
@@ -348,11 +313,10 @@
 
     const allChip = document.createElement("button");
     allChip.type = "button";
-    allChip.className = "schedule-filter-chip" + (!categoryFilter && !favoritesOnly ? " active" : "");
+    allChip.className = "schedule-filter-chip" + (!categoryFilter ? " active" : "");
     allChip.textContent = "전체";
     allChip.addEventListener("click", () => {
       categoryFilter = null;
-      favoritesOnly = false;
       renderScheduleFilterBar();
       renderDayList();
       if (viewMode === "agenda") renderAgendaList();
@@ -378,18 +342,6 @@
       });
       bar.appendChild(chip);
     });
-
-    const favChip = document.createElement("button");
-    favChip.type = "button";
-    favChip.className = "schedule-filter-chip" + (favoritesOnly ? " active" : "");
-    favChip.textContent = "⭐ 즐겨찾기";
-    favChip.addEventListener("click", () => {
-      favoritesOnly = !favoritesOnly;
-      renderScheduleFilterBar();
-      renderDayList();
-      if (viewMode === "agenda") renderAgendaList();
-    });
-    bar.appendChild(favChip);
   }
 
   // ---------- Day panel ----------
@@ -415,8 +367,8 @@
     list.innerHTML = "";
 
     let items = window.ScheduleStore.getOccurrences(toDateStr(selectedDate));
-    items = applyFavoritesFilter(applyCategoryFilter(items));
-    items = sortForDisplay(applyHideCompleted(items));
+    items = applyCategoryFilter(items);
+    items = applyHideCompleted(items);
 
     if (items.length === 0) {
       list.innerHTML = `<li class="schedule-empty">이 날에는 일정이 없어요</li>`;
@@ -467,13 +419,10 @@
         window.ScheduleStore.add({
           title: tpl.title,
           date: toDateStr(selectedDate),
-          startTime: "",
-          endTime: "",
           memo: "",
           category: tpl.category,
           importance: tpl.importance,
           repeat: { type: "none", until: null },
-          reminderMinutes: null,
           checklist: [],
         });
         refreshAll();
@@ -507,7 +456,7 @@
       rateEl.textContent = items.length === 0 ? "—" : `${Math.round((completedCount / items.length) * 100)}%`;
     }
 
-    const displayItems = sortForDisplay(applyHideCompleted(items));
+    const displayItems = applyHideCompleted(items);
     list.innerHTML = "";
     if (displayItems.length === 0) {
       list.innerHTML = `<li class="schedule-empty">오늘 등록된 일정이 없어요</li>`;
@@ -532,16 +481,22 @@
       items.push(...window.ScheduleStore.getOccurrences(toDateStr(d)));
     }
 
-    const displayItems = sortForDisplay(applyHideCompleted(items));
+    const importantItems = items.filter((item) => (item.importance || 0) >= 4);
+    const displayItems = applyHideCompleted(importantItems);
     list.innerHTML = "";
     if (displayItems.length === 0) {
-      list.innerHTML = `<li class="schedule-empty">다가오는 일정이 없어요</li>`;
+      list.innerHTML = `<li class="schedule-empty">다가오는 중요 일정이 없어요</li>`;
       return;
     }
     displayItems.slice(0, 8).forEach((item) => {
       const li = renderScheduleItem(item, (it) => openModal("edit", it));
-      const timeEl = li.querySelector(".schedule-item-time");
-      if (timeEl) timeEl.textContent = formatShortDate(item.occurrenceDate);
+      const titleEl = li.querySelector(".schedule-item-title");
+      if (titleEl) {
+        const dateBadge = document.createElement("span");
+        dateBadge.className = "schedule-item-upcoming-date";
+        dateBadge.textContent = formatShortDate(item.occurrenceDate);
+        titleEl.prepend(dateBadge);
+      }
       list.appendChild(li);
     });
   }
@@ -557,7 +512,6 @@
     renderTemplateChips();
     renderScheduleFilterBar();
     refreshDashboard();
-    if (window.ReminderEngine) window.ReminderEngine.check();
   }
 
   // ---------- Modal ----------
@@ -566,6 +520,12 @@
     const isRepeating = repeatType !== "none";
     document.getElementById("repeatUntilRow").hidden = !isRepeating;
     document.getElementById("repeatNote").hidden = !isRepeating;
+    updateRepeatUntilDateVisibility();
+  }
+
+  function updateRepeatUntilDateVisibility() {
+    const mode = document.getElementById("scheduleRepeatUntilModeInput").value;
+    document.getElementById("repeatUntilDateRow").hidden = mode !== "date";
   }
 
   function paintImportanceStars(value) {
@@ -574,11 +534,6 @@
       btn.classList.toggle("filled", starValue <= value);
     });
     document.getElementById("scheduleImportanceInput").value = String(value);
-  }
-
-  function updateReminderCustomVisibility() {
-    const isCustom = document.getElementById("scheduleReminderInput").value === "custom";
-    document.getElementById("reminderCustomRow").hidden = !isCustom;
   }
 
   function syncCategorySelectOptions() {
@@ -594,81 +549,22 @@
     if (current) select.value = current;
   }
 
-  function renderChecklistItems() {
-    const list = document.getElementById("scheduleChecklistItems");
-    list.innerHTML = "";
-    pendingChecklist.forEach((entry, idx) => {
-      const li = document.createElement("li");
-      li.className = "checklist-item" + (entry.done ? " done" : "");
-
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = entry.done;
-      checkbox.addEventListener("change", () => {
-        pendingChecklist[idx].done = checkbox.checked;
-        renderChecklistItems();
-      });
-      li.appendChild(checkbox);
-
-      const span = document.createElement("span");
-      span.textContent = entry.text;
-      li.appendChild(span);
-
-      const remove = document.createElement("span");
-      remove.className = "checklist-item-remove";
-      remove.textContent = "×";
-      remove.addEventListener("click", () => {
-        pendingChecklist.splice(idx, 1);
-        renderChecklistItems();
-      });
-      li.appendChild(remove);
-
-      list.appendChild(li);
-    });
-  }
-
-  function handleAddChecklistItem() {
-    const input = document.getElementById("scheduleChecklistInput");
-    const text = input.value.trim();
-    if (!text) return;
-    pendingChecklist.push({ text, done: false });
-    input.value = "";
-    renderChecklistItems();
-  }
-
   function openModal(mode, data) {
     editingId = mode === "edit" ? data.id : null;
     document.getElementById("modalTitle").textContent = mode === "edit" ? "일정 수정" : "일정 추가";
     document.getElementById("scheduleTitleInput").value = data?.title || "";
     document.getElementById("scheduleDateInput").value = data?.date || toDateStr(selectedDate);
-    document.getElementById("scheduleStartInput").value = data?.startTime || "";
-    document.getElementById("scheduleEndInput").value = data?.endTime || "";
     document.getElementById("scheduleMemoInput").value = data?.memo || "";
     document.getElementById("scheduleLocationInput").value = data?.location || "";
     document.getElementById("scheduleUrlInput").value = data?.url || "";
     document.getElementById("scheduleRepeatInput").value = data?.repeat?.type || "none";
-    document.getElementById("scheduleRepeatUntilInput").value = data?.repeat?.until || "";
+    const repeatUntilValue = data?.repeat?.until || "";
+    document.getElementById("scheduleRepeatUntilModeInput").value = repeatUntilValue ? "date" : "never";
+    document.getElementById("scheduleRepeatUntilInput").value = repeatUntilValue;
 
     syncCategorySelectOptions();
     document.getElementById("scheduleCategoryInput").value = data?.category || "etc";
-    document.getElementById("scheduleFavoriteInput").checked = !!data?.favorite;
     paintImportanceStars(data?.importance || DEFAULT_IMPORTANCE);
-
-    pendingChecklist = data?.checklist ? data.checklist.map((c) => ({ ...c })) : [];
-    renderChecklistItems();
-
-    const reminderMinutes = data?.reminderMinutes;
-    if (reminderMinutes && REMINDER_PRESETS.includes(String(reminderMinutes))) {
-      document.getElementById("scheduleReminderInput").value = String(reminderMinutes);
-      document.getElementById("scheduleReminderCustomInput").value = "";
-    } else if (reminderMinutes) {
-      document.getElementById("scheduleReminderInput").value = "custom";
-      document.getElementById("scheduleReminderCustomInput").value = String(reminderMinutes);
-    } else {
-      document.getElementById("scheduleReminderInput").value = "";
-      document.getElementById("scheduleReminderCustomInput").value = "";
-    }
-    updateReminderCustomVisibility();
 
     updateRepeatFieldsVisibility();
     document.getElementById("deleteScheduleBtn").hidden = mode !== "edit";
@@ -682,41 +578,27 @@
     document.getElementById("scheduleForm").reset();
     updateRepeatFieldsVisibility();
     paintImportanceStars(DEFAULT_IMPORTANCE);
-    updateReminderCustomVisibility();
-    pendingChecklist = [];
-    renderChecklistItems();
     editingId = null;
   }
 
   function readPayloadFromForm() {
     const repeatType = document.getElementById("scheduleRepeatInput").value;
-    const reminderValue = document.getElementById("scheduleReminderInput").value;
-
-    let reminderMinutes = null;
-    if (reminderValue === "custom") {
-      const customMinutes = Number(document.getElementById("scheduleReminderCustomInput").value);
-      reminderMinutes = customMinutes > 0 ? customMinutes : null;
-    } else if (reminderValue) {
-      reminderMinutes = Number(reminderValue);
-    }
+    const repeatUntilMode = document.getElementById("scheduleRepeatUntilModeInput").value;
 
     return {
       title: document.getElementById("scheduleTitleInput").value.trim(),
       date: document.getElementById("scheduleDateInput").value,
-      startTime: document.getElementById("scheduleStartInput").value,
-      endTime: document.getElementById("scheduleEndInput").value,
       memo: document.getElementById("scheduleMemoInput").value.trim(),
       location: document.getElementById("scheduleLocationInput").value.trim(),
       url: document.getElementById("scheduleUrlInput").value.trim(),
       repeat: {
         type: repeatType,
-        until: repeatType !== "none" ? (document.getElementById("scheduleRepeatUntilInput").value || null) : null,
+        until: repeatType !== "none" && repeatUntilMode === "date"
+          ? (document.getElementById("scheduleRepeatUntilInput").value || null)
+          : null,
       },
-      reminderMinutes,
       importance: Number(document.getElementById("scheduleImportanceInput").value) || DEFAULT_IMPORTANCE,
       category: document.getElementById("scheduleCategoryInput").value,
-      favorite: document.getElementById("scheduleFavoriteInput").checked,
-      checklist: [...pendingChecklist],
     };
   }
 
@@ -761,25 +643,10 @@
     const original = window.ScheduleStore.getById(editingId);
     if (!original) return;
     const { id, completedDates, ...rest } = original;
-    window.ScheduleStore.add({ ...rest, favorite: false });
+    window.ScheduleStore.add(rest);
     closeModal();
     refreshAll();
     window.Toast.show(`"${original.title}" 일정을 복제했어요`);
-  }
-
-  function handleSaveAsTemplate() {
-    const title = document.getElementById("scheduleTitleInput").value.trim();
-    if (!title) {
-      window.Toast.show("템플릿으로 저장하려면 제목을 먼저 입력하세요");
-      return;
-    }
-    window.TemplateStore.add({
-      title,
-      category: document.getElementById("scheduleCategoryInput").value,
-      importance: Number(document.getElementById("scheduleImportanceInput").value) || DEFAULT_IMPORTANCE,
-    });
-    renderTemplateChips();
-    window.Toast.show(`"${title}" 템플릿을 저장했어요`);
   }
 
   function toggleHideCompleted() {
@@ -846,11 +713,7 @@
     return (s || "").replace(/[\\;,]/g, (m) => "\\" + m).replace(/\n/g, "\\n");
   }
 
-  function formatIcsDate(dateStr, timeStr) {
-    if (timeStr) {
-      const [h, m] = timeStr.split(":").map(Number);
-      return `${dateStr.replace(/-/g, "")}T${pad2(h)}${pad2(m)}00`;
-    }
+  function formatIcsDate(dateStr) {
     return dateStr.replace(/-/g, "");
   }
 
@@ -861,12 +724,7 @@
     items.forEach((item) => {
       lines.push("BEGIN:VEVENT");
       lines.push(`UID:${item.id}@assistant`);
-      if (item.startTime) {
-        lines.push(`DTSTART:${formatIcsDate(item.date, item.startTime)}`);
-        if (item.endTime) lines.push(`DTEND:${formatIcsDate(item.date, item.endTime)}`);
-      } else {
-        lines.push(`DTSTART;VALUE=DATE:${formatIcsDate(item.date)}`);
-      }
+      lines.push(`DTSTART;VALUE=DATE:${formatIcsDate(item.date)}`);
       lines.push(`SUMMARY:${escapeIcsText(item.title)}`);
       if (item.memo) lines.push(`DESCRIPTION:${escapeIcsText(item.memo)}`);
       if (item.location) lines.push(`LOCATION:${escapeIcsText(item.location)}`);
@@ -903,7 +761,6 @@
       ? "완료 항목 보기"
       : "완료 항목 숨기기";
     document.getElementById("toggleHideCompletedBtn").addEventListener("click", toggleHideCompleted);
-    document.getElementById("saveAsTemplateBtn").addEventListener("click", handleSaveAsTemplate);
     document.getElementById("duplicateScheduleBtn").addEventListener("click", handleDuplicate);
     document.getElementById("printScheduleBtn").addEventListener("click", () => window.print());
     document.getElementById("exportIcsBtn").addEventListener("click", handleExportIcs);
@@ -949,15 +806,7 @@
     document.getElementById("cancelScheduleBtn").addEventListener("click", closeModal);
     document.getElementById("deleteScheduleBtn").addEventListener("click", handleDelete);
     document.getElementById("scheduleRepeatInput").addEventListener("change", updateRepeatFieldsVisibility);
-    document.getElementById("scheduleReminderInput").addEventListener("change", updateReminderCustomVisibility);
-
-    document.getElementById("scheduleChecklistAddBtn").addEventListener("click", handleAddChecklistItem);
-    document.getElementById("scheduleChecklistInput").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleAddChecklistItem();
-      }
-    });
+    document.getElementById("scheduleRepeatUntilModeInput").addEventListener("change", updateRepeatUntilDateVisibility);
 
     document.getElementById("scheduleSelectModeBtn").addEventListener("click", toggleScheduleSelectMode);
     document.getElementById("scheduleBulkCompleteBtn").addEventListener("click", handleBulkComplete);

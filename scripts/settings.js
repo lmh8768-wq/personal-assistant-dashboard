@@ -236,17 +236,6 @@
     window.Toast.show(`"${name}" 바로가기를 추가했어요`);
   }
 
-  // ---------- Notification sound ----------
-  function initNotifySound() {
-    const checkbox = document.getElementById("notifySoundInput");
-    if (!checkbox || !window.ReminderEngine) return;
-    checkbox.checked = window.ReminderEngine.isSoundEnabled();
-    checkbox.addEventListener("change", () => {
-      window.ReminderEngine.setSoundEnabled(checkbox.checked);
-      window.Toast.show(checkbox.checked ? "알림 소리를 켰어요" : "알림 소리를 껐어요");
-    });
-  }
-
   // ---------- Storage usage ----------
   function calculateStorageBytes() {
     let chars = 0;
@@ -369,7 +358,6 @@
     initAppearance();
     renderCategoryEditor();
     renderCustomShortcuts();
-    initNotifySound();
 
     document.getElementById("settingsForm").addEventListener("submit", handleSettingsSubmit);
     document.getElementById("profileForm").addEventListener("submit", handleProfileSubmit);

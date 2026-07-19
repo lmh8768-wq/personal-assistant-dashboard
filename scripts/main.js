@@ -67,9 +67,6 @@ function showView(viewName) {
   if (viewName === "dashboard" && window.ScheduleView) {
     window.ScheduleView.refreshDashboard();
   }
-  if (viewName === "dashboard" && window.DashboardWidgets) {
-    window.DashboardWidgets.refresh();
-  }
   if (viewName === "settings" && window.SettingsView) {
     window.SettingsView.refreshStorage();
   }
@@ -102,11 +99,6 @@ if (window.ScheduleView) {
   window.ScheduleView.init();
 }
 
-// ---------- Reminder feature ----------
-if (window.ReminderEngine) {
-  window.ReminderEngine.init();
-}
-
 // ---------- Settings & shortcuts ----------
 if (window.SettingsView) {
   window.SettingsView.init();
@@ -130,11 +122,6 @@ if (window.ExerciseView) {
 // ---------- Global search ----------
 if (window.GlobalSearch) {
   window.GlobalSearch.init();
-}
-
-// ---------- Dashboard widgets ----------
-if (window.DashboardWidgets) {
-  window.DashboardWidgets.init();
 }
 
 // ---------- Open Claude app (stand-in for AI features) ----------
