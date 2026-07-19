@@ -66,11 +66,30 @@
     applyingRemote = false;
   }
 
+  // Durable marker (survives reload/app-kill): "local storage may contain
+  // changes the server hasn't confirmed yet." As long as this is set, we
+  // must never let a pulled remote snapshot overwrite local data — that's
+  // exactly how a not-yet-synced change gets silently destroyed.
+  const PENDING_KEY = "__cloudSync.pendingPush";
+
+  function markPending() {
+    originalSetItem(PENDING_KEY, "1");
+  }
+
+  function clearPending() {
+    originalRemoveItem(PENDING_KEY);
+  }
+
+  function hasPendingLocalChanges() {
+    return localStorage.getItem(PENDING_KEY) === "1";
+  }
+
   let pushPending = false;
 
   function schedulePush() {
     if (applyingRemote) return;
     pushPending = true;
+    markPending();
     clearTimeout(pushTimer);
     pushTimer = setTimeout(pushToCloud, PUSH_DEBOUNCE_MS);
   }
@@ -86,7 +105,13 @@
       payload,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: DEVICE_ID,
-    }).catch((err) => console.error("cloud sync push failed:", err));
+    }).then(() => {
+      clearPending();
+    }).catch((err) => {
+      console.error("cloud sync push failed:", err);
+      // Leave the pending marker set so the next load retries instead of
+      // risking an overwrite from a stale remote copy.
+    });
   }
 
   // iOS can suspend a backgrounded tab's timers before a debounced push
@@ -143,9 +168,16 @@
       (doc) => {
         if (isFirst) {
           isFirst = false;
-          if (doc.exists) {
+          if (hasPendingLocalChanges()) {
+            // Last session made a local change we never confirmed reached
+            // the server. Keep the local copy and retry pushing it instead
+            // of pulling in a possibly-stale remote version over it.
+            pushPending = true;
+            pushToCloud();
+          } else if (doc.exists) {
             applyRemoteData(doc.data().payload);
           } else {
+            pushPending = true;
             pushToCloud();
           }
           showApp();
@@ -154,6 +186,12 @@
         }
         const d = doc.data();
         if (!d || d.updatedBy === DEVICE_ID) return;
+        if (hasPendingLocalChanges()) {
+          // We have our own unconfirmed local change in flight — don't let
+          // an incoming remote update clobber it. Our pending push will
+          // land shortly and become the new authoritative version.
+          return;
+        }
         // Another device changed the data — reload so every view re-renders
         // from the freshly-synced localStorage.
         applyRemoteData(d.payload);
