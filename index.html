@@ -29,17 +29,14 @@
         <a class="nav-item" href="#schedule" data-view="schedule">
           <span class="nav-icon">▤</span><span class="nav-label">일정 · 할 일</span>
         </a>
-        <a class="nav-item" href="#diary" data-view="diary">
-          <span class="nav-icon">▣</span><span class="nav-label">일기장</span>
-        </a>
         <a class="nav-item" href="#practice" data-view="practice">
           <span class="nav-icon">🎸</span><span class="nav-label">베이스 연습</span>
         </a>
         <a class="nav-item" href="#study" data-view="study">
           <span class="nav-icon">📚</span><span class="nav-label">스터디 플래너</span>
         </a>
-        <a class="nav-item" href="#photos" data-view="photos">
-          <span class="nav-icon">🖼</span><span class="nav-label">사진첩</span>
+        <a class="nav-item" href="#exercise" data-view="exercise">
+          <span class="nav-icon">💪</span><span class="nav-label">운동</span>
         </a>
         <a class="nav-item" href="#assistant" data-view="assistant">
           <span class="nav-icon">✦</span><span class="nav-label">비서에게 묻기</span>
@@ -208,27 +205,6 @@
           </div>
         </div>
 
-        <div class="view" id="view-diary" hidden>
-          <div class="diary-header">
-            <h2>일기장 <span class="diary-streak" id="diaryStreak" hidden></span></h2>
-            <button class="primary-btn" id="addDiaryBtn">+ 일기 쓰기</button>
-          </div>
-          <div class="diary-filter-bar">
-            <input type="text" id="diarySearchInput" placeholder="일기 내용 검색..." />
-            <input type="date" id="diaryFilterFrom" aria-label="시작일" />
-            <span class="diary-filter-sep">~</span>
-            <input type="date" id="diaryFilterTo" aria-label="종료일" />
-            <button type="button" class="ghost-btn" id="diaryFilterResetBtn">초기화</button>
-          </div>
-          <div class="diary-mini-calendar-header">
-            <button type="button" class="icon-btn" id="diaryMiniPrevBtn">‹</button>
-            <span id="diaryMiniCalendarTitle"></span>
-            <button type="button" class="icon-btn" id="diaryMiniNextBtn">›</button>
-          </div>
-          <div class="diary-mini-calendar" id="diaryMiniCalendar"></div>
-          <div class="diary-feed" id="diaryFeed"></div>
-        </div>
-
         <div class="view" id="view-practice" hidden>
           <div class="diary-header">
             <h2>베이스 연습 일지 <span class="diary-streak" id="practiceStreak" hidden></span></h2>
@@ -255,56 +231,39 @@
         <div class="view" id="view-study" hidden>
           <div class="diary-header">
             <h2>스터디 플래너 <span class="diary-streak" id="studyStreak" hidden></span></h2>
-            <button class="primary-btn" id="addStudyBtn">+ 오늘 공부 기록 추가</button>
+            <button class="primary-btn" id="addStudyBtn">+ 공부 계획 추가</button>
           </div>
 
           <div class="diary-header">
-            <h2>시험 · 마감 D-day</h2>
-            <div>
-              <button type="button" class="ghost-btn" id="addExamBtn">+ 일정 추가</button>
-              <button type="button" class="icon-btn section-toggle-btn" id="toggleExamsBtn" aria-expanded="true" aria-label="D-day 접기/펼치기">▾</button>
-            </div>
+            <h2>공부 계획</h2>
+            <button type="button" class="icon-btn section-toggle-btn" id="toggleStudyFeedBtn" aria-expanded="true" aria-label="공부 계획 접기/펼치기">▾</button>
           </div>
-          <div class="exam-list" id="examList"></div>
+          <div class="diary-feed" id="studyFeed"></div>
+        </div>
+
+        <div class="view" id="view-exercise" hidden>
+          <div class="diary-header">
+            <h2>운동 기록 <span class="diary-streak" id="exerciseStreak" hidden></span></h2>
+            <button class="primary-btn" id="addExerciseLogBtn">+ 오늘 운동 기록 추가</button>
+          </div>
 
           <div class="diary-header">
-            <h2>과목 관리</h2>
-            <button type="button" class="icon-btn section-toggle-btn" id="toggleSubjectsBtn" aria-expanded="true" aria-label="과목 관리 접기/펼치기">▾</button>
+            <h2>운동 종류 관리</h2>
+            <button type="button" class="icon-btn section-toggle-btn" id="toggleExerciseCategoriesBtn" aria-expanded="true" aria-label="운동 종류 관리 접기/펼치기">▾</button>
           </div>
-          <div id="subjectManageSection">
-            <ul class="custom-shortcut-list" id="subjectList"></ul>
-            <form class="custom-shortcut-form" id="subjectForm">
-              <input type="text" id="subjectNameInput" placeholder="과목 이름 (예: 수학)" required />
+          <div id="exerciseCategoryManageSection">
+            <ul class="custom-shortcut-list" id="exerciseCategoryList"></ul>
+            <form class="custom-shortcut-form" id="exerciseCategoryForm">
+              <input type="text" id="exerciseCategoryNameInput" placeholder="운동 종류 (예: 유산소, 근력, 스트레칭)" required />
               <button type="submit" class="ghost-btn">+ 추가</button>
             </form>
           </div>
 
           <div class="diary-header">
-            <h2>공부 일지</h2>
-            <button type="button" class="icon-btn section-toggle-btn" id="toggleStudyFeedBtn" aria-expanded="true" aria-label="공부 일지 접기/펼치기">▾</button>
+            <h2>기록</h2>
+            <button type="button" class="icon-btn section-toggle-btn" id="toggleExerciseFeedBtn" aria-expanded="true" aria-label="기록 접기/펼치기">▾</button>
           </div>
-          <div class="diary-feed" id="studyFeed"></div>
-        </div>
-
-        <div class="view" id="view-photos" hidden>
-          <div class="diary-header">
-            <h2>사진첩</h2>
-            <div class="photo-header-actions">
-              <select id="photoSortSelect" aria-label="정렬">
-                <option value="newest">최신순</option>
-                <option value="oldest">오래된순</option>
-              </select>
-              <button type="button" class="ghost-btn" id="photoSelectModeBtn">선택</button>
-              <input type="file" id="photoUploadInput" accept="image/*" multiple hidden />
-              <button class="primary-btn" id="addPhotoBtn">+ 사진 추가</button>
-            </div>
-          </div>
-          <div class="photo-select-toolbar" id="photoSelectToolbar" hidden>
-            <span id="photoSelectCount">0장 선택됨</span>
-            <button type="button" class="ghost-btn danger" id="photoDeleteSelectedBtn">선택 삭제</button>
-          </div>
-          <div class="tag-filter-bar" id="photoTagFilterBar"></div>
-          <div class="photo-grid" id="photoGrid"></div>
+          <div class="diary-feed" id="exerciseFeed"></div>
         </div>
 
         <div class="view" id="view-assistant" hidden>
@@ -531,44 +490,6 @@
     </div>
   </div>
 
-  <!-- 일기 추가/수정 모달 -->
-  <div class="modal-overlay" id="diaryModalOverlay" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="diaryModalTitle">
-      <h3 id="diaryModalTitle">일기 쓰기</h3>
-      <form id="diaryForm">
-        <label>
-          날짜
-          <input type="date" id="diaryDateInput" required />
-        </label>
-        <div class="mood-picker" id="diaryMoodPicker">
-          <span class="mood-picker-label">오늘 기분</span>
-          <button type="button" class="mood-btn" data-mood="😊">😊</button>
-          <button type="button" class="mood-btn" data-mood="😐">😐</button>
-          <button type="button" class="mood-btn" data-mood="😢">😢</button>
-          <button type="button" class="mood-btn" data-mood="😡">😡</button>
-          <button type="button" class="mood-btn" data-mood="😴">😴</button>
-          <input type="hidden" id="diaryMoodInput" value="" />
-        </div>
-        <label>
-          내용
-          <textarea id="diaryTextInput" rows="6" placeholder="오늘 하루는 어땠나요?"></textarea>
-        </label>
-        <label>
-          사진 추가 (최대 4장)
-          <input type="file" id="diaryPhotoInput" accept="image/*" multiple />
-        </label>
-        <div class="diary-photo-preview" id="diaryPhotoPreview"></div>
-        <div class="modal-actions">
-          <button type="button" class="ghost-btn danger" id="deleteDiaryBtn" hidden>삭제</button>
-          <div class="modal-actions-right">
-            <button type="button" class="ghost-btn" id="cancelDiaryBtn">취소</button>
-            <button type="submit" class="primary-btn">저장</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <!-- 베이스 연습 기록 추가/수정 모달 -->
   <div class="modal-overlay" id="practiceModalOverlay" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="practiceModalTitle">
@@ -601,57 +522,27 @@
     </div>
   </div>
 
-  <!-- 시험 · 마감 추가/수정 모달 -->
-  <div class="modal-overlay" id="examModalOverlay" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="examModalTitle">
-      <h3 id="examModalTitle">시험 · 마감 추가</h3>
-      <form id="examForm">
-        <label>
-          이름
-          <input type="text" id="examNameInput" placeholder="예: 중간고사, 과제 마감" required />
-        </label>
-        <label>
-          날짜
-          <input type="date" id="examDateInput" required />
-        </label>
-        <label>
-          과목 (선택)
-          <select id="examSubjectInput"></select>
-        </label>
-        <div class="modal-actions">
-          <button type="button" class="ghost-btn danger" id="deleteExamBtn" hidden>삭제</button>
-          <div class="modal-actions-right">
-            <button type="button" class="ghost-btn" id="cancelExamBtn">취소</button>
-            <button type="submit" class="primary-btn">저장</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- 공부 기록 추가/수정 모달 -->
+  <!-- 공부 계획 추가/수정 모달 -->
   <div class="modal-overlay" id="studyModalOverlay" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="studyModalTitle">
-      <h3 id="studyModalTitle">공부 기록</h3>
+      <h3 id="studyModalTitle">공부 계획 추가</h3>
       <form id="studyForm">
         <label>
           날짜
           <input type="date" id="studyDateInput" required />
         </label>
         <div class="checklist-section">
-          <span class="checklist-label">과목별 체크리스트</span>
+          <span class="checklist-label">이 날 해야 할 일</span>
           <ul class="checklist-items" id="studyChecklistItems"></ul>
           <div class="checklist-add-row">
-            <select id="studyChecklistSubjectInput"></select>
+            <select id="studyItemTypeInput">
+              <option value="study">공부</option>
+              <option value="assignment">과제</option>
+            </select>
             <input type="text" id="studyChecklistInput" placeholder="항목 추가 후 Enter (예: 문제집 1챕터)" />
             <button type="button" class="ghost-btn" id="studyChecklistAddBtn">추가</button>
           </div>
-          <p class="modal-note" id="studyNoSubjectNote" hidden>먼저 "과목 관리"에서 과목을 추가해주세요.</p>
         </div>
-        <label>
-          오늘 공부한 내용 &amp; 소감
-          <textarea id="studyTextInput" rows="6" placeholder="오늘 무엇을 공부했고 소감이 어땠는지 적어보세요"></textarea>
-        </label>
         <div class="modal-actions">
           <button type="button" class="ghost-btn danger" id="deleteStudyBtn" hidden>삭제</button>
           <div class="modal-actions-right">
@@ -663,25 +554,29 @@
     </div>
   </div>
 
-  <!-- 사진 상세/태그 편집 모달 -->
-  <div class="modal-overlay" id="photoModalOverlay" hidden>
-    <div class="modal photo-modal" role="dialog" aria-modal="true" aria-labelledby="photoModalTitle">
-      <h3 id="photoModalTitle">사진</h3>
-      <div class="photo-modal-image-wrap">
-        <button type="button" class="photo-nav-btn photo-nav-prev" id="photoPrevBtn" aria-label="이전 사진">‹</button>
-        <img class="photo-modal-image" id="photoModalImage" alt="" />
-        <button type="button" class="photo-nav-btn photo-nav-next" id="photoNextBtn" aria-label="다음 사진">›</button>
-      </div>
-      <button type="button" class="ghost-btn" id="downloadPhotoBtn">⬇ 다운로드</button>
-      <form id="photoForm">
+  <!-- 운동 기록 추가/수정 모달 -->
+  <div class="modal-overlay" id="exerciseModalOverlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="exerciseModalTitle">
+      <h3 id="exerciseModalTitle">운동 기록</h3>
+      <form id="exerciseForm">
         <label>
-          태그 (쉼표로 구분)
-          <input type="text" id="photoTagsInput" placeholder="예: 음식, 여행, 가족" />
+          날짜
+          <input type="date" id="exerciseDateInput" required />
         </label>
+        <div class="checklist-section">
+          <span class="checklist-label">운동 종류별 체크리스트</span>
+          <ul class="checklist-items" id="exerciseChecklistItems"></ul>
+          <div class="checklist-add-row">
+            <select id="exerciseChecklistCategoryInput"></select>
+            <input type="text" id="exerciseChecklistInput" placeholder="항목 추가 후 Enter (예: 러닝 30분)" />
+            <button type="button" class="ghost-btn" id="exerciseChecklistAddBtn">추가</button>
+          </div>
+          <p class="modal-note" id="exerciseNoCategoryNote" hidden>먼저 "운동 종류 관리"에서 종류를 추가해주세요.</p>
+        </div>
         <div class="modal-actions">
-          <button type="button" class="ghost-btn danger" id="deletePhotoBtn">삭제</button>
+          <button type="button" class="ghost-btn danger" id="deleteExerciseLogBtn" hidden>삭제</button>
           <div class="modal-actions-right">
-            <button type="button" class="ghost-btn" id="cancelPhotoBtn">닫기</button>
+            <button type="button" class="ghost-btn" id="cancelExerciseBtn">취소</button>
             <button type="submit" class="primary-btn">저장</button>
           </div>
         </div>
@@ -694,10 +589,9 @@
   <script src="scripts/schedule.js"></script>
   <script src="scripts/reminder.js"></script>
   <script src="scripts/settings.js"></script>
-  <script src="scripts/diary.js"></script>
   <script src="scripts/practice.js"></script>
   <script src="scripts/study.js"></script>
-  <script src="scripts/photos.js"></script>
+  <script src="scripts/exercise.js"></script>
   <script src="scripts/search.js"></script>
   <script src="scripts/dashboard-widgets.js"></script>
   <script src="scripts/main.js"></script>

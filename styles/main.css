@@ -1048,40 +1048,6 @@ button.nav-item {
   font-weight: 700;
 }
 
-.diary-filter-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.diary-filter-bar input[type="text"] {
-  flex: 1;
-  min-width: 160px;
-}
-
-.diary-filter-bar input,
-.diary-filter-bar select {
-  font-family: inherit;
-  background: var(--bg-elevated-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
-  color: var(--text);
-  outline: none;
-}
-
-.diary-filter-bar input:focus {
-  border-color: var(--accent);
-}
-
-.diary-filter-sep {
-  color: var(--text-faint);
-  font-size: 12px;
-}
-
 .diary-feed {
   display: flex;
   flex-direction: column;
@@ -1114,40 +1080,6 @@ button.nav-item {
   white-space: pre-wrap;
 }
 
-.diary-card-photos {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.diary-card-photos img {
-  width: 72px;
-  height: 72px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-
-.diary-photo-preview {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.diary-thumb {
-  position: relative;
-  width: 64px;
-  height: 64px;
-}
-
-.diary-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-
 .diary-thumb-remove {
   position: absolute;
   top: -6px;
@@ -1173,8 +1105,7 @@ button.nav-item {
   color: var(--text-muted);
 }
 
-#view-practice .diary-header > div,
-#view-study .diary-header > div {
+#view-practice .diary-header > div {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1217,66 +1148,65 @@ button.nav-item {
 }
 
 /* ---------- Study planner ---------- */
-.exam-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 28px;
-}
-
-.exam-item {
+.diary-card-header-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
-.exam-item:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.exam-item.past {
-  opacity: 0.55;
-}
-
-.exam-item.urgent {
-  border-color: #f87171;
-}
-
-.exam-dday-badge {
+.diary-card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
-  min-width: 52px;
-  text-align: center;
+}
+
+.diary-card-header-row .diary-card-date,
+.diary-card-header-row .practice-card-checklist {
+  margin: 0;
+}
+
+.card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text-muted);
   font-size: 12px;
+  cursor: pointer;
+}
+
+.card-action-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.study-item-type {
+  flex-shrink: 0;
+  font-size: 10px;
   font-weight: 700;
-  padding: 4px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
+}
+
+.study-item-type.type-study {
   background: var(--accent-soft);
   color: var(--accent);
 }
 
-.exam-item.urgent .exam-dday-badge {
-  background: rgba(248, 113, 113, 0.15);
-  color: #f87171;
+.study-item-type.type-assignment {
+  background: rgba(251, 146, 60, 0.15);
+  color: #fb923c;
 }
 
-.exam-item-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.exam-item-meta {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-left: 6px;
-}
-
-#subjectManageSection {
+/* ---------- Exercise ---------- */
+#exerciseCategoryManageSection {
   margin-bottom: 28px;
 }
 
@@ -1291,38 +1221,7 @@ button.nav-item {
   margin-top: 0;
 }
 
-/* ---------- Photo library ---------- */
-.tag-filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.tag-chip {
-  font-family: inherit;
-  font-size: 12px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-
-.tag-chip:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.tag-chip.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
-}
-
+/* ---------- Photo/file grid (shared: practice sheet library) ---------- */
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -1350,216 +1249,11 @@ button.nav-item {
   transform: scale(1.04);
 }
 
-.photo-cell-tag {
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 999px;
-}
-
-.photo-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.photo-header-actions select {
-  font-family: inherit;
-  background: var(--bg-elevated-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.photo-select-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
-  border-radius: 10px;
-  padding: 10px 14px;
-  margin-bottom: 14px;
-  font-size: 13px;
-  color: var(--accent);
-}
-
-.photo-cell.selected {
-  outline: 3px solid var(--accent);
-  outline-offset: -3px;
-}
-
-.photo-cell-check {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.photo-modal {
-  width: 480px;
-}
-
-.photo-modal-image {
-  width: 100%;
-  max-height: 360px;
-  object-fit: contain;
-  border-radius: 10px;
-  background: var(--bg-elevated-2);
-}
-
-.photo-modal-image-wrap {
-  position: relative;
-  margin-bottom: 10px;
-}
-
-.photo-nav-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-  font-size: 18px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.photo-nav-btn:hover {
-  background: rgba(0, 0, 0, 0.7);
-}
-
-.photo-nav-prev {
-  left: 8px;
-}
-
-.photo-nav-next {
-  right: 8px;
-}
-
-#downloadPhotoBtn {
-  width: 100%;
-  margin-bottom: 14px;
-}
-
-/* ---------- Diary: mood, streak, mini calendar ---------- */
 .diary-streak {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
   margin-left: 8px;
-}
-
-.mood-picker {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.mood-picker-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-right: 4px;
-}
-
-.mood-btn {
-  font-size: 20px;
-  background: var(--bg-elevated-2);
-  border: 1.5px solid transparent;
-  border-radius: 8px;
-  padding: 4px 8px;
-  cursor: pointer;
-  opacity: 0.5;
-}
-
-.mood-btn:hover {
-  opacity: 0.8;
-}
-
-.mood-btn.selected {
-  border-color: var(--accent);
-  opacity: 1;
-  background: var(--accent-soft);
-}
-
-.diary-card-mood {
-  font-size: 16px;
-  margin-left: 6px;
-}
-
-.diary-mini-calendar-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.diary-mini-calendar {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 3px;
-  margin-bottom: 16px;
-  max-width: 320px;
-}
-
-.diary-mini-day {
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  border-radius: 6px;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  position: relative;
-}
-
-.diary-mini-day:hover {
-  background: var(--bg-elevated-2);
-}
-
-.diary-mini-day.has-entry {
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.diary-mini-day.has-entry::after {
-  content: "";
-  position: absolute;
-  bottom: 2px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-.diary-mini-day.outside {
-  visibility: hidden;
 }
 
 /* ---------- Settings form ---------- */

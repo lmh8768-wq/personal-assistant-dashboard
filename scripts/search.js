@@ -12,39 +12,12 @@
         }
       });
     }
-    if (window.DiaryStore) {
-      window.DiaryStore.getAll().forEach((d) => {
-        if ((d.text || "").toLowerCase().includes(q)) {
-          const label = d.text ? (d.text.length > 30 ? d.text.slice(0, 30) + "…" : d.text) : d.date;
-          results.push({ type: "일기", label, view: "diary" });
-        }
-      });
-    }
     if (window.PracticeStore) {
       window.PracticeStore.getAll().forEach((p) => {
         if ((p.text || "").toLowerCase().includes(q)) {
           const label = p.text.length > 30 ? p.text.slice(0, 30) + "…" : p.text;
           results.push({ type: "연습", label, view: "practice" });
         }
-      });
-    }
-    if (window.StudyDiaryStore) {
-      window.StudyDiaryStore.getAll().forEach((s) => {
-        if ((s.text || "").toLowerCase().includes(q)) {
-          const label = s.text.length > 30 ? s.text.slice(0, 30) + "…" : s.text;
-          results.push({ type: "공부", label, view: "study" });
-        }
-      });
-    }
-    if (window.PhotoStore) {
-      const seenTags = new Set();
-      window.PhotoStore.getAll().forEach((p) => {
-        (p.tags || []).forEach((tag) => {
-          if (tag.toLowerCase().includes(q) && !seenTags.has(tag)) {
-            seenTags.add(tag);
-            results.push({ type: "사진", label: `#${tag}`, view: "photos" });
-          }
-        });
       });
     }
     return results.slice(0, 10);

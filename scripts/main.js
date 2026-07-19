@@ -53,10 +53,9 @@ const viewSections = document.querySelectorAll(".view");
 const viewTitles = {
   dashboard: "대시보드",
   schedule: "일정 · 할 일",
-  diary: "일기장",
   practice: "베이스 연습 일지",
   study: "스터디 플래너",
-  photos: "사진첩",
+  exercise: "운동",
   assistant: "비서에게 묻기",
   settings: "설정",
 };
@@ -113,11 +112,6 @@ if (window.SettingsView) {
   window.SettingsView.init();
 }
 
-// ---------- Diary feature ----------
-if (window.DiaryView) {
-  window.DiaryView.init();
-}
-
 // ---------- Bass practice log feature ----------
 if (window.PracticeView) {
   window.PracticeView.init();
@@ -128,9 +122,9 @@ if (window.StudyView) {
   window.StudyView.init();
 }
 
-// ---------- Photo library feature ----------
-if (window.PhotoLibraryView) {
-  window.PhotoLibraryView.init();
+// ---------- Exercise checklist feature ----------
+if (window.ExerciseView) {
+  window.ExerciseView.init();
 }
 
 // ---------- Global search ----------

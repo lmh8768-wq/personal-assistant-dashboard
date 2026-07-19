@@ -54,18 +54,8 @@
       });
     }
 
-    const diaryThisMonth = window.DiaryStore
-      ? window.DiaryStore.getAll().filter((e) => (e.date || "").startsWith(monthPrefix)).length
-      : 0;
-
-    const photosThisMonth = window.PhotoStore
-      ? window.PhotoStore.getAll().filter((p) => (p.createdAt || "").startsWith(monthPrefix)).length
-      : 0;
-
     const rows = [
       ["완료한 일정", completedSchedules],
-      ["작성한 일기", diaryThisMonth],
-      ["추가한 사진", photosThisMonth],
     ];
 
     list.innerHTML = "";
