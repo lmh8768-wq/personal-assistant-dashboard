@@ -94,35 +94,20 @@ const formatter = new Intl.DateTimeFormat("ko-KR", {
 });
 pageDate.textContent = formatter.format(today);
 
-// ---------- Schedule feature ----------
-if (window.ScheduleView) {
-  window.ScheduleView.init();
-}
+// ---------- Feature init ----------
+// Called by cloud-sync.js once it has pulled the latest data (or immediately,
+// via the cloud-sync.js script tag's onerror fallback, if that script can't load).
+window.initFeatures = function initFeatures() {
+  if (window.__featuresInitialized) return;
+  window.__featuresInitialized = true;
 
-// ---------- Settings & shortcuts ----------
-if (window.SettingsView) {
-  window.SettingsView.init();
-}
-
-// ---------- Bass practice log feature ----------
-if (window.PracticeView) {
-  window.PracticeView.init();
-}
-
-// ---------- Study planner feature ----------
-if (window.StudyView) {
-  window.StudyView.init();
-}
-
-// ---------- Exercise checklist feature ----------
-if (window.ExerciseView) {
-  window.ExerciseView.init();
-}
-
-// ---------- Global search ----------
-if (window.GlobalSearch) {
-  window.GlobalSearch.init();
-}
+  if (window.ScheduleView) window.ScheduleView.init();
+  if (window.SettingsView) window.SettingsView.init();
+  if (window.PracticeView) window.PracticeView.init();
+  if (window.StudyView) window.StudyView.init();
+  if (window.ExerciseView) window.ExerciseView.init();
+  if (window.GlobalSearch) window.GlobalSearch.init();
+};
 
 // ---------- Open Claude app (stand-in for AI features) ----------
 document.querySelectorAll(".open-claude-btn").forEach((btn) => {

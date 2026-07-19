@@ -15,7 +15,30 @@
 </head>
 <body>
 
-  <div class="app">
+  <!-- 로그인 / 동기화 게이트 -->
+  <div class="modal-overlay auth-gate" id="authGate">
+    <div class="modal auth-modal">
+      <div id="authLoading">
+        <p class="auth-loading-text">동기화 중...</p>
+        <button type="button" class="ghost-btn" id="authOfflineBtn" hidden>오프라인으로 계속하기</button>
+      </div>
+      <form id="authLoginForm" hidden>
+        <h3>로그인</h3>
+        <label>
+          이메일
+          <input type="email" id="authEmailInput" required autocomplete="username" />
+        </label>
+        <label>
+          비밀번호
+          <input type="password" id="authPasswordInput" required autocomplete="current-password" />
+        </label>
+        <p class="auth-error" id="authError"></p>
+        <button type="submit" class="primary-btn">로그인</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="app" id="appRoot" hidden>
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
@@ -536,5 +559,11 @@
   <script src="scripts/exercise.js"></script>
   <script src="scripts/search.js"></script>
   <script src="scripts/main.js"></script>
+
+  <!-- 클라우드 동기화 (Firebase) -->
+  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js" onerror="window.initFeatures && window.initFeatures()"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
+  <script src="scripts/cloud-sync.js" onerror="window.initFeatures && window.initFeatures()"></script>
 </body>
 </html>
