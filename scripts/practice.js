@@ -3,6 +3,10 @@
   const CHECKLIST_KEY = "assistant.practiceChecklist.v1";
   const SHEETS_KEY = "assistant.practiceSheets.v1";
   const MAX_WIDTH = 900;
+  // PDFs are stored as-is (no compression), and cloud sync bundles all app
+  // data into a single ~1MB document — one large PDF can blow that budget
+  // and silently break syncing for everything, not just sheets. Cap it.
+  const MAX_PDF_BYTES = 500 * 1024;
 
   const DEFAULT_CHECKLIST = [
     { id: "pc_default_1", label: "튜닝 확인" },
@@ -178,9 +182,14 @@
 
   async function handleSheetUploadChange(e) {
     const files = Array.from(e.target.files || []);
+    let skippedForSize = 0;
     for (const file of files) {
+      const isPdf = file.type === "application/pdf";
+      if (isPdf && file.size > MAX_PDF_BYTES) {
+        skippedForSize += 1;
+        continue;
+      }
       try {
-        const isPdf = file.type === "application/pdf";
         const dataUrl = isPdf ? await readAsDataUrl(file) : await resizeImage(file);
         SheetStore.add({ name: file.name, dataUrl, isPdf });
       } catch {
@@ -189,6 +198,9 @@
     }
     e.target.value = "";
     renderSheetGrid();
+    if (skippedForSize > 0 && window.Toast) {
+      window.Toast.show(`${skippedForSize}개 파일이 너무 커서 건너뛰었어요 (PDF는 500KB 이하만 지원)`);
+    }
   }
 
   function renderSheetGrid() {

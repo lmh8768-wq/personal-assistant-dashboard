@@ -176,6 +176,13 @@
     pushPending = false;
     const payload = JSON.stringify(collectLocalState());
     logSync(`pushing to cloud... (${payload.length} chars)`);
+    if (payload.length > 800000) {
+      // Firestore caps a document at ~1MiB; getting this close means the
+      // next write could be rejected outright (most likely culprit: a big
+      // PDF in the practice sheet library). Flag it clearly rather than
+      // letting it fail with an opaque error later.
+      logSync(`WARNING: payload is ${(payload.length / 1024).toFixed(0)}KB, nearing Firestore's 1MB doc limit`);
+    }
     db.collection("users").doc(user.uid).set({
       payload,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
