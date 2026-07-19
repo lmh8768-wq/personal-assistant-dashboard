@@ -201,6 +201,12 @@
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
       console.error("cloud sync: failed to set auth persistence:", err);
     });
+    // Queue writes to durable on-device storage first, so a save survives
+    // even if iOS kills the tab before the network request finishes — the
+    // SDK re-sends it automatically next time the app is open and online.
+    db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+      console.error("cloud sync: failed to enable offline persistence:", err);
+    });
 
     document.getElementById("authLoginForm").addEventListener("submit", handleLogin);
     document.getElementById("authOfflineBtn").addEventListener("click", handleOfflineContinue);
