@@ -66,15 +66,21 @@
     applyingRemote = false;
   }
 
+  let pushPending = false;
+
   function schedulePush() {
     if (applyingRemote) return;
+    pushPending = true;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(pushToCloud, PUSH_DEBOUNCE_MS);
   }
 
   function pushToCloud() {
+    clearTimeout(pushTimer);
+    if (!pushPending) return;
     const user = auth && auth.currentUser;
     if (!user || !db) return;
+    pushPending = false;
     const payload = JSON.stringify(collectLocalState());
     db.collection("users").doc(user.uid).set({
       payload,
@@ -82,6 +88,17 @@
       updatedBy: DEVICE_ID,
     }).catch((err) => console.error("cloud sync push failed:", err));
   }
+
+  // iOS can suspend a backgrounded tab's timers before a debounced push
+  // fires, silently dropping the change. Flush immediately whenever the
+  // page is about to be hidden/unloaded so nothing gets lost.
+  function flushPushNow() {
+    if (pushPending) pushToCloud();
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushPushNow();
+  });
+  window.addEventListener("pagehide", flushPushNow);
 
   // ---------- UI helpers ----------
   function showLoading() {
