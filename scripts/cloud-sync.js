@@ -179,6 +179,11 @@
     firebase.initializeApp(firebaseConfig);
     auth = firebase.auth();
     db = firebase.firestore();
+    // Keep the session across restarts/reloads (this is Firebase's default,
+    // but set it explicitly so a stale login never gets treated as "logged out").
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
+      console.error("cloud sync: failed to set auth persistence:", err);
+    });
 
     document.getElementById("authLoginForm").addEventListener("submit", handleLogin);
     document.getElementById("authOfflineBtn").addEventListener("click", handleOfflineContinue);
