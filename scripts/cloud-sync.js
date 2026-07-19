@@ -53,19 +53,31 @@
     el.textContent = entries.length ? entries.join("\n") : "(로그 없음)";
   }
 
-  // ---------- localStorage interception (auto-push on any local write) ----------
+  // ---------- localStorage change detection ----------
+  // We *try* to intercept localStorage.setItem/removeItem so a local write
+  // triggers a push immediately, but Safari can silently ignore reassigning
+  // Storage methods (no error, the override just never takes effect). So
+  // this is a best-effort optimization only — the real, browser-agnostic
+  // detection is the poller below, which just diffs a snapshot of the
+  // assistant.* keys on an interval and can never fail to notice a change.
   const originalSetItem = localStorage.setItem.bind(localStorage);
   const originalRemoveItem = localStorage.removeItem.bind(localStorage);
 
-  localStorage.setItem = function (key, value) {
-    originalSetItem(key, value);
-    if (isAppKey(key)) schedulePush();
-  };
+  try {
+    localStorage.setItem = function (key, value) {
+      originalSetItem(key, value);
+      if (isAppKey(key)) schedulePush();
+    };
+    localStorage.removeItem = function (key) {
+      originalRemoveItem(key);
+      if (isAppKey(key)) schedulePush();
+    };
+  } catch (err) {
+    logSync(`localStorage patch failed (relying on poller): ${err.message}`);
+  }
 
-  localStorage.removeItem = function (key) {
-    originalRemoveItem(key);
-    if (isAppKey(key)) schedulePush();
-  };
+  const POLL_INTERVAL_MS = 1500;
+  let lastSnapshotStr = null;
 
   function collectLocalState() {
     const data = {};
@@ -76,6 +88,31 @@
     }
     return data;
   }
+
+  function currentSnapshotStr() {
+    return JSON.stringify(collectLocalState());
+  }
+
+  function checkForLocalChanges() {
+    if (applyingRemote) return;
+    const snap = currentSnapshotStr();
+    if (lastSnapshotStr !== null && snap !== lastSnapshotStr) {
+      lastSnapshotStr = snap;
+      schedulePush();
+    } else {
+      lastSnapshotStr = snap;
+    }
+  }
+
+  setInterval(() => {
+    checkForLocalChanges();
+    // Retry a push that was queued before sign-in finished (e.g. changes
+    // made in the offline-continue fallback) once we do have a session.
+    if (hasPendingLocalChanges() && !pushPending && auth && auth.currentUser) {
+      pushPending = true;
+      pushToCloud();
+    }
+  }, POLL_INTERVAL_MS);
 
   function applyRemoteData(payloadStr) {
     let data;
@@ -94,6 +131,9 @@
       if (isAppKey(key)) originalSetItem(key, data[key]);
     });
     applyingRemote = false;
+    // The state we just wrote is already in sync — don't treat it as a
+    // pending local change on the next poll tick.
+    lastSnapshotStr = currentSnapshotStr();
   }
 
   // Durable marker (survives reload/app-kill): "local storage may contain
@@ -155,6 +195,7 @@
   // fires, silently dropping the change. Flush immediately whenever the
   // page is about to be hidden/unloaded so nothing gets lost.
   function flushPushNow() {
+    checkForLocalChanges();
     if (pushPending) {
       logSync("page hiding, flushing pending push now");
       pushToCloud();
