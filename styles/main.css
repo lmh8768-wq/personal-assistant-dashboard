@@ -1625,6 +1625,20 @@ button.nav-item {
   }
 }
 
+/* ---------- iOS standalone (Add to Home Screen) safe areas ---------- */
+@media (display-mode: standalone) {
+  .topbar {
+    padding-top: calc(18px + env(safe-area-inset-top));
+  }
+  .sidebar {
+    padding-top: calc(20px + env(safe-area-inset-top));
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+  .content {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  }
+}
+
 /* ---------- Print (일정표) ---------- */
 @media print {
   .sidebar,
