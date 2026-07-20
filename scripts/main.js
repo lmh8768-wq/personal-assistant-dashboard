@@ -78,16 +78,28 @@ function showView(viewName) {
   }
 }
 
+// Device-local UI state (not synced across devices, like "theme").
+const CURRENT_VIEW_KEY = "currentView";
+
+function setActiveView(viewName) {
+  const item = [...navItems].find((n) => n.dataset.view === viewName);
+  if (!item) return;
+  navItems.forEach((n) => n.classList.remove("active"));
+  item.classList.add("active");
+  pageTitle.textContent = viewTitles[viewName] ?? "";
+  showView(viewName);
+  localStorage.setItem(CURRENT_VIEW_KEY, viewName);
+}
+
 navItems.forEach((item) => {
   item.addEventListener("click", (e) => {
     e.preventDefault();
-    navItems.forEach((n) => n.classList.remove("active"));
-    item.classList.add("active");
-    pageTitle.textContent = viewTitles[item.dataset.view] ?? "";
-    showView(item.dataset.view);
+    setActiveView(item.dataset.view);
     sidebar.classList.remove("mobile-open");
   });
 });
+
+setActiveView(localStorage.getItem(CURRENT_VIEW_KEY) || "dashboard");
 
 document.getElementById("dashboardGoToScheduleBtn")?.addEventListener("click", () => {
   document.querySelector('.nav-item[data-view="schedule"]')?.click();
