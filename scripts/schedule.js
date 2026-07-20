@@ -3,7 +3,6 @@
   let selectedDate = new Date();
   let editingId = null;
   let editingOccurrenceDate = null;
-  let viewMode = "month"; // "month" | "week" | "agenda"
   let categoryFilter = null;
   let scheduleSelectMode = false;
   let scheduleSelectedIds = new Set();
@@ -11,8 +10,17 @@
   const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
   const DEFAULT_IMPORTANCE = 3;
   const HIDE_COMPLETED_KEY = "assistant.hideCompleted.v1";
+  const UPCOMING_RANGE_KEY = "assistant.upcomingRangeDays.v1";
+  const UPCOMING_RANGE_OPTIONS = [3, 7, 30];
 
   let hideCompleted = localStorage.getItem(HIDE_COMPLETED_KEY) === "true";
+
+  function loadUpcomingRangeDays() {
+    const saved = Number(localStorage.getItem(UPCOMING_RANGE_KEY));
+    return UPCOMING_RANGE_OPTIONS.includes(saved) ? saved : 7;
+  }
+
+  let upcomingRangeDays = loadUpcomingRangeDays();
 
   function pad2(n) {
     return String(n).padStart(2, "0");
@@ -32,15 +40,6 @@
     const start = new Date(year, month, 1 - firstOfMonth.getDay());
     const days = [];
     for (let i = 0; i < 42; i++) {
-      days.push(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
-    }
-    return days;
-  }
-
-  function buildWeekGrid(date) {
-    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate() - date.getDay());
-    const days = [];
-    for (let i = 0; i < 7; i++) {
       days.push(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
     }
     return days;
@@ -157,15 +156,9 @@
     return li;
   }
 
-  // ---------- Calendar area (month / week / agenda) ----------
+  // ---------- Calendar area (month view) ----------
   function renderCalendarArea() {
-    if (viewMode === "week") {
-      renderWeekView();
-    } else if (viewMode === "agenda") {
-      renderAgendaList();
-    } else {
-      renderCalendar();
-    }
+    renderCalendar();
   }
 
   function buildCalendarCell(d, isOutside) {
@@ -203,7 +196,7 @@
 
     cell.addEventListener("click", () => {
       selectedDate = d;
-      if (viewMode === "month" && d.getMonth() !== viewDate.getMonth()) {
+      if (d.getMonth() !== viewDate.getMonth()) {
         viewDate = new Date(d.getFullYear(), d.getMonth(), 1);
       }
       renderCalendarArea();
@@ -240,66 +233,6 @@
     });
   }
 
-  function renderWeekView() {
-    const days = buildWeekGrid(selectedDate);
-    const first = days[0];
-    const last = days[6];
-    document.getElementById("calendarTitle").textContent =
-      `${first.getMonth() + 1}월 ${first.getDate()}일 – ${last.getMonth() + 1}월 ${last.getDate()}일`;
-
-    const grid = document.getElementById("calendarGrid");
-    grid.innerHTML = "";
-    days.forEach((d) => grid.appendChild(buildCalendarCell(d, false)));
-  }
-
-  function renderAgendaList() {
-    document.getElementById("calendarTitle").textContent = "다가오는 일정";
-    const container = document.getElementById("agendaList");
-    container.innerHTML = "";
-
-    const today = new Date();
-    const todayStr = toDateStr(today);
-    let hasAny = false;
-
-    for (let i = 0; i < 60; i++) {
-      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-      const dStr = toDateStr(d);
-      let items = window.ScheduleStore.getOccurrences(dStr);
-      items = applyCategoryFilter(applyHideCompleted(items));
-      if (items.length === 0) continue;
-      hasAny = true;
-
-      const label = document.createElement("div");
-      label.className = "agenda-group-label";
-      label.textContent = formatDayLabel(d) + (dStr === todayStr ? " · 오늘" : "");
-      container.appendChild(label);
-
-      const list = document.createElement("ul");
-      list.className = "schedule-list";
-      items.forEach((item) => list.appendChild(renderScheduleItem(item, (it) => openModal("edit", it))));
-      container.appendChild(list);
-    }
-
-    if (!hasAny) {
-      container.innerHTML = `<div class="empty-state"><span class="empty-icon">▤</span><p>다가오는 일정이 없어요</p></div>`;
-    }
-  }
-
-  function setViewMode(mode) {
-    viewMode = mode;
-    document.querySelectorAll(".view-mode-tab").forEach((tab) => {
-      tab.classList.toggle("active", tab.dataset.mode === mode);
-    });
-    const isAgenda = mode === "agenda";
-    document.getElementById("calendarGrid").hidden = isAgenda;
-    document.getElementById("calendarWeekdays").hidden = isAgenda;
-    document.getElementById("agendaList").hidden = !isAgenda;
-    document.getElementById("prevMonthBtn").hidden = isAgenda;
-    document.getElementById("nextMonthBtn").hidden = isAgenda;
-    document.getElementById("todayBtn").hidden = isAgenda;
-    renderCalendarArea();
-  }
-
   // ---------- Filter bar ----------
   function renderScheduleFilterBar() {
     const bar = document.getElementById("scheduleFilterBar");
@@ -314,7 +247,6 @@
       categoryFilter = null;
       renderScheduleFilterBar();
       renderDayList();
-      if (viewMode === "agenda") renderAgendaList();
     });
     bar.appendChild(allChip);
 
@@ -333,7 +265,6 @@
         categoryFilter = categoryFilter === cat.key ? null : cat.key;
         renderScheduleFilterBar();
         renderDayList();
-        if (viewMode === "agenda") renderAgendaList();
       });
       bar.appendChild(chip);
     });
@@ -471,7 +402,7 @@
 
     const today = new Date();
     const items = [];
-    for (let i = 1; i <= 7; i++) {
+    for (let i = 1; i <= upcomingRangeDays; i++) {
       const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
       items.push(...window.ScheduleStore.getOccurrences(toDateStr(d)));
     }
@@ -739,99 +670,30 @@
     });
   }
 
-  // ---------- iCalendar export ----------
-  function escapeIcsText(s) {
-    return (s || "").replace(/[\\;,]/g, (m) => "\\" + m).replace(/\n/g, "\\n");
-  }
-
-  function formatIcsDate(dateStr) {
-    return dateStr.replace(/-/g, "");
-  }
-
-  function buildRruleFreq(repeatType) {
-    switch (repeatType) {
-      case "daily":
-        return "FREQ=DAILY";
-      case "weekdays":
-        return "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR";
-      case "every10days":
-        return "FREQ=DAILY;INTERVAL=10";
-      case "weekly":
-        return "FREQ=WEEKLY";
-      case "monthly":
-        return "FREQ=MONTHLY";
-      case "yearly":
-        return "FREQ=YEARLY";
-      default:
-        return null;
-    }
-  }
-
-  function buildIcsContent() {
-    const items = window.ScheduleStore.getAll();
-    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Assistant//Schedule//KO"];
-
-    items.forEach((item) => {
-      lines.push("BEGIN:VEVENT");
-      lines.push(`UID:${item.id}@assistant`);
-      lines.push(`DTSTART;VALUE=DATE:${formatIcsDate(item.date)}`);
-      lines.push(`SUMMARY:${escapeIcsText(item.title)}`);
-      if (item.memo) lines.push(`DESCRIPTION:${escapeIcsText(item.memo)}`);
-
-      const repeat = item.repeat || { type: "none" };
-      const rruleFreq = buildRruleFreq(repeat.type);
-      if (rruleFreq) {
-        let rrule = rruleFreq;
-        if (repeat.until) rrule += `;UNTIL=${repeat.until.replace(/-/g, "")}T235959Z`;
-        lines.push(`RRULE:${rrule}`);
-      }
-      lines.push("END:VEVENT");
-    });
-
-    lines.push("END:VCALENDAR");
-    return lines.join("\r\n");
-  }
-
-  function handleExportIcs() {
-    const content = buildIcsContent();
-    const blob = new Blob([content], { type: "text/calendar" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "schedule.ics";
-    a.click();
-    URL.revokeObjectURL(url);
-    window.Toast.show("일정을 캘린더 파일(.ics)로 내보냈어요");
-  }
-
   function init() {
     document.getElementById("toggleHideCompletedBtn").textContent = hideCompleted
       ? "완료 항목 보기"
       : "완료 항목 숨기기";
     document.getElementById("toggleHideCompletedBtn").addEventListener("click", toggleHideCompleted);
     document.getElementById("duplicateScheduleBtn").addEventListener("click", handleDuplicate);
-    document.getElementById("printScheduleBtn").addEventListener("click", () => window.print());
-    document.getElementById("exportIcsBtn").addEventListener("click", handleExportIcs);
 
-    document.querySelectorAll(".view-mode-tab").forEach((tab) => {
-      tab.addEventListener("click", () => setViewMode(tab.dataset.mode));
-    });
+    const upcomingRangeSelect = document.getElementById("upcomingRangeSelect");
+    if (upcomingRangeSelect) {
+      upcomingRangeSelect.value = String(upcomingRangeDays);
+      upcomingRangeSelect.addEventListener("change", (e) => {
+        upcomingRangeDays = Number(e.target.value);
+        localStorage.setItem(UPCOMING_RANGE_KEY, String(upcomingRangeDays));
+        renderUpcoming();
+      });
+    }
 
     document.getElementById("prevMonthBtn").addEventListener("click", () => {
-      if (viewMode === "week") {
-        selectedDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() - 7);
-      } else {
-        viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);
-      }
+      viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);
       renderCalendarArea();
     });
 
     document.getElementById("nextMonthBtn").addEventListener("click", () => {
-      if (viewMode === "week") {
-        selectedDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + 7);
-      } else {
-        viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
-      }
+      viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
       renderCalendarArea();
     });
 
@@ -898,7 +760,7 @@
       const now = new Date();
       viewDate = new Date(now.getFullYear(), now.getMonth(), 1);
       selectedDate = now;
-      setViewMode("month");
+      renderCalendarArea();
       renderDayList();
     },
   };

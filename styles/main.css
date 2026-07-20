@@ -393,6 +393,17 @@ button.nav-item {
   margin-bottom: 10px;
 }
 
+.panel-header select {
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
 .panel-header h2 {
   margin: 0;
   font-size: 15px;
@@ -770,35 +781,7 @@ button.nav-item {
   margin-bottom: 8px;
 }
 
-/* ---------- Schedule: view tabs, filters ---------- */
-.view-mode-tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 14px;
-  background: var(--bg-elevated-2);
-  border-radius: 10px;
-  padding: 4px;
-  width: fit-content;
-}
-
-.view-mode-tab {
-  font-family: inherit;
-  font-size: 12px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  padding: 6px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.view-mode-tab.active {
-  background: var(--bg-elevated);
-  color: var(--accent);
-  font-weight: 600;
-  box-shadow: var(--shadow);
-}
-
+/* ---------- Schedule: filters ---------- */
 .day-panel-header-actions {
   display: flex;
   align-items: center;
@@ -861,21 +844,6 @@ button.nav-item {
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
-}
-
-.agenda-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 560px;
-  overflow-y: auto;
-}
-
-.agenda-group-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-muted);
-  margin: 8px 0 2px;
 }
 
 .calendar-day-holiday {
@@ -1742,51 +1710,3 @@ button.nav-item {
   }
 }
 
-/* ---------- Print (일정표) ---------- */
-@media print {
-  .sidebar,
-  .topbar,
-  .shortcut-group,
-  .modal-overlay,
-  .toast-container,
-  .day-panel,
-  .template-chip-row,
-  .day-panel-toolbar,
-  .primary-btn,
-  .ghost-btn,
-  .icon-btn {
-    display: none !important;
-  }
-
-  html,
-  body,
-  .app,
-  .main,
-  .content {
-    background: #fff !important;
-    color: #000 !important;
-    display: block !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  .schedule-layout {
-    display: block !important;
-  }
-
-  .calendar-panel {
-    border: none !important;
-    padding: 0 !important;
-  }
-
-  .calendar-day {
-    color: #000 !important;
-    border-color: #ccc !important;
-  }
-
-  .calendar-day.selected,
-  .calendar-day.today {
-    border-color: #000 !important;
-    background: #f0f0f0 !important;
-  }
-}

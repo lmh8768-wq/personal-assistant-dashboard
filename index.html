@@ -160,6 +160,11 @@
             <div class="panel panel-upcoming">
               <div class="panel-header">
                 <h2>다가오는 일정</h2>
+                <select id="upcomingRangeSelect" aria-label="다가오는 일정 범위">
+                  <option value="3">3일 뒤까지</option>
+                  <option value="7" selected>7일 뒤까지</option>
+                  <option value="30">30일 뒤까지</option>
+                </select>
               </div>
               <ul class="schedule-list" id="dashboardUpcomingList"></ul>
             </div>
@@ -170,12 +175,6 @@
 
         <!-- 일정 뷰 -->
         <div class="view" id="view-schedule" hidden>
-          <div class="view-mode-tabs" id="viewModeTabs">
-            <button type="button" class="view-mode-tab active" data-mode="month">월간</button>
-            <button type="button" class="view-mode-tab" data-mode="week">주간</button>
-            <button type="button" class="view-mode-tab" data-mode="agenda">목록</button>
-          </div>
-
           <div class="schedule-layout">
 
             <div class="calendar-panel">
@@ -184,14 +183,11 @@
                 <h2 id="calendarTitle"></h2>
                 <button class="icon-btn" id="nextMonthBtn" aria-label="다음">›</button>
                 <button class="ghost-btn" id="todayBtn">오늘</button>
-                <button class="icon-btn" id="printScheduleBtn" aria-label="인쇄" title="이번 달 일정 인쇄">🖨</button>
-                <button class="icon-btn" id="exportIcsBtn" aria-label="캘린더로 내보내기" title="iCalendar(.ics)로 내보내기">📤</button>
               </div>
               <div class="calendar-weekdays" id="calendarWeekdays">
                 <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
               </div>
               <div class="calendar-grid" id="calendarGrid"></div>
-              <div class="agenda-list" id="agendaList" hidden></div>
             </div>
 
             <div class="day-panel">
