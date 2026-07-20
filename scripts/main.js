@@ -67,6 +67,9 @@ function showView(viewName) {
   if (viewName === "dashboard" && window.ScheduleView) {
     window.ScheduleView.refreshDashboard();
   }
+  if (viewName === "dashboard" && window.PracticeView) {
+    window.PracticeView.refreshDashboard();
+  }
   if (viewName === "settings" && window.SettingsView) {
     window.SettingsView.refreshStorage();
   }

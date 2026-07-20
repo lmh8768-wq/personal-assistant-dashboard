@@ -2,6 +2,8 @@
   const PRACTICE_KEY = "assistant.practice.v1";
   const CHECKLIST_KEY = "assistant.practiceChecklist.v1";
   const SHEETS_KEY = "assistant.practiceSheets.v1";
+  const CURRENT_SONG_KEY = "assistant.practiceCurrentSong.v1";
+  const MONTHLY_GOAL_KEY = "assistant.practiceMonthlyGoal.v1";
   const MAX_WIDTH = 900;
   // PDFs are stored as-is (no compression), and cloud sync bundles all app
   // data into a single ~1MB document — one large PDF can blow that budget
@@ -70,8 +72,33 @@
     remove(id) {
       saveChecklist(loadChecklist().filter((c) => c.id !== id));
     },
+    update(id, patch) {
+      const items = loadChecklist();
+      const idx = items.findIndex((c) => c.id === id);
+      if (idx === -1) return null;
+      items[idx] = { ...items[idx], ...patch };
+      saveChecklist(items);
+      return items[idx];
+    },
   };
   window.PracticeChecklistStore = PracticeChecklistStore;
+
+  // ---------- Practice status (current song / monthly goal) ----------
+  function getCurrentSong() {
+    return localStorage.getItem(CURRENT_SONG_KEY) || "";
+  }
+
+  function setCurrentSong(value) {
+    localStorage.setItem(CURRENT_SONG_KEY, value);
+  }
+
+  function getMonthlyGoal() {
+    return localStorage.getItem(MONTHLY_GOAL_KEY) || "";
+  }
+
+  function setMonthlyGoal(value) {
+    localStorage.setItem(MONTHLY_GOAL_KEY, value);
+  }
 
   // ---------- Practice entries ----------
   function loadEntries() {
@@ -293,6 +320,8 @@
         PracticeChecklistStore.remove(item.id);
         pendingChecked.delete(item.id);
         renderChecklistItems();
+        renderBpmEditList();
+        renderDashboardPractice();
       });
       li.appendChild(remove);
 
@@ -308,6 +337,8 @@
     pendingChecked.add(item.id);
     input.value = "";
     renderChecklistItems();
+    renderBpmEditList();
+    renderDashboardPractice();
   }
 
   // ---------- Feed ----------
@@ -446,6 +477,79 @@
     btn.setAttribute("aria-expanded", String(!collapsing));
   }
 
+  // ---------- Practice status editing (연습 현황 section) ----------
+  function renderBpmEditList() {
+    const list = document.getElementById("practiceBpmEditList");
+    const emptyNote = document.getElementById("practiceBpmEmptyNote");
+    const items = PracticeChecklistStore.getAll();
+
+    list.innerHTML = "";
+    emptyNote.hidden = items.length > 0;
+
+    items.forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "practice-bpm-edit-row";
+
+      const span = document.createElement("span");
+      span.textContent = item.label;
+      li.appendChild(span);
+
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.placeholder = "-";
+      input.value = item.maxBpm ?? "";
+      input.addEventListener("change", () => {
+        const value = input.value === "" ? null : Number(input.value);
+        PracticeChecklistStore.update(item.id, { maxBpm: value });
+        renderDashboardPractice();
+      });
+      li.appendChild(input);
+
+      const unit = document.createElement("span");
+      unit.className = "practice-bpm-unit";
+      unit.textContent = "BPM";
+      li.appendChild(unit);
+
+      list.appendChild(li);
+    });
+  }
+
+  function handleStatusFieldChange() {
+    setCurrentSong(document.getElementById("practiceCurrentSongInput").value.trim());
+    setMonthlyGoal(document.getElementById("practiceMonthlyGoalInput").value.trim());
+    renderDashboardPractice();
+  }
+
+  function renderStatusPanel() {
+    document.getElementById("practiceCurrentSongInput").value = getCurrentSong();
+    document.getElementById("practiceMonthlyGoalInput").value = getMonthlyGoal();
+    renderBpmEditList();
+  }
+
+  // ---------- Dashboard panel ----------
+  function renderDashboardPractice() {
+    const bpmList = document.getElementById("dashboardPracticeBpmList");
+    const songEl = document.getElementById("dashboardPracticeSong");
+    const goalEl = document.getElementById("dashboardPracticeGoal");
+    if (!bpmList || !songEl || !goalEl) return;
+
+    const items = PracticeChecklistStore.getAll().filter((item) => item.maxBpm);
+    bpmList.innerHTML = "";
+    if (items.length === 0) {
+      bpmList.innerHTML = `<li>기록된 BPM이 없어요</li>`;
+    } else {
+      items.forEach((item) => {
+        const li = document.createElement("li");
+        li.innerHTML = `${item.label} <strong>${item.maxBpm}</strong>`;
+        bpmList.appendChild(li);
+      });
+    }
+
+    songEl.textContent = getCurrentSong() || "설정된 곡이 없어요";
+    goalEl.textContent = getMonthlyGoal() || "설정된 목표가 없어요";
+  }
+
   function init() {
     document.getElementById("addPracticeBtn").addEventListener("click", () => openModal("add"));
     document.getElementById("practiceForm").addEventListener("submit", handleSubmit);
@@ -471,6 +575,12 @@
     document.getElementById("toggleFeedBtn").addEventListener("click", (e) => {
       toggleSection(document.getElementById("practiceFeed"), e.currentTarget);
     });
+    document.getElementById("togglePracticeStatusBtn").addEventListener("click", (e) => {
+      toggleSection(document.getElementById("practiceStatusPanel"), e.currentTarget);
+    });
+
+    document.getElementById("practiceCurrentSongInput").addEventListener("change", handleStatusFieldChange);
+    document.getElementById("practiceMonthlyGoalInput").addEventListener("change", handleStatusFieldChange);
 
     document.getElementById("practiceModalOverlay").addEventListener("click", (e) => {
       if (e.target.id === "practiceModalOverlay") closeModal();
@@ -483,7 +593,9 @@
     renderFeed();
     renderStreak();
     renderSheetGrid();
+    renderStatusPanel();
+    renderDashboardPractice();
   }
 
-  window.PracticeView = { init };
+  window.PracticeView = { init, refreshDashboard: renderDashboardPractice };
 })();

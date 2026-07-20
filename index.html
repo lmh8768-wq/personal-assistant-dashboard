@@ -172,6 +172,22 @@
               <ul class="schedule-list" id="dashboardUpcomingList"></ul>
             </div>
 
+            <div class="panel panel-practice-status">
+              <div class="panel-header"><h2>베이스 연습</h2></div>
+              <div class="practice-status-block">
+                <span class="practice-status-label">기본기 최대 BPM</span>
+                <ul class="practice-status-bpm-list" id="dashboardPracticeBpmList"></ul>
+              </div>
+              <div class="practice-status-row">
+                <strong>현재 연습곡</strong>
+                <span id="dashboardPracticeSong"></span>
+              </div>
+              <div class="practice-status-row">
+                <strong>이번 달의 목표</strong>
+                <span id="dashboardPracticeGoal"></span>
+              </div>
+            </div>
+
           </section>
 
         </div>
@@ -223,6 +239,26 @@
           <div class="diary-header">
             <h2>베이스 연습 일지 <span class="diary-streak" id="practiceStreak" hidden></span></h2>
             <button class="primary-btn" id="addPracticeBtn">+ 연습 기록 추가</button>
+          </div>
+
+          <div class="diary-header">
+            <h2>연습 현황</h2>
+            <button type="button" class="icon-btn section-toggle-btn" id="togglePracticeStatusBtn" aria-expanded="true" aria-label="연습 현황 접기/펼치기">▾</button>
+          </div>
+          <div class="practice-status-panel" id="practiceStatusPanel">
+            <label>
+              현재 연습곡
+              <input type="text" id="practiceCurrentSongInput" placeholder="예: Come Together - The Beatles" />
+            </label>
+            <label>
+              이번 달의 목표
+              <input type="text" id="practiceMonthlyGoalInput" placeholder="예: 슬랩 주법 120 BPM 달성" />
+            </label>
+            <div class="practice-bpm-edit-section">
+              <span class="checklist-label">기본기별 최대 BPM</span>
+              <ul class="practice-bpm-edit-list" id="practiceBpmEditList"></ul>
+              <p class="modal-note" id="practiceBpmEmptyNote" hidden>먼저 아래에서 연습 체크리스트 항목을 추가해주세요.</p>
+            </div>
           </div>
 
           <div class="diary-header">
