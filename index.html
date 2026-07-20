@@ -288,6 +288,43 @@
           </div>
 
           <div class="diary-header">
+            <h2>최고 기록</h2>
+            <button type="button" class="icon-btn section-toggle-btn" id="toggleExerciseRecordsBtn" aria-expanded="true" aria-label="최고 기록 접기/펼치기">▾</button>
+          </div>
+          <div class="exercise-records-panel" id="exerciseRecordsPanel">
+            <div class="exercise-record-group">
+              <span class="checklist-label">러닝</span>
+              <div class="exercise-record-row">
+                <label>
+                  거리 (km)
+                  <input type="number" min="0" step="0.01" id="exerciseRecordRunDistanceInput" placeholder="예: 10" />
+                </label>
+                <label>
+                  페이스 (분'초"/km)
+                  <input type="text" id="exerciseRecordRunPaceInput" placeholder="예: 5'30&quot;" />
+                </label>
+              </div>
+            </div>
+            <div class="exercise-record-group">
+              <span class="checklist-label">삼대운동 (10개 3세트 기준, 중량 kg)</span>
+              <div class="exercise-record-row">
+                <label>
+                  스쿼트
+                  <input type="number" min="0" step="0.5" id="exerciseRecordSquatInput" placeholder="kg" />
+                </label>
+                <label>
+                  벤치프레스
+                  <input type="number" min="0" step="0.5" id="exerciseRecordBenchInput" placeholder="kg" />
+                </label>
+                <label>
+                  데드리프트
+                  <input type="number" min="0" step="0.5" id="exerciseRecordDeadliftInput" placeholder="kg" />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="diary-header">
             <h2>기록</h2>
             <button type="button" class="icon-btn section-toggle-btn" id="toggleExerciseFeedBtn" aria-expanded="true" aria-label="기록 접기/펼치기">▾</button>
           </div>

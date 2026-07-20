@@ -1,6 +1,7 @@
 (function () {
   const CHECKLIST_KEY = "assistant.exerciseChecklist.v1";
   const LOG_KEY = "assistant.exerciseLog.v1";
+  const RECORDS_KEY = "assistant.exerciseRecords.v1";
 
   let editingId = null;
   let pendingChecked = new Set();
@@ -100,6 +101,32 @@
     },
   };
   window.ExerciseLogStore = ExerciseLogStore;
+
+  // ---------- Personal records (러닝 / 삼대운동) ----------
+  function loadRecords() {
+    try {
+      const raw = localStorage.getItem(RECORDS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveRecords(records) {
+    localStorage.setItem(RECORDS_KEY, JSON.stringify(records));
+  }
+
+  const ExerciseRecordStore = {
+    get() {
+      return loadRecords();
+    },
+    update(patch) {
+      const records = { ...loadRecords(), ...patch };
+      saveRecords(records);
+      return records;
+    },
+  };
+  window.ExerciseRecordStore = ExerciseRecordStore;
 
   // ---------- Checklist rendering (in entry modal) ----------
   function renderChecklistItems() {
@@ -277,6 +304,26 @@
     btn.setAttribute("aria-expanded", String(!collapsing));
   }
 
+  // ---------- Personal records panel ----------
+  function renderRecordsPanel() {
+    const records = ExerciseRecordStore.get();
+    document.getElementById("exerciseRecordRunDistanceInput").value = records.runDistance ?? "";
+    document.getElementById("exerciseRecordRunPaceInput").value = records.runPace ?? "";
+    document.getElementById("exerciseRecordSquatInput").value = records.squat ?? "";
+    document.getElementById("exerciseRecordBenchInput").value = records.bench ?? "";
+    document.getElementById("exerciseRecordDeadliftInput").value = records.deadlift ?? "";
+  }
+
+  function handleRecordFieldChange() {
+    ExerciseRecordStore.update({
+      runDistance: document.getElementById("exerciseRecordRunDistanceInput").value,
+      runPace: document.getElementById("exerciseRecordRunPaceInput").value.trim(),
+      squat: document.getElementById("exerciseRecordSquatInput").value,
+      bench: document.getElementById("exerciseRecordBenchInput").value,
+      deadlift: document.getElementById("exerciseRecordDeadliftInput").value,
+    });
+  }
+
   function init() {
     document.getElementById("addExerciseLogBtn").addEventListener("click", () => openModal("add"));
     document.getElementById("exerciseForm").addEventListener("submit", handleSubmit);
@@ -296,6 +343,19 @@
     document.getElementById("toggleExerciseFeedBtn").addEventListener("click", (e) => {
       toggleSection(document.getElementById("exerciseFeed"), e.currentTarget);
     });
+    document.getElementById("toggleExerciseRecordsBtn").addEventListener("click", (e) => {
+      toggleSection(document.getElementById("exerciseRecordsPanel"), e.currentTarget);
+    });
+
+    [
+      "exerciseRecordRunDistanceInput",
+      "exerciseRecordRunPaceInput",
+      "exerciseRecordSquatInput",
+      "exerciseRecordBenchInput",
+      "exerciseRecordDeadliftInput",
+    ].forEach((id) => {
+      document.getElementById(id).addEventListener("change", handleRecordFieldChange);
+    });
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !document.getElementById("exerciseModalOverlay").hidden) closeModal();
@@ -303,6 +363,7 @@
 
     renderFeed();
     renderStreak();
+    renderRecordsPanel();
   }
 
   window.ExerciseView = { init };
