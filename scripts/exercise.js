@@ -197,6 +197,13 @@
       card.appendChild(summary);
     }
 
+    if (entry.text) {
+      const text = document.createElement("p");
+      text.className = "diary-card-text";
+      text.textContent = entry.text;
+      card.appendChild(text);
+    }
+
     card.addEventListener("click", () => onClick(entry));
     return card;
   }
@@ -244,6 +251,7 @@
 
     document.getElementById("exerciseModalTitle").textContent = mode === "edit" ? "운동 기록 수정" : "운동 기록";
     document.getElementById("exerciseDateInput").value = data?.date || toDateStr(new Date());
+    document.getElementById("exerciseTextInput").value = data?.text || "";
     document.getElementById("deleteExerciseLogBtn").hidden = mode !== "edit";
 
     renderChecklistItems();
@@ -261,6 +269,7 @@
     e.preventDefault();
     const payload = {
       date: document.getElementById("exerciseDateInput").value,
+      text: document.getElementById("exerciseTextInput").value.trim(),
       checkedIds: [...pendingChecked],
     };
     if (!payload.date) return;
