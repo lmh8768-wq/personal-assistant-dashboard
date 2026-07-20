@@ -70,6 +70,9 @@ function showView(viewName) {
   if (viewName === "dashboard" && window.PracticeView) {
     window.PracticeView.refreshDashboard();
   }
+  if (viewName === "dashboard" && window.ExerciseView) {
+    window.ExerciseView.refreshDashboard();
+  }
   if (viewName === "settings" && window.SettingsView) {
     window.SettingsView.refreshStorage();
   }

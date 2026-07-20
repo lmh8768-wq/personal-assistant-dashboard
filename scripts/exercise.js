@@ -322,6 +322,31 @@
       bench: document.getElementById("exerciseRecordBenchInput").value,
       deadlift: document.getElementById("exerciseRecordDeadliftInput").value,
     });
+    renderDashboardExercise();
+  }
+
+  // ---------- Dashboard panel ----------
+  function renderDashboardExercise() {
+    const runEl = document.getElementById("dashboardExerciseRun");
+    const squatEl = document.getElementById("dashboardExerciseSquat");
+    const benchEl = document.getElementById("dashboardExerciseBench");
+    const deadliftEl = document.getElementById("dashboardExerciseDeadlift");
+    if (!runEl || !squatEl || !benchEl || !deadliftEl) return;
+
+    const records = ExerciseRecordStore.get();
+
+    runEl.textContent =
+      records.runDistance && records.runPace
+        ? `${records.runDistance}km · ${records.runPace}/km`
+        : records.runDistance
+        ? `${records.runDistance}km`
+        : records.runPace
+        ? `${records.runPace}/km`
+        : "기록 없음";
+
+    squatEl.textContent = records.squat ? `${records.squat}kg` : "기록 없음";
+    benchEl.textContent = records.bench ? `${records.bench}kg` : "기록 없음";
+    deadliftEl.textContent = records.deadlift ? `${records.deadlift}kg` : "기록 없음";
   }
 
   function init() {
@@ -343,9 +368,6 @@
     document.getElementById("toggleExerciseFeedBtn").addEventListener("click", (e) => {
       toggleSection(document.getElementById("exerciseFeed"), e.currentTarget);
     });
-    document.getElementById("toggleExerciseRecordsBtn").addEventListener("click", (e) => {
-      toggleSection(document.getElementById("exerciseRecordsPanel"), e.currentTarget);
-    });
 
     [
       "exerciseRecordRunDistanceInput",
@@ -364,7 +386,8 @@
     renderFeed();
     renderStreak();
     renderRecordsPanel();
+    renderDashboardExercise();
   }
 
-  window.ExerciseView = { init };
+  window.ExerciseView = { init, refreshDashboard: renderDashboardExercise };
 })();

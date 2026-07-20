@@ -376,7 +376,8 @@ button.nav-item {
   gap: 14px;
 }
 
-.panel-practice-status {
+.panel-practice-status,
+.panel-exercise-status {
   grid-column: 1 / -1;
 }
 
