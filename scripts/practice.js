@@ -1,14 +1,8 @@
 (function () {
   const PRACTICE_KEY = "assistant.practice.v1";
   const CHECKLIST_KEY = "assistant.practiceChecklist.v1";
-  const SHEETS_KEY = "assistant.practiceSheets.v1";
   const CURRENT_SONG_KEY = "assistant.practiceCurrentSong.v1";
   const MONTHLY_GOAL_KEY = "assistant.practiceMonthlyGoal.v1";
-  const MAX_WIDTH = 900;
-  // PDFs are stored as-is (no compression), and cloud sync bundles all app
-  // data into a single ~1MB document — one large PDF can blow that budget
-  // and silently break syncing for everything, not just sheets. Cap it.
-  const MAX_PDF_BYTES = 500 * 1024;
 
   const DEFAULT_CHECKLIST = [
     { id: "pc_default_1", label: "튜닝 확인" },
@@ -141,153 +135,6 @@
     },
   };
   window.PracticeStore = PracticeStore;
-
-  // ---------- Sheet music library ----------
-  function loadSheets() {
-    try {
-      const raw = localStorage.getItem(SHEETS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveSheets(sheets) {
-    localStorage.setItem(SHEETS_KEY, JSON.stringify(sheets));
-  }
-
-  const SheetStore = {
-    getAll() {
-      return loadSheets().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-    },
-    getById(id) {
-      return loadSheets().find((s) => s.id === id) || null;
-    },
-    add(sheet) {
-      const sheets = loadSheets();
-      const item = { id: createId("sh"), createdAt: new Date().toISOString(), ...sheet };
-      sheets.push(item);
-      saveSheets(sheets);
-      return item;
-    },
-    remove(id) {
-      saveSheets(loadSheets().filter((s) => s.id !== id));
-    },
-  };
-  window.SheetStore = SheetStore;
-
-  function resizeImage(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const scale = Math.min(1, MAX_WIDTH / img.width);
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL("image/jpeg", 0.75));
-        };
-        img.onerror = reject;
-        img.src = e.target.result;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function readAsDataUrl(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function handleSheetUploadChange(e) {
-    const files = Array.from(e.target.files || []);
-    let skippedForSize = 0;
-    for (const file of files) {
-      const isPdf = file.type === "application/pdf";
-      if (isPdf && file.size > MAX_PDF_BYTES) {
-        skippedForSize += 1;
-        continue;
-      }
-      try {
-        const dataUrl = isPdf ? await readAsDataUrl(file) : await resizeImage(file);
-        SheetStore.add({ name: file.name, dataUrl, isPdf });
-      } catch {
-        // skip files that fail to load
-      }
-    }
-    e.target.value = "";
-    renderSheetGrid();
-    if (skippedForSize > 0 && window.Toast) {
-      window.Toast.show(`${skippedForSize}개 파일이 너무 커서 건너뛰었어요 (PDF는 500KB 이하만 지원)`);
-    }
-  }
-
-  function renderSheetGrid() {
-    const grid = document.getElementById("practiceSheetGrid");
-    const sheets = SheetStore.getAll();
-
-    grid.innerHTML = "";
-    if (sheets.length === 0) {
-      grid.innerHTML = `<div class="empty-state"><span class="empty-icon">🎼</span><p>업로드된 악보가 없어요</p></div>`;
-      return;
-    }
-
-    sheets.forEach((sheet) => {
-      const cell = document.createElement("div");
-      cell.className = "photo-cell";
-
-      if (sheet.isPdf) {
-        const badge = document.createElement("div");
-        badge.className = "practice-sheet-file";
-        badge.textContent = "📄";
-        const name = document.createElement("span");
-        name.textContent = sheet.name;
-        badge.appendChild(name);
-        cell.appendChild(badge);
-      } else {
-        const img = document.createElement("img");
-        img.src = sheet.dataUrl;
-        img.loading = "lazy";
-        cell.appendChild(img);
-      }
-
-      const removeBtn = document.createElement("button");
-      removeBtn.type = "button";
-      removeBtn.className = "diary-thumb-remove";
-      removeBtn.textContent = "×";
-      removeBtn.addEventListener("click", (evt) => {
-        evt.stopPropagation();
-        handleSheetDelete(sheet.id);
-      });
-      cell.appendChild(removeBtn);
-
-      cell.addEventListener("click", () => window.open(sheet.dataUrl, "_blank", "noopener"));
-      grid.appendChild(cell);
-    });
-  }
-
-  function handleSheetDelete(id) {
-    const removed = SheetStore.getById(id);
-    SheetStore.remove(id);
-    renderSheetGrid();
-    if (removed && window.Toast) {
-      window.Toast.show("악보를 삭제했어요", {
-        actionLabel: "실행취소",
-        onAction: () => {
-          SheetStore.add(removed);
-          renderSheetGrid();
-        },
-      });
-    }
-  }
 
   // ---------- Checklist rendering (in modal) ----------
   function renderChecklistItems() {
@@ -579,14 +426,6 @@
       }
     });
 
-    document.getElementById("addSheetBtn").addEventListener("click", () => {
-      document.getElementById("practiceSheetUploadInput").click();
-    });
-    document.getElementById("practiceSheetUploadInput").addEventListener("change", handleSheetUploadChange);
-
-    document.getElementById("toggleSheetsBtn").addEventListener("click", (e) => {
-      toggleSection(document.getElementById("practiceSheetGrid"), e.currentTarget);
-    });
     document.getElementById("toggleFeedBtn").addEventListener("click", (e) => {
       toggleSection(document.getElementById("practiceFeed"), e.currentTarget);
     });
@@ -607,7 +446,6 @@
 
     renderFeed();
     renderStreak();
-    renderSheetGrid();
     renderStatusPanel();
     renderDashboardPractice();
   }

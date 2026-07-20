@@ -1042,24 +1042,6 @@ button.nav-item {
   white-space: pre-wrap;
 }
 
-.diary-thumb-remove {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: none;
-  background: var(--accent);
-  color: #fff;
-  font-size: 12px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 /* ---------- Bass practice log ---------- */
 .practice-card-checklist {
   margin: 0 0 8px;
@@ -1211,38 +1193,6 @@ button.nav-item {
   color: var(--text);
 }
 
-#practiceSheetGrid {
-  margin-bottom: 28px;
-}
-
-#practiceSheetGrid .diary-thumb-remove {
-  top: 6px;
-  right: 6px;
-}
-
-.practice-sheet-file {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  border-radius: 8px;
-  background: var(--bg-elevated-2);
-}
-
-.practice-sheet-file span {
-  position: absolute;
-  bottom: 6px;
-  left: 6px;
-  right: 6px;
-  font-size: 10px;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* ---------- Study planner ---------- */
 .diary-card-header-row {
   display: flex;
@@ -1315,34 +1265,6 @@ button.nav-item {
 
 .checklist-group-label:first-child {
   margin-top: 0;
-}
-
-/* ---------- Photo/file grid (shared: practice sheet library) ---------- */
-.photo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
-}
-
-.photo-cell {
-  position: relative;
-  aspect-ratio: 1;
-  border-radius: 10px;
-  overflow: hidden;
-  cursor: pointer;
-  border: 1px solid var(--border);
-}
-
-.photo-cell img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transition: transform 0.15s ease;
-}
-
-.photo-cell:hover img {
-  transform: scale(1.04);
 }
 
 .diary-streak {
