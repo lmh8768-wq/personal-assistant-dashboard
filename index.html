@@ -257,7 +257,7 @@
             <div class="practice-bpm-edit-section">
               <span class="checklist-label">기본기별 최대 BPM</span>
               <ul class="practice-bpm-edit-list" id="practiceBpmEditList"></ul>
-              <p class="modal-note" id="practiceBpmEmptyNote" hidden>먼저 아래에서 연습 체크리스트 항목을 추가해주세요.</p>
+              <p class="modal-note" id="practiceBpmEmptyNote" hidden>먼저 기본기 체크리스트 항목을 추가해주세요.</p>
             </div>
           </div>
 
@@ -516,6 +516,21 @@
     </div>
   </div>
 
+  <!-- 반복 일정 수정 범위 선택 모달 -->
+  <div class="modal-overlay" id="editScopeModalOverlay" hidden>
+    <div class="modal delete-scope-modal" role="dialog" aria-modal="true" aria-labelledby="editScopeTitle">
+      <h3 id="editScopeTitle">반복 일정 수정</h3>
+      <p class="modal-note">이 일정은 반복 설정되어 있어요. 수정 내용을 어떻게 적용할까요?</p>
+      <div class="delete-scope-actions">
+        <button type="button" class="ghost-btn" id="editScopeOccurrenceBtn">이 일정만 수정</button>
+        <button type="button" class="ghost-btn" id="editScopeFollowingBtn">이후 일정에도 적용</button>
+      </div>
+      <div class="modal-actions-right delete-scope-cancel-row">
+        <button type="button" class="ghost-btn" id="editScopeCancelBtn">취소</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 베이스 연습 기록 추가/수정 모달 -->
   <div class="modal-overlay" id="practiceModalOverlay" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="practiceModalTitle">
@@ -526,7 +541,7 @@
           <input type="date" id="practiceDateInput" required />
         </label>
         <div class="checklist-section">
-          <span class="checklist-label">매일 연습 체크리스트</span>
+          <span class="checklist-label">기본기 체크리스트</span>
           <ul class="checklist-items" id="practiceChecklistItems"></ul>
           <div class="checklist-add-row">
             <input type="text" id="practiceChecklistInput" placeholder="항목 추가 후 Enter (예: 슬랩 연습)" />

@@ -312,6 +312,21 @@
       span.textContent = item.label;
       li.appendChild(span);
 
+      const bpmInput = document.createElement("input");
+      bpmInput.type = "number";
+      bpmInput.min = "0";
+      bpmInput.className = "checklist-item-bpm-input";
+      bpmInput.placeholder = "BPM";
+      bpmInput.value = item.maxBpm ?? "";
+      bpmInput.addEventListener("click", (e) => e.stopPropagation());
+      bpmInput.addEventListener("change", () => {
+        const value = bpmInput.value === "" ? null : Number(bpmInput.value);
+        PracticeChecklistStore.update(item.id, { maxBpm: value });
+        renderBpmEditList();
+        renderDashboardPractice();
+      });
+      li.appendChild(bpmInput);
+
       const remove = document.createElement("span");
       remove.className = "checklist-item-remove";
       remove.textContent = "×";

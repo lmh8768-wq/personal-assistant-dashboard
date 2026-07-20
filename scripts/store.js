@@ -24,6 +24,16 @@
     return new Date(y, m - 1, d);
   }
 
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+
+  function addDaysToDateStr(dateStr, delta) {
+    const d = parseDateStr(dateStr);
+    d.setDate(d.getDate() + delta);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  }
+
   // A schedule item is a "series": one anchor date + an optional repeat rule.
   // Occurrences are derived on demand instead of being stored individually,
   // so editing/deleting a series affects every occurrence at once.
@@ -65,7 +75,10 @@
     getOccurrences(dateStr) {
       return loadSchedules()
         .filter((item) => matchesDate(item, dateStr))
-        .map((item) => ({ ...item, occurrenceDate: dateStr }));
+        .map((item) => {
+          const override = (item.overrides || {})[dateStr];
+          return { ...item, ...(override || {}), occurrenceDate: dateStr };
+        });
     },
     countOccurrences(dateStr) {
       return loadSchedules().filter((item) => matchesDate(item, dateStr)).length;
@@ -124,6 +137,71 @@
       schedules[idx] = { ...schedules[idx], excludedDates: [...excluded] };
       saveSchedules(schedules);
       return schedules[idx];
+    },
+    // Edits applied to a single occurrence of a recurring series, without
+    // touching the series definition or any other occurrence.
+    setOccurrenceOverride(id, occurrenceDate, patch) {
+      const schedules = loadSchedules();
+      const idx = schedules.findIndex((s) => s.id === id);
+      if (idx === -1) return null;
+      const overrides = { ...(schedules[idx].overrides || {}), [occurrenceDate]: patch };
+      schedules[idx] = { ...schedules[idx], overrides };
+      saveSchedules(schedules);
+      return schedules[idx];
+    },
+    // "This and following" edits: the original series stops the day before
+    // occurrenceDate, and a new series starting at occurrenceDate carries the
+    // patch forward (plus any excluded dates / overrides / completions from
+    // that point on).
+    splitSeriesFrom(id, occurrenceDate, patch) {
+      const schedules = loadSchedules();
+      const idx = schedules.findIndex((s) => s.id === id);
+      if (idx === -1) return null;
+      const original = schedules[idx];
+
+      if (occurrenceDate === original.date) {
+        schedules[idx] = { ...original, ...patch };
+        saveSchedules(schedules);
+        return schedules[idx];
+      }
+
+      const excludedAll = original.excludedDates || [];
+      const excludedBefore = excludedAll.filter((d) => d < occurrenceDate);
+      const excludedFromSplit = excludedAll.filter((d) => d >= occurrenceDate);
+
+      const overridesAll = original.overrides || {};
+      const overridesBefore = {};
+      const overridesFromSplit = {};
+      Object.keys(overridesAll).forEach((d) => {
+        if (d >= occurrenceDate) overridesFromSplit[d] = overridesAll[d];
+        else overridesBefore[d] = overridesAll[d];
+      });
+      delete overridesFromSplit[occurrenceDate];
+
+      const completedAll = original.completedDates || [];
+      const completedBefore = completedAll.filter((d) => d < occurrenceDate);
+      const completedFromSplit = completedAll.filter((d) => d >= occurrenceDate);
+
+      schedules[idx] = {
+        ...original,
+        repeat: { ...original.repeat, until: addDaysToDateStr(occurrenceDate, -1) },
+        excludedDates: excludedBefore,
+        overrides: overridesBefore,
+        completedDates: completedBefore,
+      };
+
+      const newItem = {
+        ...original,
+        ...patch,
+        id: createId(),
+        date: occurrenceDate,
+        excludedDates: excludedFromSplit,
+        overrides: overridesFromSplit,
+        completedDates: completedFromSplit,
+      };
+      schedules.push(newItem);
+      saveSchedules(schedules);
+      return newItem;
     },
   };
 })();

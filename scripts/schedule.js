@@ -480,7 +480,7 @@
     editingOccurrenceDate = mode === "edit" ? (data.occurrenceDate || data.date) : null;
     document.getElementById("modalTitle").textContent = mode === "edit" ? "일정 수정" : "일정 추가";
     document.getElementById("scheduleTitleInput").value = data?.title || "";
-    document.getElementById("scheduleDateInput").value = data?.date || toDateStr(selectedDate);
+    document.getElementById("scheduleDateInput").value = data?.occurrenceDate || data?.date || toDateStr(selectedDate);
     document.getElementById("scheduleMemoInput").value = data?.memo || "";
     document.getElementById("scheduleRepeatInput").value = data?.repeat?.type || "none";
     const repeatUntilValue = data?.repeat?.until || "";
@@ -526,23 +526,79 @@
     };
   }
 
+  // ---------- Edit scope (single occurrence vs. this-and-following) ----------
+  let pendingEditPayload = null;
+
+  function openEditScopeModal(payload) {
+    pendingEditPayload = payload;
+    document.getElementById("scheduleModalOverlay").hidden = true;
+    document.getElementById("editScopeModalOverlay").hidden = false;
+  }
+
+  function closeEditScopeModal() {
+    document.getElementById("editScopeModalOverlay").hidden = true;
+    document.getElementById("scheduleModalOverlay").hidden = false;
+    pendingEditPayload = null;
+  }
+
+  function finalizeEdit(payload, wasEditing) {
+    selectedDate = parseDateStr(payload.date);
+    viewDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    closeModal();
+    refreshAll();
+    window.Toast.show(wasEditing ? "일정을 수정했어요" : "일정을 추가했어요");
+  }
+
+  function applyOccurrenceOnlyEdit() {
+    if (!pendingEditPayload || !editingId) return;
+    const occurrenceDate = editingOccurrenceDate;
+    const payload = pendingEditPayload;
+
+    if (payload.date && payload.date !== occurrenceDate) {
+      // Moving just this occurrence to a new date: pull it out of the series
+      // and add it as a standalone one-off item on the new date.
+      window.ScheduleStore.excludeOccurrence(editingId, occurrenceDate);
+      window.ScheduleStore.add({ ...payload, repeat: { type: "none", until: null } });
+    } else {
+      const { date, repeat, ...contentPatch } = payload;
+      window.ScheduleStore.setOccurrenceOverride(editingId, occurrenceDate, contentPatch);
+    }
+
+    document.getElementById("editScopeModalOverlay").hidden = true;
+    pendingEditPayload = null;
+    finalizeEdit(payload, true);
+  }
+
+  function applyFollowingEdit() {
+    if (!pendingEditPayload || !editingId) return;
+    const payload = pendingEditPayload;
+    const { date, ...contentPatch } = payload;
+    window.ScheduleStore.splitSeriesFrom(editingId, editingOccurrenceDate, contentPatch);
+
+    document.getElementById("editScopeModalOverlay").hidden = true;
+    pendingEditPayload = null;
+    finalizeEdit(payload, true);
+  }
+
   function handleSubmit(e) {
     e.preventDefault();
     const payload = readPayloadFromForm();
     if (!payload.title || !payload.date) return;
 
     if (editingId) {
+      const stored = window.ScheduleStore.getById(editingId);
+      const isRecurring = !!(stored && stored.repeat && stored.repeat.type !== "none");
+      if (isRecurring) {
+        openEditScopeModal(payload);
+        return;
+      }
       window.ScheduleStore.update(editingId, payload);
-    } else {
-      window.ScheduleStore.add(payload);
+      finalizeEdit(payload, true);
+      return;
     }
 
-    selectedDate = parseDateStr(payload.date);
-    viewDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-    const wasEditing = !!editingId;
-    closeModal();
-    refreshAll();
-    window.Toast.show(wasEditing ? "일정을 수정했어요" : "일정을 추가했어요");
+    window.ScheduleStore.add(payload);
+    finalizeEdit(payload, false);
   }
 
   // ---------- Delete (single occurrence vs. whole recurring series) ----------
@@ -604,7 +660,7 @@
     if (!editingId) return;
     const original = window.ScheduleStore.getById(editingId);
     if (!original) return;
-    const { id, completedDates, excludedDates, ...rest } = original;
+    const { id, completedDates, excludedDates, overrides, ...rest } = original;
     window.ScheduleStore.add(rest);
     closeModal();
     refreshAll();
@@ -743,9 +799,17 @@
       if (e.target.id === "deleteScopeModalOverlay") closeDeleteScopeModal();
     });
 
+    document.getElementById("editScopeOccurrenceBtn").addEventListener("click", applyOccurrenceOnlyEdit);
+    document.getElementById("editScopeFollowingBtn").addEventListener("click", applyFollowingEdit);
+    document.getElementById("editScopeCancelBtn").addEventListener("click", closeEditScopeModal);
+    document.getElementById("editScopeModalOverlay").addEventListener("click", (e) => {
+      if (e.target.id === "editScopeModalOverlay") closeEditScopeModal();
+    });
+
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !document.getElementById("scheduleModalOverlay").hidden) closeModal();
       if (e.key === "Escape" && !document.getElementById("deleteScopeModalOverlay").hidden) closeDeleteScopeModal();
+      if (e.key === "Escape" && !document.getElementById("editScopeModalOverlay").hidden) closeEditScopeModal();
     });
 
     refreshAll();

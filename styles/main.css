@@ -904,6 +904,22 @@ button.nav-item {
   color: var(--text-faint);
 }
 
+.checklist-item-bpm-input {
+  width: 64px;
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--text);
+  outline: none;
+}
+
+.checklist-item-bpm-input:focus {
+  border-color: var(--accent);
+}
+
 .checklist-item-remove {
   margin-left: auto;
   color: var(--text-faint);
