@@ -2,6 +2,7 @@
   let viewDate = new Date();
   let selectedDate = new Date();
   let editingId = null;
+  let editingOccurrenceDate = null;
   let viewMode = "month"; // "month" | "week" | "agenda"
   let categoryFilter = null;
   let scheduleSelectMode = false;
@@ -140,6 +141,18 @@
     }
 
     li.appendChild(body);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "schedule-item-delete";
+    deleteBtn.textContent = "×";
+    deleteBtn.setAttribute("aria-label", "일정 삭제");
+    deleteBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      requestDelete(item);
+    });
+    li.appendChild(deleteBtn);
+
     li.addEventListener("click", () => onClick(item));
     return li;
   }
@@ -533,6 +546,7 @@
 
   function openModal(mode, data) {
     editingId = mode === "edit" ? data.id : null;
+    editingOccurrenceDate = mode === "edit" ? (data.occurrenceDate || data.date) : null;
     document.getElementById("modalTitle").textContent = mode === "edit" ? "일정 수정" : "일정 추가";
     document.getElementById("scheduleTitleInput").value = data?.title || "";
     document.getElementById("scheduleDateInput").value = data?.date || toDateStr(selectedDate);
@@ -559,6 +573,7 @@
     updateRepeatFieldsVisibility();
     paintImportanceStars(DEFAULT_IMPORTANCE);
     editingId = null;
+    editingOccurrenceDate = null;
   }
 
   function readPayloadFromForm() {
@@ -599,11 +614,41 @@
     window.Toast.show(wasEditing ? "일정을 수정했어요" : "일정을 추가했어요");
   }
 
-  function handleDelete() {
-    if (!editingId) return;
-    const removed = window.ScheduleStore.getById(editingId);
-    window.ScheduleStore.remove(editingId);
-    closeModal();
+  // ---------- Delete (single occurrence vs. whole recurring series) ----------
+  let pendingDeleteItem = null;
+
+  function requestDelete(item) {
+    const repeat = item.repeat || { type: "none" };
+    if (repeat.type === "none") {
+      performDeleteAll(item);
+      return;
+    }
+    pendingDeleteItem = item;
+    document.getElementById("deleteScopeModalOverlay").hidden = false;
+  }
+
+  function closeDeleteScopeModal() {
+    document.getElementById("deleteScopeModalOverlay").hidden = true;
+    pendingDeleteItem = null;
+  }
+
+  function performDeleteOccurrence(item) {
+    window.ScheduleStore.excludeOccurrence(item.id, item.occurrenceDate);
+    refreshAll();
+    if (window.Toast) {
+      window.Toast.show("이 날짜의 일정을 삭제했어요", {
+        actionLabel: "실행취소",
+        onAction: () => {
+          window.ScheduleStore.includeOccurrence(item.id, item.occurrenceDate);
+          refreshAll();
+        },
+      });
+    }
+  }
+
+  function performDeleteAll(item) {
+    const removed = window.ScheduleStore.getById(item.id);
+    window.ScheduleStore.remove(item.id);
     refreshAll();
     if (removed && window.Toast) {
       window.Toast.show("일정을 삭제했어요", {
@@ -616,11 +661,19 @@
     }
   }
 
+  function handleDelete() {
+    if (!editingId) return;
+    const stored = window.ScheduleStore.getById(editingId);
+    const occurrenceDate = editingOccurrenceDate || stored?.date;
+    closeModal();
+    if (stored) requestDelete({ ...stored, occurrenceDate });
+  }
+
   function handleDuplicate() {
     if (!editingId) return;
     const original = window.ScheduleStore.getById(editingId);
     if (!original) return;
-    const { id, completedDates, ...rest } = original;
+    const { id, completedDates, excludedDates, ...rest } = original;
     window.ScheduleStore.add(rest);
     closeModal();
     refreshAll();
@@ -815,8 +868,22 @@
       if (e.target.id === "scheduleModalOverlay") closeModal();
     });
 
+    document.getElementById("deleteScopeOccurrenceBtn").addEventListener("click", () => {
+      if (pendingDeleteItem) performDeleteOccurrence(pendingDeleteItem);
+      closeDeleteScopeModal();
+    });
+    document.getElementById("deleteScopeAllBtn").addEventListener("click", () => {
+      if (pendingDeleteItem) performDeleteAll(pendingDeleteItem);
+      closeDeleteScopeModal();
+    });
+    document.getElementById("deleteScopeCancelBtn").addEventListener("click", closeDeleteScopeModal);
+    document.getElementById("deleteScopeModalOverlay").addEventListener("click", (e) => {
+      if (e.target.id === "deleteScopeModalOverlay") closeDeleteScopeModal();
+    });
+
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !document.getElementById("scheduleModalOverlay").hidden) closeModal();
+      if (e.key === "Escape" && !document.getElementById("deleteScopeModalOverlay").hidden) closeDeleteScopeModal();
     });
 
     refreshAll();

@@ -31,6 +31,7 @@
     if (dateStr < item.date) return false;
     const repeat = item.repeat || { type: "none" };
     if (repeat.until && dateStr > repeat.until) return false;
+    if ((item.excludedDates || []).includes(dateStr)) return false;
 
     switch (repeat.type) {
       case "daily":
@@ -101,6 +102,26 @@
         dates.add(occurrenceDate);
       }
       schedules[idx] = { ...schedules[idx], completedDates: [...dates] };
+      saveSchedules(schedules);
+      return schedules[idx];
+    },
+    excludeOccurrence(id, occurrenceDate) {
+      const schedules = loadSchedules();
+      const idx = schedules.findIndex((s) => s.id === id);
+      if (idx === -1) return null;
+      const excluded = new Set(schedules[idx].excludedDates || []);
+      excluded.add(occurrenceDate);
+      schedules[idx] = { ...schedules[idx], excludedDates: [...excluded] };
+      saveSchedules(schedules);
+      return schedules[idx];
+    },
+    includeOccurrence(id, occurrenceDate) {
+      const schedules = loadSchedules();
+      const idx = schedules.findIndex((s) => s.id === id);
+      if (idx === -1) return null;
+      const excluded = new Set(schedules[idx].excludedDates || []);
+      excluded.delete(occurrenceDate);
+      schedules[idx] = { ...schedules[idx], excludedDates: [...excluded] };
       saveSchedules(schedules);
       return schedules[idx];
     },

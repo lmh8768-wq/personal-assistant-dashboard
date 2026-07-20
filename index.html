@@ -466,6 +466,21 @@
     </div>
   </div>
 
+  <!-- 반복 일정 삭제 범위 선택 모달 -->
+  <div class="modal-overlay" id="deleteScopeModalOverlay" hidden>
+    <div class="modal delete-scope-modal" role="dialog" aria-modal="true" aria-labelledby="deleteScopeTitle">
+      <h3 id="deleteScopeTitle">반복 일정 삭제</h3>
+      <p class="modal-note">이 일정은 반복 설정되어 있어요. 어떻게 삭제할까요?</p>
+      <div class="delete-scope-actions">
+        <button type="button" class="ghost-btn" id="deleteScopeOccurrenceBtn">이 날짜만 삭제</button>
+        <button type="button" class="ghost-btn danger" id="deleteScopeAllBtn">전체 반복 삭제</button>
+      </div>
+      <div class="modal-actions-right delete-scope-cancel-row">
+        <button type="button" class="ghost-btn" id="deleteScopeCancelBtn">취소</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 베이스 연습 기록 추가/수정 모달 -->
   <div class="modal-overlay" id="practiceModalOverlay" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="practiceModalTitle">

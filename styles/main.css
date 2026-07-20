@@ -540,6 +540,10 @@ button.nav-item {
   border-style: dashed;
 }
 
+.schedule-item.selectable .schedule-item-delete {
+  display: none;
+}
+
 .schedule-item.selected {
   border-color: var(--accent);
   background: var(--accent-soft);
@@ -966,6 +970,31 @@ button.nav-item {
   font-size: 11px;
   color: var(--text-muted);
   margin-left: 6px;
+}
+
+.schedule-item-delete {
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.schedule-item-delete:hover,
+.schedule-item-delete:focus-visible {
+  background: rgba(229, 104, 122, 0.15);
+  color: #e5687a;
 }
 
 .modal-actions-secondary {
@@ -1546,6 +1575,26 @@ button.nav-item {
 .modal-actions-right {
   display: flex;
   gap: 8px;
+}
+
+.delete-scope-modal {
+  width: 340px;
+}
+
+.delete-scope-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.delete-scope-actions .ghost-btn {
+  width: 100%;
+  padding: 10px;
+}
+
+.delete-scope-cancel-row {
+  margin-top: 14px;
 }
 
 .ghost-btn.danger {
