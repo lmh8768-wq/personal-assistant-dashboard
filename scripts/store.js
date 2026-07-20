@@ -35,6 +35,14 @@
     switch (repeat.type) {
       case "daily":
         return true;
+      case "weekdays": {
+        const day = parseDateStr(dateStr).getDay();
+        return day >= 1 && day <= 5;
+      }
+      case "every10days": {
+        const diffDays = Math.round((parseDateStr(dateStr) - parseDateStr(item.date)) / 86400000);
+        return diffDays % 10 === 0;
+      }
       case "weekly":
         return parseDateStr(item.date).getDay() === parseDateStr(dateStr).getDay();
       case "monthly":

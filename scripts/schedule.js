@@ -695,6 +695,25 @@
     return dateStr.replace(/-/g, "");
   }
 
+  function buildRruleFreq(repeatType) {
+    switch (repeatType) {
+      case "daily":
+        return "FREQ=DAILY";
+      case "weekdays":
+        return "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR";
+      case "every10days":
+        return "FREQ=DAILY;INTERVAL=10";
+      case "weekly":
+        return "FREQ=WEEKLY";
+      case "monthly":
+        return "FREQ=MONTHLY";
+      case "yearly":
+        return "FREQ=YEARLY";
+      default:
+        return null;
+    }
+  }
+
   function buildIcsContent() {
     const items = window.ScheduleStore.getAll();
     const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Assistant//Schedule//KO"];
@@ -707,9 +726,9 @@
       if (item.memo) lines.push(`DESCRIPTION:${escapeIcsText(item.memo)}`);
 
       const repeat = item.repeat || { type: "none" };
-      const freqMap = { daily: "DAILY", weekly: "WEEKLY", monthly: "MONTHLY", yearly: "YEARLY" };
-      if (repeat.type !== "none" && freqMap[repeat.type]) {
-        let rrule = `FREQ=${freqMap[repeat.type]}`;
+      const rruleFreq = buildRruleFreq(repeat.type);
+      if (rruleFreq) {
+        let rrule = rruleFreq;
         if (repeat.until) rrule += `;UNTIL=${repeat.until.replace(/-/g, "")}T235959Z`;
         lines.push(`RRULE:${rrule}`);
       }
