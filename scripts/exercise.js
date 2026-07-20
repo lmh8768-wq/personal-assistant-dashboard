@@ -1,5 +1,4 @@
 (function () {
-  const CATEGORIES_KEY = "assistant.exerciseCategories.v1";
   const CHECKLIST_KEY = "assistant.exerciseChecklist.v1";
   const LOG_KEY = "assistant.exerciseLog.v1";
 
@@ -29,42 +28,7 @@
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  // ---------- Exercise categories ----------
-  function loadCategories() {
-    try {
-      const raw = localStorage.getItem(CATEGORIES_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveCategories(categories) {
-    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
-  }
-
-  const ExerciseCategoryStore = {
-    getAll() {
-      return loadCategories();
-    },
-    getById(id) {
-      return loadCategories().find((c) => c.id === id) || null;
-    },
-    add(name) {
-      const categories = loadCategories();
-      const item = { id: createId("exc"), name };
-      categories.push(item);
-      saveCategories(categories);
-      return item;
-    },
-    remove(id) {
-      saveCategories(loadCategories().filter((c) => c.id !== id));
-      ExerciseChecklistStore.removeByCategory(id);
-    },
-  };
-  window.ExerciseCategoryStore = ExerciseCategoryStore;
-
-  // ---------- Checklist template (per category, recurring) ----------
+  // ---------- Checklist template (recurring, flat list) ----------
   function loadChecklist() {
     try {
       const raw = localStorage.getItem(CHECKLIST_KEY);
@@ -82,21 +46,15 @@
     getAll() {
       return loadChecklist();
     },
-    getByCategory(categoryId) {
-      return loadChecklist().filter((c) => c.categoryId === categoryId);
-    },
-    add(categoryId, label) {
+    add(label) {
       const items = loadChecklist();
-      const item = { id: createId("exi"), categoryId, label };
+      const item = { id: createId("exi"), label };
       items.push(item);
       saveChecklist(items);
       return item;
     },
     remove(id) {
       saveChecklist(loadChecklist().filter((c) => c.id !== id));
-    },
-    removeByCategory(categoryId) {
-      saveChecklist(loadChecklist().filter((c) => c.categoryId !== categoryId));
     },
   };
   window.ExerciseChecklistStore = ExerciseChecklistStore;
@@ -143,29 +101,37 @@
   };
   window.ExerciseLogStore = ExerciseLogStore;
 
-  // ---------- Category management UI ----------
-  function renderCategoryList() {
-    const list = document.getElementById("exerciseCategoryList");
-    const categories = ExerciseCategoryStore.getAll();
+  // ---------- Checklist rendering (in entry modal) ----------
+  function renderChecklistItems() {
+    const list = document.getElementById("exerciseChecklistItems");
     list.innerHTML = "";
-    if (categories.length === 0) {
-      list.innerHTML = `<li class="empty-state"><span class="empty-icon">💪</span><p>아직 등록된 운동 종류가 없어요</p></li>`;
-      return;
-    }
-    categories.forEach((category) => {
+    ExerciseChecklistStore.getAll().forEach((item) => {
+      const checked = pendingChecked.has(item.id);
       const li = document.createElement("li");
+      li.className = "checklist-item" + (checked ? " done" : "");
 
-      const name = document.createElement("span");
-      name.textContent = category.name;
-      li.appendChild(name);
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = checked;
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) pendingChecked.add(item.id);
+        else pendingChecked.delete(item.id);
+        renderChecklistItems();
+      });
+      li.appendChild(checkbox);
+
+      const span = document.createElement("span");
+      span.textContent = item.label;
+      li.appendChild(span);
 
       const remove = document.createElement("span");
-      remove.className = "remove";
+      remove.className = "checklist-item-remove";
       remove.textContent = "×";
+      remove.title = "체크리스트에서 완전히 제거";
       remove.addEventListener("click", () => {
-        ExerciseCategoryStore.remove(category.id);
-        renderCategoryList();
-        renderFeed();
+        ExerciseChecklistStore.remove(item.id);
+        pendingChecked.delete(item.id);
+        renderChecklistItems();
       });
       li.appendChild(remove);
 
@@ -173,92 +139,11 @@
     });
   }
 
-  function handleAddCategory(e) {
-    e.preventDefault();
-    const input = document.getElementById("exerciseCategoryNameInput");
-    const name = input.value.trim();
-    if (!name) return;
-    ExerciseCategoryStore.add(name);
-    input.value = "";
-    renderCategoryList();
-  }
-
-  function populateCategorySelect(select) {
-    select.innerHTML = "";
-    ExerciseCategoryStore.getAll().forEach((category) => {
-      const opt = document.createElement("option");
-      opt.value = category.id;
-      opt.textContent = category.name;
-      select.appendChild(opt);
-    });
-  }
-
-  // ---------- Checklist rendering (in entry modal) ----------
-  function renderChecklistItems() {
-    const list = document.getElementById("exerciseChecklistItems");
-    const addRow = document.querySelector("#exerciseForm .checklist-add-row");
-    const note = document.getElementById("exerciseNoCategoryNote");
-    const categories = ExerciseCategoryStore.getAll();
-
-    list.innerHTML = "";
-    if (categories.length === 0) {
-      addRow.hidden = true;
-      note.hidden = false;
-      return;
-    }
-    addRow.hidden = false;
-    note.hidden = true;
-
-    categories.forEach((category) => {
-      const items = ExerciseChecklistStore.getByCategory(category.id);
-      if (items.length === 0) return;
-
-      const groupLabel = document.createElement("li");
-      groupLabel.className = "checklist-group-label";
-      groupLabel.textContent = category.name;
-      list.appendChild(groupLabel);
-
-      items.forEach((item) => {
-        const checked = pendingChecked.has(item.id);
-        const li = document.createElement("li");
-        li.className = "checklist-item" + (checked ? " done" : "");
-
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = checked;
-        checkbox.addEventListener("change", () => {
-          if (checkbox.checked) pendingChecked.add(item.id);
-          else pendingChecked.delete(item.id);
-          renderChecklistItems();
-        });
-        li.appendChild(checkbox);
-
-        const span = document.createElement("span");
-        span.textContent = item.label;
-        li.appendChild(span);
-
-        const remove = document.createElement("span");
-        remove.className = "checklist-item-remove";
-        remove.textContent = "×";
-        remove.title = "체크리스트에서 완전히 제거";
-        remove.addEventListener("click", () => {
-          ExerciseChecklistStore.remove(item.id);
-          pendingChecked.delete(item.id);
-          renderChecklistItems();
-        });
-        li.appendChild(remove);
-
-        list.appendChild(li);
-      });
-    });
-  }
-
   function handleAddChecklistItem() {
-    const categoryId = document.getElementById("exerciseChecklistCategoryInput").value;
     const input = document.getElementById("exerciseChecklistInput");
     const label = input.value.trim();
-    if (!categoryId || !label) return;
-    const item = ExerciseChecklistStore.add(categoryId, label);
+    if (!label) return;
+    const item = ExerciseChecklistStore.add(label);
     pendingChecked.add(item.id);
     input.value = "";
     renderChecklistItems();
@@ -277,12 +162,7 @@
     const template = ExerciseChecklistStore.getAll();
     if (template.length > 0) {
       const checkedIds = new Set(entry.checkedIds || []);
-      const doneLabels = template
-        .filter((t) => checkedIds.has(t.id))
-        .map((t) => {
-          const category = ExerciseCategoryStore.getById(t.categoryId);
-          return category ? `${category.name}: ${t.label}` : t.label;
-        });
+      const doneLabels = template.filter((t) => checkedIds.has(t.id)).map((t) => t.label);
       const summary = document.createElement("p");
       summary.className = "practice-card-checklist";
       summary.textContent = `✓ ${doneLabels.length}/${template.length} 완료` +
@@ -339,7 +219,6 @@
     document.getElementById("exerciseDateInput").value = data?.date || toDateStr(new Date());
     document.getElementById("deleteExerciseLogBtn").hidden = mode !== "edit";
 
-    populateCategorySelect(document.getElementById("exerciseChecklistCategoryInput"));
     renderChecklistItems();
     document.getElementById("exerciseModalOverlay").hidden = false;
   }
@@ -414,11 +293,6 @@
       if (e.target.id === "exerciseModalOverlay") closeModal();
     });
 
-    document.getElementById("exerciseCategoryForm").addEventListener("submit", handleAddCategory);
-
-    document.getElementById("toggleExerciseCategoriesBtn").addEventListener("click", (e) => {
-      toggleSection(document.getElementById("exerciseCategoryManageSection"), e.currentTarget);
-    });
     document.getElementById("toggleExerciseFeedBtn").addEventListener("click", (e) => {
       toggleSection(document.getElementById("exerciseFeed"), e.currentTarget);
     });
@@ -427,7 +301,6 @@
       if (e.key === "Escape" && !document.getElementById("exerciseModalOverlay").hidden) closeModal();
     });
 
-    renderCategoryList();
     renderFeed();
     renderStreak();
   }

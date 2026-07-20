@@ -288,18 +288,6 @@
           </div>
 
           <div class="diary-header">
-            <h2>운동 종류 관리</h2>
-            <button type="button" class="icon-btn section-toggle-btn" id="toggleExerciseCategoriesBtn" aria-expanded="true" aria-label="운동 종류 관리 접기/펼치기">▾</button>
-          </div>
-          <div id="exerciseCategoryManageSection">
-            <ul class="custom-shortcut-list" id="exerciseCategoryList"></ul>
-            <form class="custom-shortcut-form" id="exerciseCategoryForm">
-              <input type="text" id="exerciseCategoryNameInput" placeholder="운동 종류 (예: 유산소, 근력, 스트레칭)" required />
-              <button type="submit" class="ghost-btn">+ 추가</button>
-            </form>
-          </div>
-
-          <div class="diary-header">
             <h2>기록</h2>
             <button type="button" class="icon-btn section-toggle-btn" id="toggleExerciseFeedBtn" aria-expanded="true" aria-label="기록 접기/펼치기">▾</button>
           </div>
@@ -595,14 +583,12 @@
           <input type="date" id="exerciseDateInput" required />
         </label>
         <div class="checklist-section">
-          <span class="checklist-label">운동 종류별 체크리스트</span>
+          <span class="checklist-label">운동 체크리스트</span>
           <ul class="checklist-items" id="exerciseChecklistItems"></ul>
           <div class="checklist-add-row">
-            <select id="exerciseChecklistCategoryInput"></select>
             <input type="text" id="exerciseChecklistInput" placeholder="항목 추가 후 Enter (예: 러닝 30분)" />
             <button type="button" class="ghost-btn" id="exerciseChecklistAddBtn">추가</button>
           </div>
-          <p class="modal-note" id="exerciseNoCategoryNote" hidden>먼저 "운동 종류 관리"에서 종류를 추가해주세요.</p>
         </div>
         <div class="modal-actions">
           <button type="button" class="ghost-btn danger" id="deleteExerciseLogBtn" hidden>삭제</button>
