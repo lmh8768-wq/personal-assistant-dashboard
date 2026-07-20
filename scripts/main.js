@@ -86,6 +86,10 @@ navItems.forEach((item) => {
   });
 });
 
+document.getElementById("dashboardGoToScheduleBtn")?.addEventListener("click", () => {
+  document.querySelector('.nav-item[data-view="schedule"]')?.click();
+});
+
 // ---------- Date display ----------
 const pageDate = document.getElementById("pageDate");
 const today = new Date();

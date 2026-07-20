@@ -393,6 +393,12 @@ button.nav-item {
   margin-bottom: 10px;
 }
 
+.panel-header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .panel-header select {
   font-family: inherit;
   background: var(--bg-elevated-2);
