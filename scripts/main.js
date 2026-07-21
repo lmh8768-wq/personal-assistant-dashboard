@@ -102,7 +102,11 @@ navItems.forEach((item) => {
   });
 });
 
-setActiveView(localStorage.getItem(CURRENT_VIEW_KEY) || "dashboard");
+// A URL hash (e.g. from a shortcut/widget link like "#schedule") always wins
+// over the last-visited view, so links can deep-link into a specific tab.
+const hashView = location.hash.slice(1);
+const isValidView = [...navItems].some((n) => n.dataset.view === hashView);
+setActiveView(isValidView ? hashView : localStorage.getItem(CURRENT_VIEW_KEY) || "dashboard");
 
 document.getElementById("dashboardGoToScheduleBtn")?.addEventListener("click", () => {
   document.querySelector('.nav-item[data-view="schedule"]')?.click();

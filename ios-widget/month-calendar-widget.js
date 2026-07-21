@@ -239,7 +239,7 @@ async function buildCalendarWidget() {
 
   const widget = new ListWidget();
   widget.backgroundColor = new Color(BG_COLOR);
-  widget.url = DASHBOARD_URL;
+  widget.url = `${DASHBOARD_URL}#schedule`;
 
   const header = widget.addText(`${year}년 ${month + 1}월`);
   header.textColor = Color.white();

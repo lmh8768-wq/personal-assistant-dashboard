@@ -199,7 +199,7 @@ async function buildScheduleWidget() {
 
   const widget = new ListWidget();
   widget.backgroundColor = new Color("#15171c");
-  widget.url = DASHBOARD_URL;
+  widget.url = `${DASHBOARD_URL}#schedule`;
 
   const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
   const header = widget.addText(
