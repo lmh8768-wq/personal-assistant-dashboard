@@ -696,6 +696,7 @@ button.nav-item {
   color: var(--text);
   cursor: pointer;
   position: relative;
+  overflow: hidden;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -858,6 +859,8 @@ button.nav-item {
 }
 
 .calendar-day-holiday {
+  align-self: stretch;
+  text-align: center;
   font-size: 8px;
   color: #f87171;
   line-height: 1;
