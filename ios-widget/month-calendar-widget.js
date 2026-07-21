@@ -23,10 +23,10 @@ const MUTED_TEXT_COLOR = "#9aa0ab";
 const SUNDAY_COLOR = "#ff6b6b";
 const SATURDAY_COLOR = "#7c9cff";
 
-const CELL_W = 42;
-const CELL_H = 30;
+const CELL_W = 40;
+const CELL_H = 40;
 const COL_GAP = 3;
-const ROW_GAP = 2;
+const ROW_GAP = 4;
 
 // ---------- Credentials (stored in the device Keychain, not in this script) ----------
 async function getCredentials() {
@@ -251,9 +251,9 @@ async function buildCalendarWidget() {
 
   const header = widget.addText(`${year}년 ${month + 1}월`);
   header.textColor = Color.white();
-  header.font = Font.boldSystemFont(15);
+  header.font = Font.boldSystemFont(16);
   header.centerAlignText();
-  widget.addSpacer(8);
+  widget.addSpacer(10);
 
   const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
   const weekdayRow = addCenteredRow(widget);
@@ -262,10 +262,9 @@ async function buildCalendarWidget() {
     const color = i === 0 ? SUNDAY_COLOR : i === 6 ? SATURDAY_COLOR : MUTED_TEXT_COLOR;
     addCell(weekdayRow, { label, textColor: color, dotColor: null, highlight: false });
   });
-  widget.addSpacer(4);
+  widget.addSpacer(6);
 
   const days = buildMonthGrid(year, month);
-  let monthTotal = 0;
   for (let week = 0; week < 6; week++) {
     const weekRow = addCenteredRow(widget);
     for (let i = 0; i < 7; i++) {
@@ -274,7 +273,6 @@ async function buildCalendarWidget() {
       const isCurrentMonth = d.getMonth() === month;
       const isToday = dStr === todayStr;
       const count = countOccurrences(schedules, dStr);
-      if (isCurrentMonth) monthTotal += count;
 
       if (i > 0) weekRow.addSpacer(COL_GAP);
       const weekday = d.getDay();
@@ -292,14 +290,8 @@ async function buildCalendarWidget() {
         highlight: isToday,
       });
     }
-    widget.addSpacer(ROW_GAP);
+    if (week < 5) widget.addSpacer(ROW_GAP);
   }
-
-  widget.addSpacer(4);
-  const footer = widget.addText(`이번 달 일정 ${monthTotal}개`);
-  footer.textColor = new Color(MUTED_TEXT_COLOR);
-  footer.font = Font.systemFont(10);
-  footer.centerAlignText();
 
   return widget;
 }
