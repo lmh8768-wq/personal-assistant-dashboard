@@ -23,9 +23,26 @@ const MUTED_TEXT_COLOR = "#9aa0ab";
 const SUNDAY_COLOR = "#ff6b6b";
 const SATURDAY_COLOR = "#7c9cff";
 
-const CELL_W = 40;
 const CELL_H = 40;
+const CELL_GAP = 3;
 const ROW_GAP = 4;
+const SIDE_MARGIN = 16;
+const TOP_BOTTOM_PADDING = 14;
+
+// Scriptable has no API to ask "how wide will this widget actually render?",
+// so this maps the device's screen size to Apple's documented Large-widget
+// frame size for that size class. Grid width is then derived FROM this
+// number, rather than picking a cell width and hoping it happens to fit —
+// that's what keeps the left/right margins equal: both sides use the exact
+// same SIDE_MARGIN constant, and the grid is sized to exactly fill whatever
+// is left over, so there's no leftover slack for one side to end up bigger.
+function getFrameSize() {
+  const { width, height } = Device.screenSize();
+  const w = Math.min(width, height);
+  if (w >= 428) return { width: 364, height: 382 }; // Plus / Pro Max
+  if (w <= 376) return { width: 321, height: 324 }; // SE / mini
+  return { width: 329, height: 345 }; // standard 12-16
+}
 
 // ---------- Credentials (stored in the device Keychain, not in this script) ----------
 async function getCredentials() {
@@ -172,11 +189,11 @@ function buildMessageWidget(title, message) {
   return widget;
 }
 
-function addCell(row, { label, textColor, dotColor, highlight }) {
+function addCell(row, cellWidth, { label, textColor, dotColor, highlight }) {
   const cell = row.addStack();
   cell.layoutVertically();
   cell.centerAlignContent();
-  cell.size = new Size(CELL_W, CELL_H);
+  cell.size = new Size(cellWidth, CELL_H);
   if (highlight) {
     cell.backgroundColor = new Color(ACCENT_COLOR);
     cell.cornerRadius = 6;
@@ -195,26 +212,17 @@ function addCell(row, { label, textColor, dotColor, highlight }) {
   dot.centerAlignText();
 }
 
-function addRow(parent) {
-  const row = parent.addStack();
+// Each row is added directly to the widget (not nested inside another
+// wrapper stack) — nesting broke both the auto-centering of the header text
+// and the row layout in an earlier attempt, so every row here is a genuine
+// top-level widget child, matching what's been confirmed to render correctly.
+function addRow(widget, cellWidth, items) {
+  const row = widget.addStack();
   row.layoutHorizontally();
   row.centerAlignContent();
-  return row;
-}
-
-// A fixed-width 7-column grid can't know the widget's actual rendered width
-// ahead of time (it varies by device). Rather than trying to compute a
-// left/right margin ourselves (which only worked out to be centered by luck,
-// and looked uneven in practice), every gap in the row — before the first
-// cell, between every pair of cells, and after the last cell — uses the same
-// flexible (argument-less) spacer. Since they're all literally the same call
-// used the same number of times, the left and right margins can't help but
-// end up identical, whatever the device's real width turns out to be.
-function addSpacedCells(row, cells) {
-  row.addSpacer();
-  cells.forEach((cell) => {
-    cell();
-    row.addSpacer();
+  items.forEach((item, i) => {
+    if (i > 0) row.addSpacer(CELL_GAP);
+    addCell(row, cellWidth, item);
   });
 }
 
@@ -252,62 +260,62 @@ async function buildCalendarWidget() {
   const year = today.getFullYear();
   const month = today.getMonth();
 
+  const frame = getFrameSize();
+  const innerWidth = frame.width - SIDE_MARGIN * 2;
+  const cellWidth = Math.floor((innerWidth - CELL_GAP * 6) / 7);
+
   const widget = new ListWidget();
   widget.backgroundColor = new Color(BG_COLOR);
   widget.url = `${DASHBOARD_URL}#schedule`;
-  widget.setPadding(12, 12, 12, 12);
+  // Left and right padding use the exact same SIDE_MARGIN value, so the
+  // margins are equal by construction rather than by hoping a layout guess
+  // works out. Grid width is derived from frame.width above, so the row
+  // itself fills almost all of what's left between those margins.
+  widget.setPadding(SIDE_MARGIN, TOP_BOTTOM_PADDING, SIDE_MARGIN, TOP_BOTTOM_PADDING);
 
-  // Everything lives inside one top-level container instead of being added
-  // directly to the widget, so the width every row negotiates for is this
-  // container's width — not each row fending for itself independently.
-  const container = widget.addStack();
-  container.layoutVertically();
-
-  const header = container.addText(`${year}년 ${month + 1}월`);
+  const header = widget.addText(`${year}년 ${month + 1}월`);
   header.textColor = Color.white();
   header.font = Font.boldSystemFont(16);
   header.centerAlignText();
-  container.addSpacer(10);
+  widget.addSpacer(10);
 
   const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
-  const weekdayRow = addRow(container);
-  addSpacedCells(
-    weekdayRow,
-    weekdayLabels.map((label, i) => () => {
-      const color = i === 0 ? SUNDAY_COLOR : i === 6 ? SATURDAY_COLOR : MUTED_TEXT_COLOR;
-      addCell(weekdayRow, { label, textColor: color, dotColor: null, highlight: false });
-    })
+  addRow(
+    widget,
+    cellWidth,
+    weekdayLabels.map((label, i) => ({
+      label,
+      textColor: i === 0 ? SUNDAY_COLOR : i === 6 ? SATURDAY_COLOR : MUTED_TEXT_COLOR,
+      dotColor: null,
+      highlight: false,
+    }))
   );
-  container.addSpacer(6);
+  widget.addSpacer(6);
 
   const days = buildMonthGrid(year, month);
   for (let week = 0; week < 6; week++) {
-    const weekRow = addRow(container);
-    const weekDays = days.slice(week * 7, week * 7 + 7);
-    addSpacedCells(
-      weekRow,
-      weekDays.map((d) => () => {
-        const dStr = toDateStr(d);
-        const isCurrentMonth = d.getMonth() === month;
-        const isToday = dStr === todayStr;
-        const count = countOccurrences(schedules, dStr);
-        const weekday = d.getDay();
-        const baseColor = !isCurrentMonth
-          ? FAINT_TEXT_COLOR
-          : weekday === 0
-          ? SUNDAY_COLOR
-          : weekday === 6
-          ? SATURDAY_COLOR
-          : TEXT_COLOR;
-        addCell(weekRow, {
-          label: String(d.getDate()),
-          textColor: baseColor,
-          dotColor: count > 0 ? ACCENT_COLOR : null,
-          highlight: isToday,
-        });
-      })
-    );
-    if (week < 5) container.addSpacer(ROW_GAP);
+    const weekDays = days.slice(week * 7, week * 7 + 7).map((d) => {
+      const dStr = toDateStr(d);
+      const isCurrentMonth = d.getMonth() === month;
+      const isToday = dStr === todayStr;
+      const count = countOccurrences(schedules, dStr);
+      const weekday = d.getDay();
+      const baseColor = !isCurrentMonth
+        ? FAINT_TEXT_COLOR
+        : weekday === 0
+        ? SUNDAY_COLOR
+        : weekday === 6
+        ? SATURDAY_COLOR
+        : TEXT_COLOR;
+      return {
+        label: String(d.getDate()),
+        textColor: baseColor,
+        dotColor: count > 0 ? ACCENT_COLOR : null,
+        highlight: isToday,
+      };
+    });
+    addRow(widget, cellWidth, weekDays);
+    if (week < 5) widget.addSpacer(ROW_GAP);
   }
 
   return widget;
