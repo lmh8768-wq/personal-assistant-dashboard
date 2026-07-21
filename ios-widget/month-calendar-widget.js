@@ -23,10 +23,10 @@ const MUTED_TEXT_COLOR = "#9aa0ab";
 const SUNDAY_COLOR = "#ff6b6b";
 const SATURDAY_COLOR = "#7c9cff";
 
-const CELL_W = 38;
-const CELL_H = 28;
-const COL_GAP = 2;
-const ROW_GAP = 1;
+const CELL_W = 42;
+const CELL_H = 30;
+const COL_GAP = 3;
+const ROW_GAP = 2;
 
 // ---------- Credentials (stored in the device Keychain, not in this script) ----------
 async function getCredentials() {
@@ -196,10 +196,18 @@ function addCell(row, { label, textColor, dotColor, highlight }) {
   dot.centerAlignText();
 }
 
-function addRow(widget) {
-  const row = widget.addStack();
+// A fixed-width 7-column grid can't know the widget's actual rendered width
+// ahead of time (it varies by device), so instead of guessing, we center it:
+// flexible (argument-less) spacers on both sides grow to absorb whatever
+// width is left over, keeping the grid centered no matter the device.
+function addCenteredRow(widget) {
+  const outer = widget.addStack();
+  outer.layoutHorizontally();
+  outer.addSpacer();
+  const row = outer.addStack();
   row.layoutHorizontally();
   row.centerAlignContent();
+  outer.addSpacer();
   return row;
 }
 
@@ -244,10 +252,11 @@ async function buildCalendarWidget() {
   const header = widget.addText(`${year}년 ${month + 1}월`);
   header.textColor = Color.white();
   header.font = Font.boldSystemFont(15);
+  header.centerAlignText();
   widget.addSpacer(8);
 
   const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
-  const weekdayRow = addRow(widget);
+  const weekdayRow = addCenteredRow(widget);
   weekdayLabels.forEach((label, i) => {
     if (i > 0) weekdayRow.addSpacer(COL_GAP);
     const color = i === 0 ? SUNDAY_COLOR : i === 6 ? SATURDAY_COLOR : MUTED_TEXT_COLOR;
@@ -258,7 +267,7 @@ async function buildCalendarWidget() {
   const days = buildMonthGrid(year, month);
   let monthTotal = 0;
   for (let week = 0; week < 6; week++) {
-    const weekRow = addRow(widget);
+    const weekRow = addCenteredRow(widget);
     for (let i = 0; i < 7; i++) {
       const d = days[week * 7 + i];
       const dStr = toDateStr(d);
@@ -290,6 +299,7 @@ async function buildCalendarWidget() {
   const footer = widget.addText(`이번 달 일정 ${monthTotal}개`);
   footer.textColor = new Color(MUTED_TEXT_COLOR);
   footer.font = Font.systemFont(10);
+  footer.centerAlignText();
 
   return widget;
 }
