@@ -12,6 +12,8 @@
   const HIDE_COMPLETED_KEY = "assistant.hideCompleted.v1";
   const UPCOMING_RANGE_KEY = "assistant.upcomingRangeDays.v1";
   const UPCOMING_RANGE_OPTIONS = [3, 7, 30];
+  const CALENDAR_HIGHLIGHT_CATEGORIES = new Set(["appointment", "event"]);
+  const CALENDAR_MAX_EVENT_CHIPS = 2;
 
   let hideCompleted = localStorage.getItem(HIDE_COMPLETED_KEY) === "true";
 
@@ -283,10 +285,13 @@
     if (dStr === todayStr) cell.classList.add("today");
     if (dStr === selectedStr) cell.classList.add("selected");
 
+    const topRow = document.createElement("div");
+    topRow.className = "calendar-day-top";
     const num = document.createElement("span");
     num.className = "day-number";
     num.textContent = d.getDate();
-    cell.appendChild(num);
+    topRow.appendChild(num);
+    cell.appendChild(topRow);
 
     const holidayName = window.KoreanHolidays && window.KoreanHolidays[dStr];
     if (holidayName) {
@@ -298,10 +303,36 @@
       cell.appendChild(holiday);
     }
 
-    if (window.ScheduleStore.countOccurrences(dStr) > 0) {
+    // 약속/행사 schedules show their own title right on the calendar; any
+    // other category just gets folded into the plain "something's on today" dot.
+    const dayItems = applyCustomOrder(dStr, window.ScheduleStore.getOccurrences(dStr));
+    const highlighted = dayItems.filter((item) => CALENDAR_HIGHLIGHT_CATEGORIES.has(item.category || "etc"));
+    const hasOtherCategory = dayItems.some((item) => !CALENDAR_HIGHLIGHT_CATEGORIES.has(item.category || "etc"));
+
+    if (highlighted.length > 0) {
+      const eventsWrap = document.createElement("div");
+      eventsWrap.className = "calendar-day-events";
+      highlighted.slice(0, CALENDAR_MAX_EVENT_CHIPS).forEach((item) => {
+        const chip = document.createElement("span");
+        chip.className = "calendar-day-event-chip";
+        chip.style.background = getCategoryColor(item.category);
+        chip.textContent = item.title;
+        chip.title = item.title;
+        eventsWrap.appendChild(chip);
+      });
+      if (highlighted.length > CALENDAR_MAX_EVENT_CHIPS) {
+        const more = document.createElement("span");
+        more.className = "calendar-day-event-more";
+        more.textContent = `+${highlighted.length - CALENDAR_MAX_EVENT_CHIPS}`;
+        eventsWrap.appendChild(more);
+      }
+      cell.appendChild(eventsWrap);
+    }
+
+    if (hasOtherCategory) {
       const dot = document.createElement("span");
       dot.className = "dot";
-      cell.appendChild(dot);
+      topRow.appendChild(dot);
     }
 
     cell.addEventListener("click", () => {
