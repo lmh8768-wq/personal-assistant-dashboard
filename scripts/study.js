@@ -472,7 +472,7 @@
 
   function renderPeriodCard(yearId, period, onChange) {
     const card = document.createElement("div");
-    card.className = "diary-card goal-period-card";
+    card.className = "diary-card goal-period-card" + (isPeriodCollapsed(period.id) ? " collapsed" : "");
 
     const headerRow = document.createElement("div");
     headerRow.className = "diary-card-header-row";

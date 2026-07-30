@@ -1288,6 +1288,21 @@ button.nav-item {
   margin-top: 14px;
 }
 
+/* Collapsed cards pack tighter — less padding, and a run of consecutive
+   collapsed cards sits closer together than expanded ones would. */
+.goal-period-card.collapsed {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.goal-period-card.collapsed .diary-card-header-row {
+  margin-bottom: 0;
+}
+
+.goal-period-card.collapsed + .goal-period-card.collapsed {
+  margin-top: 6px;
+}
+
 .goal-periods {
   display: flex;
   flex-direction: column;
@@ -1321,7 +1336,6 @@ button.nav-item {
 .goal-periods-in-year {
   display: flex;
   flex-direction: column;
-  gap: 14px;
 }
 
 .goal-toggle-btn {
