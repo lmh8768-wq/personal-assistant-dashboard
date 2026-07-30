@@ -43,7 +43,24 @@
       toast.appendChild(btn);
     });
 
-    container.appendChild(toast);
+    if (opts.position) {
+      // Anchored near wherever the triggering action happened (e.g. a drag
+      // drop), instead of the shared bottom-right corner — for a prompt
+      // tied to something the user was just looking at, that corner is
+      // easy to miss entirely.
+      toast.classList.add("toast-floating");
+      document.body.appendChild(toast);
+      const rect = toast.getBoundingClientRect();
+      const margin = 10;
+      let left = opts.position.x + 12;
+      let top = opts.position.y + 12;
+      left = Math.min(left, window.innerWidth - rect.width - margin);
+      top = Math.min(top, window.innerHeight - rect.height - margin);
+      toast.style.left = Math.max(margin, left) + "px";
+      toast.style.top = Math.max(margin, top) + "px";
+    } else {
+      container.appendChild(toast);
+    }
     timer = setTimeout(() => toast.remove(), duration);
   }
 

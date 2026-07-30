@@ -2010,6 +2010,12 @@ button.nav-item {
   text-decoration: underline;
 }
 
+.toast-floating {
+  position: fixed;
+  z-index: 101;
+  max-width: 280px;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 960px) {
   .grid {

@@ -122,7 +122,7 @@
   // filters keep their relative position even though they weren't visible
   // to drag against. If the reorder was between two PINNED items, asks
   // whether that relative order should also apply on every other day.
-  function moveWithinDay(dateStr, draggedId, targetId, insertBefore) {
+  function moveWithinDay(dateStr, draggedId, targetId, insertBefore, cursorPos) {
     if (draggedId === targetId) return;
     const fullOrder = applyCustomOrder(dateStr, window.ScheduleStore.getOccurrences(dateStr));
     const pinnedIds = new Set(fullOrder.filter((item) => item.pinned).map((item) => item.id));
@@ -141,6 +141,7 @@
       const newPinnedOrder = ids.filter((id) => pinnedIds.has(id));
       window.Toast.show("고정된 일정의 순서를 다른 날짜에도 적용할까요?", {
         duration: 6000,
+        position: cursorPos,
         actions: [
           {
             label: "네, 적용",
@@ -186,7 +187,7 @@
         if (!draggedId) return;
         const rect = li.getBoundingClientRect();
         const before = e.clientY - rect.top < rect.height / 2;
-        moveWithinDay(reorderDateStr, draggedId, item.id, before);
+        moveWithinDay(reorderDateStr, draggedId, item.id, before, { x: e.clientX, y: e.clientY });
         renderDayList();
       });
     }
@@ -440,9 +441,8 @@
       if (!draggedId) return;
       const dateStr = toDateStr(selectedDate);
       const fullOrder = applyCustomOrder(dateStr, window.ScheduleStore.getOccurrences(dateStr));
-      const ids = fullOrder.map((it) => it.id).filter((id) => id !== draggedId);
-      ids.push(draggedId);
-      window.ScheduleOrderStore.set(dateStr, ids);
+      const lastId = fullOrder[fullOrder.length - 1]?.id;
+      if (lastId) moveWithinDay(dateStr, draggedId, lastId, false, { x: e.clientX, y: e.clientY });
       renderDayList();
     });
   }
