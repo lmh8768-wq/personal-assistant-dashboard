@@ -82,19 +82,26 @@
 
   // Applies the day's saved manual order, if any; otherwise (or for items
   // added since the order was last saved) falls back to importance order.
+  // Pinned items then float above everything else regardless, in whatever
+  // relative order they came out of the step above.
   function applyCustomOrder(dateStr, items) {
     const savedOrder = window.ScheduleOrderStore.get(dateStr);
+    let ordered;
     if (savedOrder.length === 0) {
-      return [...items].sort((a, b) => (b.importance || 0) - (a.importance || 0));
+      ordered = [...items].sort((a, b) => (b.importance || 0) - (a.importance || 0));
+    } else {
+      const orderIndex = new Map(savedOrder.map((id, i) => [id, i]));
+      const known = items
+        .filter((item) => orderIndex.has(item.id))
+        .sort((a, b) => orderIndex.get(a.id) - orderIndex.get(b.id));
+      const unknown = items
+        .filter((item) => !orderIndex.has(item.id))
+        .sort((a, b) => (b.importance || 0) - (a.importance || 0));
+      ordered = [...known, ...unknown];
     }
-    const orderIndex = new Map(savedOrder.map((id, i) => [id, i]));
-    const known = items
-      .filter((item) => orderIndex.has(item.id))
-      .sort((a, b) => orderIndex.get(a.id) - orderIndex.get(b.id));
-    const unknown = items
-      .filter((item) => !orderIndex.has(item.id))
-      .sort((a, b) => (b.importance || 0) - (a.importance || 0));
-    return [...known, ...unknown];
+    const pinned = ordered.filter((item) => item.pinned);
+    const rest = ordered.filter((item) => !item.pinned);
+    return [...pinned, ...rest];
   }
 
   // Repositions `draggedId` relative to `targetId` within the FULL (unfiltered)
@@ -178,6 +185,13 @@
     const title = document.createElement("div");
     title.className = "schedule-item-title";
     title.textContent = item.title;
+    if (item.pinned) {
+      const pin = document.createElement("span");
+      pin.className = "schedule-item-badge";
+      pin.textContent = "📌";
+      pin.title = "목록 맨 위에 고정됨";
+      title.appendChild(pin);
+    }
     if (item.repeat && item.repeat.type !== "none") {
       const badge = document.createElement("span");
       badge.className = "schedule-item-badge";
@@ -531,6 +545,8 @@
     const isRepeating = repeatType !== "none";
     document.getElementById("repeatUntilRow").hidden = !isRepeating;
     document.getElementById("repeatNote").hidden = !isRepeating;
+    document.getElementById("schedulePinnedRow").hidden = !isRepeating;
+    if (!isRepeating) document.getElementById("schedulePinnedInput").checked = false;
     updateRepeatUntilDateVisibility();
   }
 
@@ -571,6 +587,7 @@
     const repeatUntilValue = data?.repeat?.until || "";
     document.getElementById("scheduleRepeatUntilModeInput").value = repeatUntilValue ? "date" : "never";
     document.getElementById("scheduleRepeatUntilInput").value = repeatUntilValue;
+    document.getElementById("schedulePinnedInput").checked = !!data?.pinned;
 
     syncCategorySelectOptions();
     document.getElementById("scheduleCategoryInput").value = data?.category || "etc";
@@ -608,6 +625,7 @@
       },
       importance: Number(document.getElementById("scheduleImportanceInput").value) || DEFAULT_IMPORTANCE,
       category: document.getElementById("scheduleCategoryInput").value,
+      pinned: repeatType !== "none" && document.getElementById("schedulePinnedInput").checked,
     };
   }
 
@@ -682,7 +700,8 @@
       return;
     }
 
-    window.ScheduleStore.add(payload);
+    const created = window.ScheduleStore.add(payload);
+    window.ScheduleOrderStore.prependToDay(payload.date, created.id);
     finalizeEdit(payload, false);
   }
 

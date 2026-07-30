@@ -236,6 +236,14 @@
       data[dateStr] = orderedIds;
       saveOrder(data);
     },
+    // A freshly added schedule jumps to the top of the day it was added
+    // for, ahead of anything already ordered (or not yet ordered) there.
+    prependToDay(dateStr, id) {
+      const data = loadOrder();
+      const current = Array.isArray(data[dateStr]) ? data[dateStr] : [];
+      data[dateStr] = [id, ...current.filter((existingId) => existingId !== id)];
+      saveOrder(data);
+    },
   };
 })();
 
