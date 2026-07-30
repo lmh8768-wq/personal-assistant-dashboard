@@ -239,19 +239,25 @@
       saveGoals(data);
       return node;
     },
+    // Returns true if the toggle actually applied, false if it was rejected
+    // (a goal with sub-goals can't be force-checked while any of them isn't
+    // done yet — its done state only ever comes from finishing all of them).
     toggleDone(yearId, periodId, id) {
       const data = loadGoals();
       const period = findPeriod(findYear(data, yearId), periodId);
-      if (!period) return;
+      if (!period) return false;
       const node = findNode(period.goals, id);
-      if (!node) return;
-      // Checking/unchecking a goal cascades to every sub-goal beneath it...
+      if (!node) return false;
+      const hasChildren = (node.children || []).length > 0;
+      if (hasChildren && !node.done) return false;
+      // Unchecking (always allowed) cascades down to every sub-goal beneath
+      // it; bubbling up, each ancestor is done only once ALL of its own
+      // children are, and un-done the moment any isn't.
       setDoneRecursive(node, !node.done);
-      // ...and then bubbles up: each ancestor becomes done only once ALL of
-      // its own children are done (and un-done the moment any isn't).
       const parentId = findParentIdIn(period.goals, id);
       if (parentId) recomputeNodeAndAncestors(period.goals, parentId);
       saveGoals(data);
+      return true;
     },
     removeGoal(yearId, periodId, id) {
       const data = loadGoals();
@@ -477,7 +483,10 @@
     checkbox.type = "checkbox";
     checkbox.checked = !!node.done;
     checkbox.addEventListener("change", () => {
-      GoalStore.toggleDone(yearId, periodId, node.id);
+      const applied = GoalStore.toggleDone(yearId, periodId, node.id);
+      if (!applied && window.Toast) {
+        window.Toast.show("하위 목표를 모두 완료해야 체크할 수 있어요");
+      }
       onChange();
     });
     row.appendChild(checkbox);
