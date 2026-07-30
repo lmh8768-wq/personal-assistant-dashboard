@@ -101,16 +101,32 @@
     }
     const pinned = ordered.filter((item) => item.pinned);
     const rest = ordered.filter((item) => !item.pinned);
-    return [...pinned, ...rest];
+
+    // The pinned subset's relative order defaults to whatever came out of
+    // the day-specific step above, but a saved global order (see
+    // SchedulePinnedOrderStore) — established once the user confirms a
+    // reorder should apply everywhere — takes precedence when present.
+    const pinnedOrder = window.SchedulePinnedOrderStore.get();
+    const pinnedOrderIndex = new Map(pinnedOrder.map((id, i) => [id, i]));
+    const sortedPinned = [...pinned].sort((a, b) => {
+      const ai = pinnedOrderIndex.has(a.id) ? pinnedOrderIndex.get(a.id) : Infinity;
+      const bi = pinnedOrderIndex.has(b.id) ? pinnedOrderIndex.get(b.id) : Infinity;
+      return ai - bi;
+    });
+
+    return [...sortedPinned, ...rest];
   }
 
   // Repositions `draggedId` relative to `targetId` within the FULL (unfiltered)
   // order for that day, so items hidden by the current category/completed
   // filters keep their relative position even though they weren't visible
-  // to drag against.
+  // to drag against. If the reorder was between two PINNED items, asks
+  // whether that relative order should also apply on every other day.
   function moveWithinDay(dateStr, draggedId, targetId, insertBefore) {
     if (draggedId === targetId) return;
     const fullOrder = applyCustomOrder(dateStr, window.ScheduleStore.getOccurrences(dateStr));
+    const pinnedIds = new Set(fullOrder.filter((item) => item.pinned).map((item) => item.id));
+
     const ids = fullOrder.map((item) => item.id);
     const fromIdx = ids.indexOf(draggedId);
     if (fromIdx === -1) return;
@@ -120,6 +136,23 @@
     else if (!insertBefore) toIdx += 1;
     ids.splice(toIdx, 0, draggedId);
     window.ScheduleOrderStore.set(dateStr, ids);
+
+    if (pinnedIds.has(draggedId) && pinnedIds.has(targetId) && window.Toast) {
+      const newPinnedOrder = ids.filter((id) => pinnedIds.has(id));
+      window.Toast.show("고정된 일정의 순서를 다른 날짜에도 적용할까요?", {
+        duration: 6000,
+        actions: [
+          {
+            label: "네, 적용",
+            onAction: () => {
+              window.SchedulePinnedOrderStore.set(newPinnedOrder);
+              refreshAll();
+            },
+          },
+          { label: "아니요, 오늘만", onAction: () => {} },
+        ],
+      });
+    }
   }
 
   // `reorderDateStr`, when passed, turns on drag-to-reorder among the day

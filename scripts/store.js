@@ -247,6 +247,34 @@
   };
 })();
 
+// ---------- Global relative order of pinned schedules (localStorage) ----------
+// A day's own order only ever affects that day. When the user reorders two
+// pinned items relative to each other, they're asked whether that order
+// should apply everywhere those items are pinned — if they say yes, it's
+// recorded here and applied as the pinned items' order on every day.
+(function () {
+  const PINNED_ORDER_KEY = "assistant.pinnedScheduleOrder.v1";
+
+  function loadPinnedOrder() {
+    try {
+      const raw = localStorage.getItem(PINNED_ORDER_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  window.SchedulePinnedOrderStore = {
+    get() {
+      return loadPinnedOrder();
+    },
+    set(orderedIds) {
+      localStorage.setItem(PINNED_ORDER_KEY, JSON.stringify(orderedIds));
+    },
+  };
+})();
+
 // ---------- Schedule templates (localStorage) ----------
 (function () {
   const TEMPLATES_KEY = "assistant.templates.v1";
