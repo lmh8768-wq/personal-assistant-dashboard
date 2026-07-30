@@ -13,7 +13,7 @@
   const UPCOMING_RANGE_KEY = "assistant.upcomingRangeDays.v1";
   const UPCOMING_RANGE_OPTIONS = [3, 7, 30];
   const CALENDAR_HIGHLIGHT_CATEGORIES = new Set(["appointment", "event"]);
-  const CALENDAR_MAX_EVENT_CHIPS = 2;
+  const CALENDAR_MAX_EVENT_CHIPS = 3;
 
   let hideCompleted = localStorage.getItem(HIDE_COMPLETED_KEY) === "true";
 
