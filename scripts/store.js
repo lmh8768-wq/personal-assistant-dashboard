@@ -206,6 +206,39 @@
   };
 })();
 
+// ---------- Per-day manual schedule ordering (localStorage) ----------
+// Absent an entry for a date, the day's list falls back to importance
+// order. Once the user drags an item, that day's full order is recorded
+// here and takes over from then on.
+(function () {
+  const ORDER_KEY = "assistant.scheduleOrder.v1";
+
+  function loadOrder() {
+    try {
+      const raw = localStorage.getItem(ORDER_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveOrder(data) {
+    localStorage.setItem(ORDER_KEY, JSON.stringify(data));
+  }
+
+  window.ScheduleOrderStore = {
+    get(dateStr) {
+      const data = loadOrder();
+      return Array.isArray(data[dateStr]) ? data[dateStr] : [];
+    },
+    set(dateStr, orderedIds) {
+      const data = loadOrder();
+      data[dateStr] = orderedIds;
+      saveOrder(data);
+    },
+  };
+})();
+
 // ---------- Schedule templates (localStorage) ----------
 (function () {
   const TEMPLATES_KEY = "assistant.templates.v1";

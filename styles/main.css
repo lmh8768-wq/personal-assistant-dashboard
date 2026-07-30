@@ -634,6 +634,14 @@ button.nav-item {
   border-style: solid;
 }
 
+.schedule-item.drag-over-before {
+  box-shadow: 0 -2px 0 0 var(--accent);
+}
+
+.schedule-item.drag-over-after {
+  box-shadow: 0 2px 0 0 var(--accent);
+}
+
 .schedule-item.completed .schedule-item-title {
   text-decoration: line-through;
 }

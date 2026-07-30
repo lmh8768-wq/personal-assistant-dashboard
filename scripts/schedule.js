@@ -80,7 +80,45 @@
     return items.filter((item) => (item.category || "etc") === categoryFilter);
   }
 
-  function renderScheduleItem(item, onClick) {
+  // Applies the day's saved manual order, if any; otherwise (or for items
+  // added since the order was last saved) falls back to importance order.
+  function applyCustomOrder(dateStr, items) {
+    const savedOrder = window.ScheduleOrderStore.get(dateStr);
+    if (savedOrder.length === 0) {
+      return [...items].sort((a, b) => (b.importance || 0) - (a.importance || 0));
+    }
+    const orderIndex = new Map(savedOrder.map((id, i) => [id, i]));
+    const known = items
+      .filter((item) => orderIndex.has(item.id))
+      .sort((a, b) => orderIndex.get(a.id) - orderIndex.get(b.id));
+    const unknown = items
+      .filter((item) => !orderIndex.has(item.id))
+      .sort((a, b) => (b.importance || 0) - (a.importance || 0));
+    return [...known, ...unknown];
+  }
+
+  // Repositions `draggedId` relative to `targetId` within the FULL (unfiltered)
+  // order for that day, so items hidden by the current category/completed
+  // filters keep their relative position even though they weren't visible
+  // to drag against.
+  function moveWithinDay(dateStr, draggedId, targetId, insertBefore) {
+    if (draggedId === targetId) return;
+    const fullOrder = applyCustomOrder(dateStr, window.ScheduleStore.getOccurrences(dateStr));
+    const ids = fullOrder.map((item) => item.id);
+    const fromIdx = ids.indexOf(draggedId);
+    if (fromIdx === -1) return;
+    ids.splice(fromIdx, 1);
+    let toIdx = ids.indexOf(targetId);
+    if (toIdx === -1) toIdx = ids.length;
+    else if (!insertBefore) toIdx += 1;
+    ids.splice(toIdx, 0, draggedId);
+    window.ScheduleOrderStore.set(dateStr, ids);
+  }
+
+  // `reorderDateStr`, when passed, turns on drag-to-reorder among the day
+  // list's own items (as opposed to the existing drag-onto-a-calendar-cell
+  // behavior, which reschedules the item and applies everywhere already).
+  function renderScheduleItem(item, onClick, reorderDateStr) {
     const li = document.createElement("li");
     li.className = "schedule-item";
     li.draggable = true;
@@ -88,6 +126,30 @@
       e.dataTransfer.setData("text/plain", item.id);
       e.dataTransfer.effectAllowed = "move";
     });
+
+    if (reorderDateStr) {
+      li.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        const rect = li.getBoundingClientRect();
+        const before = e.clientY - rect.top < rect.height / 2;
+        li.classList.toggle("drag-over-before", before);
+        li.classList.toggle("drag-over-after", !before);
+      });
+      li.addEventListener("dragleave", () => {
+        li.classList.remove("drag-over-before", "drag-over-after");
+      });
+      li.addEventListener("drop", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        li.classList.remove("drag-over-before", "drag-over-after");
+        const draggedId = e.dataTransfer.getData("text/plain");
+        if (!draggedId) return;
+        const rect = li.getBoundingClientRect();
+        const before = e.clientY - rect.top < rect.height / 2;
+        moveWithinDay(reorderDateStr, draggedId, item.id, before);
+        renderDayList();
+      });
+    }
 
     const isDone = (item.completedDates || []).includes(item.occurrenceDate);
     if (isDone) li.classList.add("completed");
@@ -292,7 +354,8 @@
     const list = document.getElementById("scheduleList");
     list.innerHTML = "";
 
-    let items = window.ScheduleStore.getOccurrences(toDateStr(selectedDate));
+    const dateStr = toDateStr(selectedDate);
+    let items = applyCustomOrder(dateStr, window.ScheduleStore.getOccurrences(dateStr));
     items = applyCategoryFilter(items);
     items = applyHideCompleted(items);
 
@@ -306,12 +369,34 @@
       const onClick = scheduleSelectMode
         ? (it) => toggleScheduleSelection(`${it.id}::${it.occurrenceDate}`)
         : (it) => openModal("edit", it);
-      const li = renderScheduleItem(item, onClick);
+      const li = renderScheduleItem(item, onClick, dateStr);
       if (scheduleSelectMode) {
         li.classList.add("selectable");
         if (scheduleSelectedIds.has(key)) li.classList.add("selected");
       }
       list.appendChild(li);
+    });
+  }
+
+  // Dropping past the last item (in the empty space below the list, or on
+  // the list container itself rather than a specific item) moves the
+  // dragged item to the very end of that day's order. Attached once — the
+  // <ul> element itself persists across renderDayList() calls, so wiring
+  // this inside renderDayList would keep stacking duplicate listeners.
+  function initDayListDropZone() {
+    const list = document.getElementById("scheduleList");
+    if (!list) return;
+    list.addEventListener("dragover", (e) => e.preventDefault());
+    list.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const draggedId = e.dataTransfer.getData("text/plain");
+      if (!draggedId) return;
+      const dateStr = toDateStr(selectedDate);
+      const fullOrder = applyCustomOrder(dateStr, window.ScheduleStore.getOccurrences(dateStr));
+      const ids = fullOrder.map((it) => it.id).filter((id) => id !== draggedId);
+      ids.push(draggedId);
+      window.ScheduleOrderStore.set(dateStr, ids);
+      renderDayList();
     });
   }
 
@@ -742,6 +827,8 @@
         renderUpcoming();
       });
     }
+
+    initDayListDropZone();
 
     document.getElementById("prevMonthBtn").addEventListener("click", () => {
       viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);
