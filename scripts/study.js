@@ -100,6 +100,40 @@
     return null;
   }
 
+  function setDoneRecursive(node, done) {
+    node.done = done;
+    (node.children || []).forEach((child) => setDoneRecursive(child, done));
+  }
+
+  function findParentIdIn(list, childId) {
+    function search(nodes, parentId) {
+      for (const n of nodes) {
+        if (n.id === childId) return parentId;
+        const found = search(n.children || [], n.id);
+        if (found !== undefined) return found;
+      }
+      return undefined;
+    }
+    const found = search(list, null);
+    return found === undefined ? null : found;
+  }
+
+  // Re-derives `done` for a node from its children (done only if it HAS
+  // children and every one of them is done), then walks up doing the same
+  // for each ancestor. Used whenever a subtree's completeness could have
+  // changed out from under an ancestor: a toggle, a new incomplete child, a
+  // removed/restored child.
+  function recomputeNodeAndAncestors(list, nodeId) {
+    let currentId = nodeId;
+    while (currentId) {
+      const node = findNode(list, currentId);
+      if (!node) break;
+      const kids = node.children || [];
+      if (kids.length > 0) node.done = kids.every((c) => c.done);
+      currentId = findParentIdIn(list, currentId);
+    }
+  }
+
   function countProgress(node) {
     let total = 1;
     let done = node.done ? 1 : 0;
@@ -198,6 +232,9 @@
         if (!parent) return null;
         parent.children = parent.children || [];
         parent.children.push(node);
+        // A fresh, unchecked child means `parent` (and its own ancestors)
+        // can no longer be considered fully done.
+        recomputeNodeAndAncestors(period.goals, parentId);
       }
       saveGoals(data);
       return node;
@@ -208,15 +245,22 @@
       if (!period) return;
       const node = findNode(period.goals, id);
       if (!node) return;
-      node.done = !node.done;
+      // Checking/unchecking a goal cascades to every sub-goal beneath it...
+      setDoneRecursive(node, !node.done);
+      // ...and then bubbles up: each ancestor becomes done only once ALL of
+      // its own children are done (and un-done the moment any isn't).
+      const parentId = findParentIdIn(period.goals, id);
+      if (parentId) recomputeNodeAndAncestors(period.goals, parentId);
       saveGoals(data);
     },
     removeGoal(yearId, periodId, id) {
       const data = loadGoals();
       const period = findPeriod(findYear(data, yearId), periodId);
       if (!period) return null;
+      const parentId = findParentIdIn(period.goals, id);
       const removed = extractNode(period.goals, id);
       if (!removed) return null;
+      if (parentId) recomputeNodeAndAncestors(period.goals, parentId);
       saveGoals(data);
       return removed;
     },
@@ -232,22 +276,13 @@
         else {
           parent.children = parent.children || [];
           parent.children.push(node);
+          recomputeNodeAndAncestors(period.goals, parentId);
         }
       }
       saveGoals(data);
     },
     findParentId(yearId, periodId, childId) {
-      const list = GoalStore.getGoals(yearId, periodId);
-      function search(nodes, parentId) {
-        for (const n of nodes) {
-          if (n.id === childId) return parentId;
-          const found = search(n.children || [], n.id);
-          if (found !== undefined) return found;
-        }
-        return undefined;
-      }
-      const found = search(list, null);
-      return found === undefined ? null : found;
+      return findParentIdIn(GoalStore.getGoals(yearId, periodId), childId);
     },
   };
   window.AcademicGoalStore = GoalStore;
