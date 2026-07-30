@@ -456,7 +456,11 @@
       const { total, done } = countProgress(node);
       const progress = document.createElement("span");
       progress.className = "goal-item-progress";
-      progress.textContent = `${done}/${total}`;
+      const percent = Math.round((done / total) * 100);
+      // Only the top-level 대목표 gets a completion rate alongside the raw
+      // count — 중목표/소목표 subtrees are usually small enough that the
+      // n/m count alone reads fine.
+      progress.textContent = depth === 0 ? `${done}/${total} (${percent}%)` : `${done}/${total}`;
       row.appendChild(progress);
     }
 
