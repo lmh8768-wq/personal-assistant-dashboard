@@ -16,8 +16,14 @@
     { key: "winter", label: "겨울방학" },
   ];
 
-  const LEVEL_ADD_LABEL = ["+ 대목표 추가", "+ 중목표 추가", "+ 소목표 추가"];
-  const LEVEL_PLACEHOLDER = ["대목표 이름", "중목표 이름", "소목표 이름"];
+  // Only the top level (adding a fresh 대목표 straight under a period) ever
+  // uses a trailing add trigger, so this only needs one entry.
+  const LEVEL_ADD_LABEL = ["+ 대목표 추가"];
+  const LEVEL_NAMES = ["대목표", "중목표", "소목표"];
+
+  function levelPlaceholder(depth) {
+    return (LEVEL_NAMES[depth] || `${depth + 1}단계 목표`) + " 이름";
+  }
 
   function createId(prefix) {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -454,14 +460,12 @@
       row.appendChild(progress);
     }
 
-    if (depth < 2) {
-      row.appendChild(
-        makeAddTrigger("goal-item-add", "+", LEVEL_PLACEHOLDER[depth + 1], (label) => {
-          GoalStore.addGoal(yearId, periodId, node.id, label);
-          onChange();
-        })
-      );
-    }
+    row.appendChild(
+      makeAddTrigger("goal-item-add", "+", levelPlaceholder(depth + 1), (label) => {
+        GoalStore.addGoal(yearId, periodId, node.id, label);
+        onChange();
+      })
+    );
 
     const remove = document.createElement("span");
     remove.className = "checklist-item-remove";
@@ -484,21 +488,23 @@
 
     li.appendChild(row);
 
-    if (depth < 2) {
-      // No trailing add-row here — this item's own "+" (above) is the only
-      // way to add into this children list, so it can be clicked repeatedly
-      // to add several children one at a time without leaving stray inputs.
-      li.appendChild(
-        renderGoalList(yearId, periodId, node.children || [], depth + 1, node.id, onChange, false)
-      );
-    }
+    // No trailing add-row here — this item's own "+" (above) is the only way
+    // to add into this children list, so it can be clicked repeatedly to add
+    // as many nested sub-goals as needed, at any depth, one at a time.
+    li.appendChild(
+      renderGoalList(yearId, periodId, node.children || [], depth + 1, node.id, onChange, false)
+    );
 
     return li;
   }
 
   function renderGoalList(yearId, periodId, nodes, depth, parentId, onChange, showTrailingAdd) {
     const wrapper = document.createElement("div");
-    wrapper.className = "goal-list-wrapper goal-depth-" + depth;
+    wrapper.className = "goal-list-wrapper";
+    if (depth > 0) {
+      wrapper.style.marginLeft = depth * 22 + "px";
+      wrapper.style.marginTop = "4px";
+    }
 
     if (nodes.length > 0) {
       const ul = document.createElement("ul");
@@ -512,7 +518,7 @@
         makeAddTrigger(
           "goal-add-row",
           LEVEL_ADD_LABEL[depth] || "+ 추가",
-          LEVEL_PLACEHOLDER[depth] || "목표 이름",
+          levelPlaceholder(depth),
           (label) => {
             GoalStore.addGoal(yearId, periodId, parentId, label);
             onChange();

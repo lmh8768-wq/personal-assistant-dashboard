@@ -1412,11 +1412,6 @@ button.nav-item {
   flex-direction: column;
 }
 
-.goal-depth-1,
-.goal-depth-2 {
-  margin-left: 26px;
-  margin-top: 4px;
-}
 
 .goal-item {
   display: flex;
