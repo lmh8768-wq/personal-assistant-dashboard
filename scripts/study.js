@@ -16,7 +16,8 @@
     { key: "winter", label: "겨울방학" },
   ];
 
-  const LEVEL_PLACEHOLDER = ["대목표 추가 후 Enter", "중목표 추가 후 Enter", "소목표 추가 후 Enter"];
+  const LEVEL_ADD_LABEL = ["+ 대목표 추가", "+ 중목표 추가", "+ 소목표 추가"];
+  const LEVEL_PLACEHOLDER = ["대목표 이름", "중목표 이름", "소목표 이름"];
 
   function createId(prefix) {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -296,36 +297,69 @@
     return btn;
   }
 
-  function makeAddRow(depth, placeholder, onAdd) {
-    const row = document.createElement("div");
-    row.className = "checklist-add-row goal-add-row";
+  // Starts as a single compact "add" button; clicking it swaps in a text
+  // input (Enter commits, Escape/blur cancels back to the button) instead of
+  // leaving an open input box sitting around all the time. `onAdd` is only
+  // ever called with a non-empty label, and is expected to trigger a full
+  // re-render — so there's no need to revert this node back to button view
+  // after a successful add, since the whole tree gets rebuilt around it.
+  function makeAddTrigger(containerClass, buttonLabel, placeholder, onAdd) {
+    const container = document.createElement("div");
+    container.className = containerClass;
 
-    const input = document.createElement("input");
-    input.type = "text";
-    input.placeholder = placeholder;
-
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "ghost-btn";
-    btn.textContent = "+ 추가";
-
-    function submit() {
-      const label = input.value.trim();
-      if (!label) return;
-      onAdd(label);
+    function showButton() {
+      container.innerHTML = "";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ghost-btn goal-add-trigger-btn";
+      btn.textContent = buttonLabel;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showInput();
+      });
+      container.appendChild(btn);
     }
 
-    btn.addEventListener("click", submit);
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        submit();
-      }
-    });
+    function showInput() {
+      container.innerHTML = "";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "goal-add-input";
+      input.placeholder = placeholder;
 
-    row.appendChild(input);
-    row.appendChild(btn);
-    return row;
+      let settled = false;
+      function commit() {
+        if (settled) return;
+        settled = true;
+        const label = input.value.trim();
+        if (label) onAdd(label);
+        else showButton();
+      }
+      function cancel() {
+        if (settled) return;
+        settled = true;
+        showButton();
+      }
+
+      input.addEventListener("keydown", (e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          cancel();
+        }
+      });
+      input.addEventListener("blur", cancel);
+      input.addEventListener("click", (e) => e.stopPropagation());
+
+      container.appendChild(input);
+      input.focus();
+    }
+
+    showButton();
+    return container;
   }
 
   // A label that can be turned into an inline text input to rename it,
@@ -420,6 +454,15 @@
       row.appendChild(progress);
     }
 
+    if (depth < 2) {
+      row.appendChild(
+        makeAddTrigger("goal-item-add", "+", LEVEL_PLACEHOLDER[depth + 1], (label) => {
+          GoalStore.addGoal(yearId, periodId, node.id, label);
+          onChange();
+        })
+      );
+    }
+
     const remove = document.createElement("span");
     remove.className = "checklist-item-remove";
     remove.textContent = "×";
@@ -442,15 +485,18 @@
     li.appendChild(row);
 
     if (depth < 2) {
+      // No trailing add-row here — this item's own "+" (above) is the only
+      // way to add into this children list, so it can be clicked repeatedly
+      // to add several children one at a time without leaving stray inputs.
       li.appendChild(
-        renderGoalList(yearId, periodId, node.children || [], depth + 1, node.id, onChange)
+        renderGoalList(yearId, periodId, node.children || [], depth + 1, node.id, onChange, false)
       );
     }
 
     return li;
   }
 
-  function renderGoalList(yearId, periodId, nodes, depth, parentId, onChange) {
+  function renderGoalList(yearId, periodId, nodes, depth, parentId, onChange, showTrailingAdd) {
     const wrapper = document.createElement("div");
     wrapper.className = "goal-list-wrapper goal-depth-" + depth;
 
@@ -461,12 +507,19 @@
       wrapper.appendChild(ul);
     }
 
-    wrapper.appendChild(
-      makeAddRow(depth, LEVEL_PLACEHOLDER[depth] || "목표 추가 후 Enter", (label) => {
-        GoalStore.addGoal(yearId, periodId, parentId, label);
-        onChange();
-      })
-    );
+    if (showTrailingAdd) {
+      wrapper.appendChild(
+        makeAddTrigger(
+          "goal-add-row",
+          LEVEL_ADD_LABEL[depth] || "+ 추가",
+          LEVEL_PLACEHOLDER[depth] || "목표 이름",
+          (label) => {
+            GoalStore.addGoal(yearId, periodId, parentId, label);
+            onChange();
+          }
+        )
+      );
+    }
     return wrapper;
   }
 
@@ -534,7 +587,7 @@
     card.appendChild(headerRow);
 
     if (!collapsed) {
-      card.appendChild(renderGoalList(yearId, period.id, goals, 0, null, onChange));
+      card.appendChild(renderGoalList(yearId, period.id, goals, 0, null, onChange, true));
     }
 
     return card;
@@ -591,7 +644,7 @@
         periodsWrap.appendChild(renderPeriodCard(year.id, period, onChange))
       );
       periodsWrap.appendChild(
-        makeAddRow(0, "구간 추가 후 Enter (예: 자격증 시험)", (label) => {
+        makeAddTrigger("goal-add-row", "+ 구간 추가", "구간 이름 (예: 자격증 시험)", (label) => {
           GoalStore.addPeriod(year.id, label);
           onChange();
         })
@@ -608,7 +661,7 @@
     container.innerHTML = "";
 
     container.appendChild(
-      makeAddRow(0, "연도 추가 후 Enter (예: 2027)", (label) => {
+      makeAddTrigger("goal-add-row", "+ 연도 추가", "연도 이름 (예: 2027)", (label) => {
         GoalStore.addYear(label);
         renderAll();
       })
