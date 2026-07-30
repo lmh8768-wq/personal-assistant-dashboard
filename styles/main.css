@@ -381,6 +381,68 @@ button.nav-item {
   grid-column: 1 / -1;
 }
 
+.panel-weather {
+  grid-column: 1 / -1;
+  min-height: auto;
+}
+
+.weather-body {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.weather-icon {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.weather-info {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.weather-temp {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.weather-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.weather-range {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.weather-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.weather-alerts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.weather-alert-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
 .panel {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -1420,6 +1482,13 @@ button.nav-item {
 
 .settings-subtitle {
   font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-notification-status {
+  margin: -6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-muted);
 }
 

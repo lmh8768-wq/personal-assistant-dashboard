@@ -351,6 +351,32 @@
     setTimeout(() => location.reload(), 1000);
   }
 
+  function renderNotificationStatus() {
+    const statusEl = document.getElementById("notificationStatusText");
+    const btn = document.getElementById("notificationToggleBtn");
+    if (!statusEl || !btn) return;
+
+    if (!window.PushNotifications || !window.PushNotifications.isSupported()) {
+      statusEl.textContent = "이 기기/브라우저에서는 알림을 지원하지 않아요";
+      btn.hidden = true;
+      return;
+    }
+
+    const enabled = window.PushNotifications.isEnabled() && Notification.permission === "granted";
+    statusEl.textContent = enabled ? "알림 켜짐" : "알림 꺼짐";
+    btn.textContent = enabled ? "알림 끄기" : "알림 켜기";
+  }
+
+  async function handleNotificationToggle() {
+    const enabled = window.PushNotifications.isEnabled() && Notification.permission === "granted";
+    if (enabled) {
+      await window.PushNotifications.disableNotifications();
+    } else {
+      await window.PushNotifications.enableNotifications();
+    }
+    renderNotificationStatus();
+  }
+
   function init() {
     populateSettingsForm();
     applyProfile();
@@ -358,6 +384,8 @@
     initAppearance();
     renderCategoryEditor();
     renderCustomShortcuts();
+    renderNotificationStatus();
+    document.getElementById("notificationToggleBtn")?.addEventListener("click", handleNotificationToggle);
 
     document.getElementById("settingsForm").addEventListener("submit", handleSettingsSubmit);
     document.getElementById("profileForm").addEventListener("submit", handleProfileSubmit);

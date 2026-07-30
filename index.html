@@ -149,6 +149,20 @@
           <!-- 메인 그리드 -->
           <section class="grid">
 
+            <div class="panel panel-weather">
+              <div class="panel-header"><h2>오늘의 날씨</h2></div>
+              <div class="weather-body">
+                <span class="weather-icon" id="weatherIcon">—</span>
+                <div class="weather-info">
+                  <span class="weather-temp" id="weatherTemp">—</span>
+                  <span class="weather-desc" id="weatherDesc"></span>
+                  <span class="weather-range" id="weatherRange"></span>
+                </div>
+              </div>
+              <div class="weather-alerts" id="weatherAlerts"></div>
+              <p class="weather-note" id="weatherNote"></p>
+            </div>
+
             <div class="panel panel-schedule">
               <div class="panel-header">
                 <h2>오늘의 일정</h2>
@@ -368,6 +382,15 @@
               </label>
               <button type="submit" class="primary-btn">저장</button>
             </form>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header"><h2>알림</h2></div>
+            <div class="settings-form">
+              <p class="modal-note">매일 아침 8시에 오늘의 일정을 휴대폰 알림으로 받아볼 수 있어요.</p>
+              <p class="settings-notification-status" id="notificationStatusText"></p>
+              <button type="button" class="primary-btn" id="notificationToggleBtn">알림 켜기</button>
+            </div>
           </div>
 
           <div class="panel">
@@ -662,6 +685,8 @@
   <script src="scripts/store.js"></script>
   <script src="scripts/schedule.js"></script>
   <script src="scripts/settings.js"></script>
+  <script src="scripts/notifications.js"></script>
+  <script src="scripts/weather.js"></script>
   <script src="scripts/practice.js"></script>
   <script src="scripts/study.js"></script>
   <script src="scripts/exercise.js"></script>

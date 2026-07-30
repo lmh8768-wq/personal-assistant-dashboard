@@ -73,6 +73,9 @@ function showView(viewName) {
   if (viewName === "dashboard" && window.ExerciseView) {
     window.ExerciseView.refreshDashboard();
   }
+  if (viewName === "dashboard" && window.WeatherView) {
+    window.WeatherView.refreshDashboard();
+  }
   if (viewName === "settings" && window.SettingsView) {
     window.SettingsView.refreshStorage();
   }
