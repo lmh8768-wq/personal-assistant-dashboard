@@ -1259,7 +1259,6 @@ button.nav-item {
   color: var(--text);
 }
 
-/* ---------- Study planner ---------- */
 .diary-card-header-row {
   display: flex;
   align-items: center;
@@ -1268,53 +1267,59 @@ button.nav-item {
   margin-bottom: 6px;
 }
 
-.diary-card-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
 .diary-card-header-row .diary-card-date,
 .diary-card-header-row .practice-card-checklist {
   margin: 0;
 }
 
-.card-action-btn {
-  display: inline-flex;
+/* ---------- Academics: semester goal tree ---------- */
+.goal-period-card {
+  cursor: default;
+}
+
+.goal-period-card + .goal-period-card {
+  margin-top: 14px;
+}
+
+.goal-periods {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.goal-list-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.goal-depth-1,
+.goal-depth-2 {
+  margin-left: 26px;
+  margin-top: 4px;
+}
+
+.goal-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.goal-item-row.checklist-item {
   align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated-2);
-  color: var(--text-muted);
-  font-size: 12px;
-  cursor: pointer;
 }
 
-.card-action-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+.goal-item-label {
+  flex: 1;
 }
 
-.study-item-type {
+.goal-item-progress {
   flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text-faint);
 }
 
-.study-item-type.type-study {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.study-item-type.type-assignment {
-  background: rgba(251, 146, 60, 0.15);
-  color: #fb923c;
+.goal-add-row {
+  margin-top: 6px;
+  margin-bottom: 10px;
 }
 
 .diary-streak {

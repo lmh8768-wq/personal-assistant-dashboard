@@ -54,7 +54,7 @@ const viewTitles = {
   dashboard: "대시보드",
   schedule: "일정 · 할 일",
   practice: "베이스 연습 일지",
-  study: "스터디 플래너",
+  study: "학업",
   exercise: "운동",
   assistant: "비서에게 묻기",
   settings: "설정",
