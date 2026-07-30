@@ -1267,6 +1267,13 @@ button.nav-item {
   margin-bottom: 6px;
 }
 
+.diary-card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .diary-card-header-row .diary-card-date,
 .diary-card-header-row .practice-card-checklist {
   margin: 0;
@@ -1285,6 +1292,56 @@ button.nav-item {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.goal-year-section + .goal-year-section {
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.goal-year-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.goal-year-label {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.goal-year-remove {
+  font-size: 16px;
+}
+
+.goal-periods-in-year {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.goal-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.goal-toggle-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .goal-list-wrapper {
