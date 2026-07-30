@@ -1,6 +1,10 @@
 (function () {
-  const LOCATION_KEY = "assistant.weatherLocation.v1";
-  const CACHE_KEY = "assistant.weatherCache.v1";
+  // Deliberately NOT prefixed with "assistant." — cloud-sync.js treats that
+  // prefix as user data to sync/overwrite across devices, and this is just a
+  // local device cache (per-device location, refreshed every 30min) that must
+  // never be written into the synced payload or pushed to Firestore.
+  const LOCATION_KEY = "weatherLocation.v1";
+  const CACHE_KEY = "weatherCache.v1";
   const CACHE_TTL_MS = 30 * 60 * 1000;
   const DEFAULT_LOCATION = { lat: 37.5665, lon: 126.978 }; // Seoul, used when geolocation is unavailable/denied
 

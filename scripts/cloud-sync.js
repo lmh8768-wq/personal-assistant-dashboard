@@ -18,6 +18,13 @@
   let pushTimer = null;
   let unsubscribeSnapshot = null;
   let offlineTimer = null;
+  // Guards against the exact class of bug that once wiped a user's data: a
+  // local write (e.g. a widget seeding its own cache key) racing ahead of
+  // the very first Firestore pull and getting pushed up as if it were the
+  // complete state, replacing everything that hadn't loaded into
+  // localStorage yet. No push is allowed to reach the server until the
+  // first snapshot for this sign-in has been fully handled.
+  let initialSyncDone = false;
 
   function isAppKey(key) {
     return typeof key === "string" && key.startsWith("assistant.");
@@ -106,9 +113,9 @@
 
   setInterval(() => {
     checkForLocalChanges();
-    // Retry a push that was queued before sign-in finished (e.g. changes
-    // made in the offline-continue fallback) once we do have a session.
-    if (hasPendingLocalChanges() && !pushPending && auth && auth.currentUser) {
+    // Retry a push that was queued before sign-in/initial sync finished
+    // (e.g. changes made in the offline-continue fallback) once we're ready.
+    if (hasPendingLocalChanges() && !pushPending && auth && auth.currentUser && initialSyncDone) {
       pushPending = true;
       pushToCloud();
     }
@@ -171,6 +178,13 @@
     const user = auth && auth.currentUser;
     if (!user || !db) {
       logSync("push skipped: not signed in yet");
+      return;
+    }
+    if (!initialSyncDone) {
+      // Local state may still be missing data that the pull hasn't applied
+      // yet — pushing now would overwrite the server with a partial state.
+      // Stay pending; the poller retries once the first sync completes.
+      logSync("push deferred: initial sync not complete yet");
       return;
     }
     pushPending = false;
@@ -251,12 +265,18 @@
   // ---------- Sync lifecycle ----------
   function startListening(uid) {
     let isFirst = true;
+    initialSyncDone = false;
     logSync(`startListening uid=${uid.slice(0, 6)}…`);
     if (unsubscribeSnapshot) unsubscribeSnapshot();
     unsubscribeSnapshot = db.collection("users").doc(uid).onSnapshot(
       (doc) => {
         if (isFirst) {
           isFirst = false;
+          // Any of the three branches below is itself the authoritative
+          // first sync action (pull remote, resume a pending push, or seed
+          // an empty doc) — allow them through, then close the window so
+          // no unrelated write can sneak a push in ahead of them.
+          initialSyncDone = true;
           logSync(`snapshot(first): pending=${hasPendingLocalChanges()} docExists=${doc.exists} fromCache=${doc.metadata.fromCache}`);
           if (hasPendingLocalChanges()) {
             // Last session made a local change we never confirmed reached
