@@ -56,6 +56,9 @@
         <a class="nav-item active" href="#dashboard" data-view="dashboard">
           <span class="nav-icon">📊</span><span class="nav-label">대시보드</span>
         </a>
+        <a class="nav-item" href="#routine" data-view="routine">
+          <span class="nav-icon">🌗</span><span class="nav-label">루틴</span>
+        </a>
         <a class="nav-item" href="#schedule" data-view="schedule">
           <span class="nav-icon">📅</span><span class="nav-label">일정 · 할 일</span>
         </a>
@@ -224,6 +227,29 @@
 
           </section>
 
+        </div>
+
+        <!-- 루틴 뷰 -->
+        <div class="view" id="view-routine" hidden>
+          <div class="routine-columns">
+            <div class="panel routine-panel">
+              <div class="panel-header"><h2>아침 루틴</h2></div>
+              <ul class="checklist-items" id="morningRoutineList"></ul>
+              <div class="checklist-add-row">
+                <input type="text" id="morningRoutineInput" placeholder="항목 추가 후 Enter" />
+                <button type="button" class="ghost-btn" id="morningRoutineAddBtn">추가</button>
+              </div>
+            </div>
+
+            <div class="panel routine-panel">
+              <div class="panel-header"><h2>야간 루틴</h2></div>
+              <ul class="checklist-items" id="nightRoutineList"></ul>
+              <div class="checklist-add-row">
+                <input type="text" id="nightRoutineInput" placeholder="항목 추가 후 Enter" />
+                <button type="button" class="ghost-btn" id="nightRoutineAddBtn">추가</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 일정 뷰 -->
@@ -653,6 +679,7 @@
   <script src="scripts/practice.js"></script>
   <script src="scripts/study.js"></script>
   <script src="scripts/exercise.js"></script>
+  <script src="scripts/routine.js"></script>
   <script src="scripts/search.js"></script>
   <script src="scripts/main.js"></script>
 

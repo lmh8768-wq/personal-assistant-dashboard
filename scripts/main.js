@@ -52,6 +52,7 @@ const viewSections = document.querySelectorAll(".view");
 
 const viewTitles = {
   dashboard: "대시보드",
+  routine: "루틴",
   schedule: "일정 · 할 일",
   practice: "베이스 연습 일지",
   study: "학업",
@@ -138,6 +139,7 @@ window.initFeatures = function initFeatures() {
   if (window.PracticeView) window.PracticeView.init();
   if (window.StudyView) window.StudyView.init();
   if (window.ExerciseView) window.ExerciseView.init();
+  if (window.RoutineView) window.RoutineView.init();
   if (window.GlobalSearch) window.GlobalSearch.init();
 };
 
