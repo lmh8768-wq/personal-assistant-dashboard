@@ -5,7 +5,9 @@
   // never treats it as data to sync/overwrite across devices.
   const UI_STATE_KEY = "academicUiState.v1";
 
-  const PERIODS = [
+  // Only used to seed a brand-new year's periods and to migrate data saved
+  // before periods became freely add/remove/renamable by the user.
+  const DEFAULT_PERIODS = [
     { key: "midterm1", label: "1학기 중간고사" },
     { key: "final1", label: "1학기 기말고사" },
     { key: "summer", label: "여름방학" },
@@ -20,12 +22,8 @@
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  function emptyPeriods() {
-    const periods = {};
-    PERIODS.forEach((p) => {
-      periods[p.key] = [];
-    });
-    return periods;
+  function defaultPeriodList() {
+    return DEFAULT_PERIODS.map((p) => ({ id: createId("period"), label: p.label, goals: [] }));
   }
 
   // ---------- Storage: years -> periods -> goal tree ----------
@@ -37,24 +35,33 @@
     } catch {
       data = null;
     }
+    let changed = false;
     if (!data || !Array.isArray(data.years)) {
-      // Migrate the old flat { periodKey: [...] } shape (no year grouping)
-      // into a single year bucket, defaulting to the current calendar year.
+      // Very old shape: a flat { periodKey: [...] } with no year grouping at all.
       const oldFlat = data && !data.years ? data : null;
-      const periods = emptyPeriods();
+      const periods = defaultPeriodList();
       if (oldFlat) {
-        PERIODS.forEach((p) => {
-          if (Array.isArray(oldFlat[p.key])) periods[p.key] = oldFlat[p.key];
+        DEFAULT_PERIODS.forEach((p, i) => {
+          if (Array.isArray(oldFlat[p.key])) periods[i].goals = oldFlat[p.key];
         });
       }
       data = { years: [{ id: createId("year"), label: String(new Date().getFullYear()), periods }] };
-      saveGoals(data);
+      changed = true;
     }
     data.years.forEach((year) => {
-      PERIODS.forEach((p) => {
-        if (!Array.isArray(year.periods[p.key])) year.periods[p.key] = [];
-      });
+      if (!Array.isArray(year.periods)) {
+        // Mid-generation shape: periods was a fixed-key object (before periods
+        // themselves became user-editable). Convert to an ordered array.
+        const oldPeriods = year.periods || {};
+        year.periods = DEFAULT_PERIODS.map((p) => ({
+          id: createId("period"),
+          label: p.label,
+          goals: Array.isArray(oldPeriods[p.key]) ? oldPeriods[p.key] : [],
+        }));
+        changed = true;
+      }
     });
+    if (changed) saveGoals(data);
     return data;
   }
 
@@ -97,13 +104,21 @@
     return { total, done };
   }
 
+  function findYear(data, yearId) {
+    return data.years.find((y) => y.id === yearId);
+  }
+
+  function findPeriod(year, periodId) {
+    return year ? year.periods.find((p) => p.id === periodId) : null;
+  }
+
   const GoalStore = {
     getYears() {
       return loadGoals().years;
     },
     addYear(label) {
       const data = loadGoals();
-      const year = { id: createId("year"), label, periods: emptyPeriods() };
+      const year = { id: createId("year"), label, periods: defaultPeriodList() };
       data.years.push(year);
       saveGoals(data);
       return year;
@@ -122,19 +137,57 @@
       data.years.splice(at, 0, year);
       saveGoals(data);
     },
-    getPeriod(yearId, periodKey) {
-      const year = loadGoals().years.find((y) => y.id === yearId);
-      return year ? year.periods[periodKey] : [];
+    getPeriods(yearId) {
+      const year = findYear(loadGoals(), yearId);
+      return year ? year.periods : [];
     },
-    addGoal(yearId, periodKey, parentId, label) {
+    addPeriod(yearId, label) {
       const data = loadGoals();
-      const year = data.years.find((y) => y.id === yearId);
+      const year = findYear(data, yearId);
       if (!year) return null;
+      const period = { id: createId("period"), label, goals: [] };
+      year.periods.push(period);
+      saveGoals(data);
+      return period;
+    },
+    renamePeriod(yearId, periodId, label) {
+      const data = loadGoals();
+      const period = findPeriod(findYear(data, yearId), periodId);
+      if (!period) return;
+      period.label = label;
+      saveGoals(data);
+    },
+    removePeriod(yearId, periodId) {
+      const data = loadGoals();
+      const year = findYear(data, yearId);
+      if (!year) return null;
+      const idx = year.periods.findIndex((p) => p.id === periodId);
+      if (idx === -1) return null;
+      const [removed] = year.periods.splice(idx, 1);
+      saveGoals(data);
+      return { period: removed, index: idx };
+    },
+    restorePeriod(yearId, period, index) {
+      const data = loadGoals();
+      const year = findYear(data, yearId);
+      if (!year) return;
+      const at = Math.min(index, year.periods.length);
+      year.periods.splice(at, 0, period);
+      saveGoals(data);
+    },
+    getGoals(yearId, periodId) {
+      const period = findPeriod(findYear(loadGoals(), yearId), periodId);
+      return period ? period.goals : [];
+    },
+    addGoal(yearId, periodId, parentId, label) {
+      const data = loadGoals();
+      const period = findPeriod(findYear(data, yearId), periodId);
+      if (!period) return null;
       const node = { id: createId("goal"), label, done: false, children: [] };
       if (!parentId) {
-        year.periods[periodKey].push(node);
+        period.goals.push(node);
       } else {
-        const parent = findNode(year.periods[periodKey], parentId);
+        const parent = findNode(period.goals, parentId);
         if (!parent) return null;
         parent.children = parent.children || [];
         parent.children.push(node);
@@ -142,33 +195,33 @@
       saveGoals(data);
       return node;
     },
-    toggleDone(yearId, periodKey, id) {
+    toggleDone(yearId, periodId, id) {
       const data = loadGoals();
-      const year = data.years.find((y) => y.id === yearId);
-      if (!year) return;
-      const node = findNode(year.periods[periodKey], id);
+      const period = findPeriod(findYear(data, yearId), periodId);
+      if (!period) return;
+      const node = findNode(period.goals, id);
       if (!node) return;
       node.done = !node.done;
       saveGoals(data);
     },
-    removeGoal(yearId, periodKey, id) {
+    removeGoal(yearId, periodId, id) {
       const data = loadGoals();
-      const year = data.years.find((y) => y.id === yearId);
-      if (!year) return null;
-      const removed = extractNode(year.periods[periodKey], id);
+      const period = findPeriod(findYear(data, yearId), periodId);
+      if (!period) return null;
+      const removed = extractNode(period.goals, id);
       if (!removed) return null;
       saveGoals(data);
       return removed;
     },
-    restoreGoal(yearId, periodKey, parentId, node) {
+    restoreGoal(yearId, periodId, parentId, node) {
       const data = loadGoals();
-      const year = data.years.find((y) => y.id === yearId);
-      if (!year) return;
+      const period = findPeriod(findYear(data, yearId), periodId);
+      if (!period) return;
       if (!parentId) {
-        year.periods[periodKey].push(node);
+        period.goals.push(node);
       } else {
-        const parent = findNode(year.periods[periodKey], parentId);
-        if (!parent) year.periods[periodKey].push(node);
+        const parent = findNode(period.goals, parentId);
+        if (!parent) period.goals.push(node);
         else {
           parent.children = parent.children || [];
           parent.children.push(node);
@@ -176,8 +229,8 @@
       }
       saveGoals(data);
     },
-    findParentId(yearId, periodKey, childId) {
-      const list = GoalStore.getPeriod(yearId, periodKey);
+    findParentId(yearId, periodId, childId) {
+      const list = GoalStore.getGoals(yearId, periodId);
       function search(nodes, parentId) {
         for (const n of nodes) {
           if (n.id === childId) return parentId;
@@ -219,18 +272,13 @@
     saveUiState(state);
   }
 
-  function periodStateKey(yearId, periodKey) {
-    return `${yearId}::${periodKey}`;
+  function isPeriodCollapsed(periodId) {
+    return !!loadUiState().collapsedPeriods[periodId];
   }
 
-  function isPeriodCollapsed(yearId, periodKey) {
-    return !!loadUiState().collapsedPeriods[periodStateKey(yearId, periodKey)];
-  }
-
-  function togglePeriodCollapsed(yearId, periodKey) {
+  function togglePeriodCollapsed(periodId) {
     const state = loadUiState();
-    const key = periodStateKey(yearId, periodKey);
-    state.collapsedPeriods[key] = !state.collapsedPeriods[key];
+    state.collapsedPeriods[periodId] = !state.collapsedPeriods[periodId];
     saveUiState(state);
   }
 
@@ -280,7 +328,70 @@
     return row;
   }
 
-  function renderGoalItem(yearId, periodKey, node, depth, onChange) {
+  // A label that can be turned into an inline text input to rename it,
+  // without triggering a full re-render mid-edit.
+  function makeEditableTitle(className, currentLabel, onSave) {
+    const container = document.createElement("div");
+    container.className = className;
+
+    function showView() {
+      container.innerHTML = "";
+      const span = document.createElement("span");
+      span.textContent = currentLabel;
+      container.appendChild(span);
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "goal-edit-btn";
+      editBtn.textContent = "✎";
+      editBtn.setAttribute("aria-label", "이름 수정");
+      editBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showEdit();
+      });
+      container.appendChild(editBtn);
+    }
+
+    function showEdit() {
+      container.innerHTML = "";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "goal-title-input";
+      input.value = currentLabel;
+
+      let committed = false;
+      function commit() {
+        if (committed) return;
+        committed = true;
+        const value = input.value.trim();
+        if (value && value !== currentLabel) onSave(value);
+        else showView();
+      }
+
+      input.addEventListener("keydown", (e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          committed = true;
+          showView();
+        }
+      });
+      input.addEventListener("blur", commit);
+      input.addEventListener("click", (e) => e.stopPropagation());
+
+      container.appendChild(input);
+      input.focus();
+      input.select();
+    }
+
+    showView();
+    return container;
+  }
+
+  function renderGoalItem(yearId, periodId, node, depth, onChange) {
     const li = document.createElement("li");
     li.className = "goal-item";
 
@@ -291,7 +402,7 @@
     checkbox.type = "checkbox";
     checkbox.checked = !!node.done;
     checkbox.addEventListener("change", () => {
-      GoalStore.toggleDone(yearId, periodKey, node.id);
+      GoalStore.toggleDone(yearId, periodId, node.id);
       onChange();
     });
     row.appendChild(checkbox);
@@ -313,14 +424,14 @@
     remove.className = "checklist-item-remove";
     remove.textContent = "×";
     remove.addEventListener("click", () => {
-      const parentId = GoalStore.findParentId(yearId, periodKey, node.id);
-      const removedNode = GoalStore.removeGoal(yearId, periodKey, node.id);
+      const parentId = GoalStore.findParentId(yearId, periodId, node.id);
+      const removedNode = GoalStore.removeGoal(yearId, periodId, node.id);
       onChange();
       if (removedNode && window.Toast) {
         window.Toast.show("목표를 삭제했어요", {
           actionLabel: "실행취소",
           onAction: () => {
-            GoalStore.restoreGoal(yearId, periodKey, parentId, removedNode);
+            GoalStore.restoreGoal(yearId, periodId, parentId, removedNode);
             onChange();
           },
         });
@@ -332,27 +443,27 @@
 
     if (depth < 2) {
       li.appendChild(
-        renderGoalList(yearId, periodKey, node.children || [], depth + 1, node.id, onChange)
+        renderGoalList(yearId, periodId, node.children || [], depth + 1, node.id, onChange)
       );
     }
 
     return li;
   }
 
-  function renderGoalList(yearId, periodKey, nodes, depth, parentId, onChange) {
+  function renderGoalList(yearId, periodId, nodes, depth, parentId, onChange) {
     const wrapper = document.createElement("div");
     wrapper.className = "goal-list-wrapper goal-depth-" + depth;
 
     if (nodes.length > 0) {
       const ul = document.createElement("ul");
       ul.className = "goal-list checklist-items";
-      nodes.forEach((node) => ul.appendChild(renderGoalItem(yearId, periodKey, node, depth, onChange)));
+      nodes.forEach((node) => ul.appendChild(renderGoalItem(yearId, periodId, node, depth, onChange)));
       wrapper.appendChild(ul);
     }
 
     wrapper.appendChild(
       makeAddRow(depth, LEVEL_PLACEHOLDER[depth] || "목표 추가 후 Enter", (label) => {
-        GoalStore.addGoal(yearId, periodKey, parentId, label);
+        GoalStore.addGoal(yearId, periodId, parentId, label);
         onChange();
       })
     );
@@ -366,15 +477,17 @@
     const headerRow = document.createElement("div");
     headerRow.className = "diary-card-header-row";
 
-    const title = document.createElement("div");
-    title.className = "diary-card-date";
-    title.textContent = period.label;
-    headerRow.appendChild(title);
+    headerRow.appendChild(
+      makeEditableTitle("diary-card-date goal-editable-title", period.label, (newLabel) => {
+        GoalStore.renamePeriod(yearId, period.id, newLabel);
+        onChange();
+      })
+    );
 
     const actions = document.createElement("div");
     actions.className = "diary-card-header-actions";
 
-    const goals = GoalStore.getPeriod(yearId, period.key);
+    const goals = GoalStore.getGoals(yearId, period.id);
     const totals = goals.reduce(
       (acc, g) => {
         const c = countProgress(g);
@@ -391,19 +504,37 @@
       actions.appendChild(summary);
     }
 
-    const collapsed = isPeriodCollapsed(yearId, period.key);
+    const collapsed = isPeriodCollapsed(period.id);
     actions.appendChild(
       makeToggleBtn(collapsed, () => {
-        togglePeriodCollapsed(yearId, period.key);
+        togglePeriodCollapsed(period.id);
         onChange();
       })
     );
+
+    const remove = document.createElement("span");
+    remove.className = "checklist-item-remove";
+    remove.textContent = "×";
+    remove.addEventListener("click", () => {
+      const removed = GoalStore.removePeriod(yearId, period.id);
+      onChange();
+      if (removed && window.Toast) {
+        window.Toast.show(`"${period.label}" 구간을 삭제했어요`, {
+          actionLabel: "실행취소",
+          onAction: () => {
+            GoalStore.restorePeriod(yearId, removed.period, removed.index);
+            onChange();
+          },
+        });
+      }
+    });
+    actions.appendChild(remove);
 
     headerRow.appendChild(actions);
     card.appendChild(headerRow);
 
     if (!collapsed) {
-      card.appendChild(renderGoalList(yearId, period.key, goals, 0, null, onChange));
+      card.appendChild(renderGoalList(yearId, period.id, goals, 0, null, onChange));
     }
 
     return card;
@@ -456,7 +587,15 @@
     if (!collapsed) {
       const periodsWrap = document.createElement("div");
       periodsWrap.className = "goal-periods-in-year";
-      PERIODS.forEach((period) => periodsWrap.appendChild(renderPeriodCard(year.id, period, onChange)));
+      GoalStore.getPeriods(year.id).forEach((period) =>
+        periodsWrap.appendChild(renderPeriodCard(year.id, period, onChange))
+      );
+      periodsWrap.appendChild(
+        makeAddRow(0, "구간 추가 후 Enter (예: 자격증 시험)", (label) => {
+          GoalStore.addPeriod(year.id, label);
+          onChange();
+        })
+      );
       section.appendChild(periodsWrap);
     }
 

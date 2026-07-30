@@ -1344,6 +1344,44 @@ button.nav-item {
   color: var(--accent);
 }
 
+.goal-editable-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.goal-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.goal-edit-btn:hover {
+  border-color: var(--border);
+  color: var(--accent);
+}
+
+.goal-title-input {
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 3px 8px;
+  color: var(--text);
+  outline: none;
+}
+
 .goal-list-wrapper {
   display: flex;
   flex-direction: column;
