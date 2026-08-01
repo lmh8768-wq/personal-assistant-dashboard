@@ -1379,9 +1379,9 @@ button.nav-item {
 }
 
 /* ---------- Routine tab ---------- */
-.routine-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.routine-checklists {
+  display: flex;
+  flex-direction: column;
   gap: 14px;
 }
 
@@ -1402,7 +1402,7 @@ button.nav-item {
   min-height: 0;
 }
 
-.routine-week-panel + .routine-columns {
+.routine-week-panel + .routine-checklists {
   margin-top: 14px;
 }
 

@@ -3,8 +3,8 @@
   const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
   const TYPES = [
-    { key: "morning", listId: "morningRoutineList", addRowId: "morningRoutineAddRow" },
-    { key: "night", listId: "nightRoutineList", addRowId: "nightRoutineAddRow" },
+    { key: "routine", listId: "routineChecklistList", addRowId: "routineChecklistAddRow" },
+    { key: "life", listId: "lifeChecklistList", addRowId: "lifeChecklistAddRow" },
   ];
 
   let calendarViewDate = new Date();
@@ -44,6 +44,24 @@
     }
     if (!data) data = {};
     let changed = false;
+
+    // One-time migration: 아침/야간 routines used to be two separate
+    // checklists — merge them into a single "routine" checklist (their
+    // per-day completion histories are unioned) so existing data survives
+    // the move to one combined list.
+    if (!data.routine && (data.morning || data.night)) {
+      const morning = data.morning && Array.isArray(data.morning.items) ? data.morning : emptyRoutine();
+      const night = data.night && Array.isArray(data.night.items) ? data.night : emptyRoutine();
+      const history = {};
+      new Set([...Object.keys(morning.history || {}), ...Object.keys(night.history || {})]).forEach((date) => {
+        history[date] = [...(morning.history[date] || []), ...(night.history[date] || [])];
+      });
+      data.routine = { items: [...morning.items, ...night.items], history };
+      delete data.morning;
+      delete data.night;
+      changed = true;
+    }
+
     TYPES.forEach((t) => {
       const routine = data[t.key];
       if (!routine || !Array.isArray(routine.items)) {
@@ -113,7 +131,7 @@
       else doneIds.splice(pos, 1);
       saveAll(data);
     },
-    // Combined (아침+야간) completion for a given date, against the CURRENT
+    // Combined (루틴+생활) completion for a given date, against the CURRENT
     // item lists — there's no historical snapshot of what the checklist
     // used to contain, so a past day's rate is "how much of today's list
     // would have been done," which is the simplest reading of the data.
