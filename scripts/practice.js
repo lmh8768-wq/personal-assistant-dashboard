@@ -1,8 +1,6 @@
 (function () {
   const PRACTICE_KEY = "assistant.practice.v1";
   const CHECKLIST_KEY = "assistant.practiceChecklist.v1";
-  const CURRENT_SONG_KEY = "assistant.practiceCurrentSong.v1";
-  const MONTHLY_GOAL_KEY = "assistant.practiceMonthlyGoal.v1";
 
   const DEFAULT_CHECKLIST = [
     { id: "pc_default_1", label: "튜닝 확인" },
@@ -78,22 +76,6 @@
   window.PracticeChecklistStore = PracticeChecklistStore;
 
   // ---------- Practice status (current song / monthly goal) ----------
-  function getCurrentSong() {
-    return localStorage.getItem(CURRENT_SONG_KEY) || "";
-  }
-
-  function setCurrentSong(value) {
-    localStorage.setItem(CURRENT_SONG_KEY, value);
-  }
-
-  function getMonthlyGoal() {
-    return localStorage.getItem(MONTHLY_GOAL_KEY) || "";
-  }
-
-  function setMonthlyGoal(value) {
-    localStorage.setItem(MONTHLY_GOAL_KEY, value);
-  }
-
   // ---------- Practice entries ----------
   function loadEntries() {
     try {
@@ -377,24 +359,14 @@
     });
   }
 
-  function handleStatusFieldChange() {
-    setCurrentSong(document.getElementById("practiceCurrentSongInput").value.trim());
-    setMonthlyGoal(document.getElementById("practiceMonthlyGoalInput").value.trim());
-    renderDashboardPractice();
-  }
-
   function renderStatusPanel() {
-    document.getElementById("practiceCurrentSongInput").value = getCurrentSong();
-    document.getElementById("practiceMonthlyGoalInput").value = getMonthlyGoal();
     renderBpmEditList();
   }
 
   // ---------- Dashboard panel ----------
   function renderDashboardPractice() {
     const bpmList = document.getElementById("dashboardPracticeBpmList");
-    const songEl = document.getElementById("dashboardPracticeSong");
-    const goalEl = document.getElementById("dashboardPracticeGoal");
-    if (!bpmList || !songEl || !goalEl) return;
+    if (!bpmList) return;
 
     const items = PracticeChecklistStore.getAll().filter((item) => item.maxBpm);
     bpmList.innerHTML = "";
@@ -407,9 +379,6 @@
         bpmList.appendChild(li);
       });
     }
-
-    songEl.textContent = getCurrentSong() || "설정된 곡이 없어요";
-    goalEl.textContent = getMonthlyGoal() || "설정된 목표가 없어요";
   }
 
   function init() {
@@ -432,9 +401,6 @@
     document.getElementById("togglePracticeStatusBtn").addEventListener("click", (e) => {
       toggleSection(document.getElementById("practiceStatusPanel"), e.currentTarget);
     });
-
-    document.getElementById("practiceCurrentSongInput").addEventListener("change", handleStatusFieldChange);
-    document.getElementById("practiceMonthlyGoalInput").addEventListener("change", handleStatusFieldChange);
 
     document.getElementById("practiceModalOverlay").addEventListener("click", (e) => {
       if (e.target.id === "practiceModalOverlay") closeModal();
