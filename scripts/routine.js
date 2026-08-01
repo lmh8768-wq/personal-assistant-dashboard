@@ -501,7 +501,17 @@
     const matched = matches.map((m) => m.target);
     const others = [...document.querySelectorAll(".routine-calendar-day")].filter((c) => !weekDates.includes(c.dataset.date));
 
+    const NAV_FADE_MS = 150;
+    const ROW_MOVE_MS = 260;
+    const OTHERS_SHRINK_MS = 260;
+    const PANEL_SHRINK_MS = 300;
+
     matches.forEach(({ target, dx, dy, sx, sy }) => {
+      // Hide its achievement-rate color while it's mid-flight — it reads as
+      // still "becoming" the week cell rather than already being it, and
+      // only settles into the right color once it's actually landed.
+      target.dataset.pendingBg = target.style.background;
+      target.style.background = "";
       target.style.transition = "none";
       target.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
       target.style.zIndex = "1";
@@ -513,15 +523,9 @@
       panel.style.height = startHeight + "px";
       panel.style.overflow = "hidden";
     }
-
-    // The month nav (title + prev/next) disappears first, on its own —
-    // everything else (row flying back, other cells fading, card shrinking)
-    // only starts once that's fully gone.
-    const NAV_FADE_MS = 150;
-    const ROW_MOVE_MS = 260;
-    const OTHERS_SHRINK_MS = 260;
-    const PANEL_SHRINK_MS = 300;
-
+    // The month nav fades out on its own timeline, but doesn't block
+    // anything else from starting right away — nothing should sit frozen
+    // waiting for it.
     if (nav) {
       nav.style.transition = `opacity ${NAV_FADE_MS}ms ease`;
       nav.style.opacity = "0";
@@ -529,23 +533,28 @@
 
     void weekWrap.offsetHeight;
 
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        matched.forEach((target) => {
-          target.style.transition = `transform ${ROW_MOVE_MS}ms linear`;
-          target.style.transform = "none";
-        });
-        others.forEach((c) => {
-          c.style.transition = `opacity ${OTHERS_SHRINK_MS}ms ease, transform ${OTHERS_SHRINK_MS}ms ease`;
-          c.style.opacity = "0";
-          c.style.transform = "scale(0.5)";
-        });
-        if (panel) {
-          panel.style.transition = `height ${PANEL_SHRINK_MS}ms ease`;
-          panel.style.height = endHeight + "px";
-        }
+    requestAnimationFrame(() => {
+      matched.forEach((target) => {
+        target.style.transition = `transform ${ROW_MOVE_MS}ms linear`;
+        target.style.transform = "none";
       });
-    }, NAV_FADE_MS);
+      others.forEach((c) => {
+        c.style.transition = `opacity ${OTHERS_SHRINK_MS}ms ease, transform ${OTHERS_SHRINK_MS}ms ease`;
+        c.style.opacity = "0";
+        c.style.transform = "scale(0.5)";
+      });
+      if (panel) {
+        panel.style.transition = `height ${PANEL_SHRINK_MS}ms ease`;
+        panel.style.height = endHeight + "px";
+      }
+    });
+
+    setTimeout(() => {
+      matched.forEach((target) => {
+        target.style.background = target.dataset.pendingBg || "";
+        delete target.dataset.pendingBg;
+      });
+    }, ROW_MOVE_MS);
 
     setTimeout(() => {
       section.hidden = true;
@@ -568,7 +577,7 @@
         nav.style.transition = "";
         nav.style.opacity = "";
       }
-    }, NAV_FADE_MS + Math.max(ROW_MOVE_MS, OTHERS_SHRINK_MS, PANEL_SHRINK_MS) + 30);
+    }, Math.max(NAV_FADE_MS, ROW_MOVE_MS, OTHERS_SHRINK_MS, PANEL_SHRINK_MS) + 30);
   }
 
   function init() {
