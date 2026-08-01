@@ -1445,8 +1445,15 @@ button.nav-item {
   gap: 14px;
 }
 
-.routine-panel {
+.routine-panel,
+.routine-week-panel,
+.routine-calendar-panel {
   min-height: 0;
+}
+
+.routine-week-panel + .routine-columns,
+.routine-columns + .routine-calendar-panel {
+  margin-top: 14px;
 }
 
 .routine-week-average {
