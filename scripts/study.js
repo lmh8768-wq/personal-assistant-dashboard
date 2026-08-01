@@ -16,15 +16,6 @@
     { key: "winter", label: "겨울방학" },
   ];
 
-  // Only the top level (adding a fresh 대목표 straight under a period) ever
-  // uses a trailing add trigger, so this only needs one entry.
-  const LEVEL_ADD_LABEL = ["+ 대목표 추가"];
-  const LEVEL_NAMES = ["대목표", "중목표", "소목표"];
-
-  function levelPlaceholder(depth) {
-    return (LEVEL_NAMES[depth] || `${depth + 1}단계 목표`) + " 이름";
-  }
-
   function createId(prefix) {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
@@ -290,6 +281,15 @@
     findParentId(yearId, periodId, childId) {
       return findParentIdIn(GoalStore.getGoals(yearId, periodId), childId);
     },
+    renameGoal(yearId, periodId, id, label) {
+      const data = loadGoals();
+      const period = findPeriod(findYear(data, yearId), periodId);
+      if (!period) return;
+      const node = findNode(period.goals, id);
+      if (!node) return;
+      node.label = label;
+      saveGoals(data);
+    },
   };
   window.AcademicGoalStore = GoalStore;
 
@@ -300,9 +300,10 @@
       const s = raw ? JSON.parse(raw) : {};
       if (!s.collapsedYears) s.collapsedYears = {};
       if (!s.collapsedPeriods) s.collapsedPeriods = {};
+      if (!s.collapsedGoals) s.collapsedGoals = {};
       return s;
     } catch {
-      return { collapsedYears: {}, collapsedPeriods: {} };
+      return { collapsedYears: {}, collapsedPeriods: {}, collapsedGoals: {} };
     }
   }
 
@@ -330,6 +331,29 @@
     saveUiState(state);
   }
 
+  function isGoalCollapsed(goalId) {
+    return !!loadUiState().collapsedGoals[goalId];
+  }
+
+  function toggleGoalCollapsed(goalId) {
+    const state = loadUiState();
+    state.collapsedGoals[goalId] = !state.collapsedGoals[goalId];
+    saveUiState(state);
+  }
+
+  // A goal created via "+" but abandoned before it got a name (Enter/blur/
+  // Escape with nothing typed) — tracked so a second "+" click elsewhere can
+  // clean up the still-blank one instead of leaving it stranded with an
+  // empty label forever.
+  let pendingNewGoal = null; // { yearId, periodId, id }
+
+  function discardPendingNewGoal() {
+    if (!pendingNewGoal) return;
+    const { yearId, periodId, id } = pendingNewGoal;
+    GoalStore.removeGoal(yearId, periodId, id);
+    pendingNewGoal = null;
+  }
+
   // ---------- Rendering ----------
   function makeToggleBtn(collapsed, onToggle) {
     const btn = document.createElement("button");
@@ -342,6 +366,67 @@
       onToggle();
     });
     return btn;
+  }
+
+  // A compact "+" button that creates a goal immediately on click (with an
+  // empty label) instead of revealing an input first — the caller is
+  // expected to put the new node straight into inline-edit mode via
+  // makeInlineGoalLabelEditor.
+  function makeInstantAddButton(containerClass, label, onClick) {
+    const container = document.createElement("div");
+    container.className = containerClass;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ghost-btn goal-add-trigger-btn";
+    btn.textContent = label;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onClick();
+    });
+    container.appendChild(btn);
+    return container;
+  }
+
+  // Renders a freshly-created (still-unnamed) goal's label as a focused
+  // text input instead of a plain span. Enter/blur commits a non-empty
+  // value; Enter/blur with nothing typed, or Escape regardless, deletes the
+  // goal outright — it was never really "there" from the user's point of
+  // view, so it just disappears rather than sticking around blank.
+  function makeInlineGoalLabelEditor(initialValue, placeholder, onCommit, onCancelDelete) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "goal-title-input goal-item-label-input";
+    input.placeholder = placeholder;
+    input.value = initialValue;
+
+    let settled = false;
+    function commit() {
+      if (settled) return;
+      settled = true;
+      const value = input.value.trim();
+      if (value) onCommit(value);
+      else onCancelDelete();
+    }
+    function cancel() {
+      if (settled) return;
+      settled = true;
+      onCancelDelete();
+    }
+
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancel();
+      }
+    });
+    input.addEventListener("blur", commit);
+    input.addEventListener("click", (e) => e.stopPropagation());
+
+    return input;
   }
 
   // Starts as a single compact "add" button; clicking it swaps in a text
@@ -491,12 +576,53 @@
     });
     row.appendChild(checkbox);
 
-    const label = document.createElement("span");
-    label.className = "goal-item-label";
-    label.textContent = node.label;
-    row.appendChild(label);
+    const hasChildren = (node.children || []).length > 0;
+    const collapsed = hasChildren && isGoalCollapsed(node.id);
+    if (hasChildren) {
+      row.appendChild(
+        makeToggleBtn(collapsed, () => {
+          toggleGoalCollapsed(node.id);
+          onChange();
+        })
+      );
+    }
 
-    if ((node.children || []).length > 0) {
+    const isEditingLabel = pendingNewGoal && pendingNewGoal.id === node.id;
+    if (isEditingLabel) {
+      row.appendChild(
+        makeInlineGoalLabelEditor(
+          node.label,
+          depth === 0 ? "대목표 이름" : "하위 목표 이름",
+          (value) => {
+            GoalStore.renameGoal(yearId, periodId, node.id, value);
+            pendingNewGoal = null;
+            onChange();
+          },
+          () => {
+            GoalStore.removeGoal(yearId, periodId, node.id);
+            pendingNewGoal = null;
+            onChange();
+          }
+        )
+      );
+    } else {
+      const label = document.createElement("span");
+      label.className = "goal-item-label";
+      label.textContent = node.label;
+      row.appendChild(label);
+    }
+
+    row.appendChild(
+      makeInstantAddButton("goal-item-add", "+", () => {
+        discardPendingNewGoal();
+        if (collapsed) toggleGoalCollapsed(node.id);
+        const newNode = GoalStore.addGoal(yearId, periodId, node.id, "");
+        pendingNewGoal = { yearId, periodId, id: newNode.id };
+        onChange();
+      })
+    );
+
+    if (hasChildren) {
       const { total, done } = countProgress(node);
       const progress = document.createElement("span");
       progress.className = "goal-item-progress";
@@ -507,13 +633,6 @@
       progress.textContent = depth === 0 ? `${done}/${total} (${percent}%)` : `${done}/${total}`;
       row.appendChild(progress);
     }
-
-    row.appendChild(
-      makeAddTrigger("goal-item-add", "+", levelPlaceholder(depth + 1), (label) => {
-        GoalStore.addGoal(yearId, periodId, node.id, label);
-        onChange();
-      })
-    );
 
     const remove = document.createElement("span");
     remove.className = "checklist-item-remove";
@@ -536,12 +655,15 @@
 
     li.appendChild(row);
 
-    // No trailing add-row here — this item's own "+" (above) is the only way
-    // to add into this children list, so it can be clicked repeatedly to add
-    // as many nested sub-goals as needed, at any depth, one at a time.
-    li.appendChild(
-      renderGoalList(yearId, periodId, node.children || [], depth + 1, node.id, onChange, false)
-    );
+    // No trailing add-row here — this item's own "+" (above, right next to
+    // its label) is the only way to add into this children list, so it can
+    // be clicked repeatedly to add as many nested sub-goals as needed, at
+    // any depth, one at a time.
+    if (!collapsed) {
+      li.appendChild(
+        renderGoalList(yearId, periodId, node.children || [], depth + 1, node.id, onChange, false)
+      );
+    }
 
     return li;
   }
@@ -561,17 +683,17 @@
       wrapper.appendChild(ul);
     }
 
+    // Only the top level (adding a fresh 대목표 straight under a period)
+    // ever uses a trailing add trigger — nested levels are added via each
+    // item's own "+" instead.
     if (showTrailingAdd) {
       wrapper.appendChild(
-        makeAddTrigger(
-          "goal-add-row",
-          LEVEL_ADD_LABEL[depth] || "+ 추가",
-          levelPlaceholder(depth),
-          (label) => {
-            GoalStore.addGoal(yearId, periodId, parentId, label);
-            onChange();
-          }
-        )
+        makeInstantAddButton("goal-add-row", "+ 대목표 추가", () => {
+          discardPendingNewGoal();
+          const newNode = GoalStore.addGoal(yearId, periodId, parentId, "");
+          pendingNewGoal = { yearId, periodId, id: newNode.id };
+          onChange();
+        })
       );
     }
     return wrapper;
@@ -722,6 +844,11 @@
     );
 
     GoalStore.getYears().forEach((year) => container.appendChild(renderYearSection(year, renderAll)));
+
+    if (pendingNewGoal) {
+      const input = container.querySelector(".goal-item-label-input");
+      if (input) input.focus();
+    }
   }
 
   function init() {

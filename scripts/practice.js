@@ -338,11 +338,6 @@
 
   // ---------- Curriculum (대목표 > 중목표 > 소목표 goal tree, same mechanic as 학업) ----------
   const CURRICULUM_KEY = "assistant.practiceCurriculum.v1";
-  const LEVEL_NAMES = ["대목표", "중목표", "소목표"];
-
-  function levelPlaceholder(depth) {
-    return (LEVEL_NAMES[depth] || `${depth + 1}단계 목표`) + " 이름";
-  }
 
   function loadCurriculum() {
     try {
@@ -478,66 +473,145 @@
       }
       saveCurriculum(goals);
     },
+    // Reorders `draggedId` next to `targetId` within their shared sibling
+    // list. A no-op if they don't share a parent — dragging only ever
+    // reorders among siblings, it never re-parents a goal.
+    reorderGoal(draggedId, targetId, insertBefore) {
+      if (draggedId === targetId) return;
+      const goals = loadCurriculum();
+      const draggedParentId = findGoalParentId(goals, draggedId);
+      const targetParentId = findGoalParentId(goals, targetId);
+      if (draggedParentId !== targetParentId) return;
+      const siblings = draggedParentId ? (findGoalNode(goals, draggedParentId).children || []) : goals;
+      const fromIdx = siblings.findIndex((n) => n.id === draggedId);
+      if (fromIdx === -1) return;
+      const [node] = siblings.splice(fromIdx, 1);
+      let toIdx = siblings.findIndex((n) => n.id === targetId);
+      if (toIdx === -1) toIdx = siblings.length;
+      else if (!insertBefore) toIdx += 1;
+      siblings.splice(toIdx, 0, node);
+      saveCurriculum(goals);
+    },
+    renameGoal(id, label) {
+      const goals = loadCurriculum();
+      const node = findGoalNode(goals, id);
+      if (!node) return;
+      node.label = label;
+      saveCurriculum(goals);
+    },
   };
   window.PracticeCurriculumStore = CurriculumStore;
 
-  function makeCurriculumAddTrigger(containerClass, buttonLabel, placeholder, onAdd) {
+  // ---------- UI state: per-goal collapse/expand (per device, not synced) ----------
+  const CURRICULUM_UI_STATE_KEY = "practiceCurriculumUiState.v1";
+
+  function loadCurriculumUiState() {
+    try {
+      const raw = localStorage.getItem(CURRICULUM_UI_STATE_KEY);
+      const s = raw ? JSON.parse(raw) : {};
+      if (!s.collapsedGoals) s.collapsedGoals = {};
+      return s;
+    } catch {
+      return { collapsedGoals: {} };
+    }
+  }
+
+  function saveCurriculumUiState(state) {
+    localStorage.setItem(CURRICULUM_UI_STATE_KEY, JSON.stringify(state));
+  }
+
+  function isGoalCollapsed(goalId) {
+    return !!loadCurriculumUiState().collapsedGoals[goalId];
+  }
+
+  function toggleGoalCollapsed(goalId) {
+    const state = loadCurriculumUiState();
+    state.collapsedGoals[goalId] = !state.collapsedGoals[goalId];
+    saveCurriculumUiState(state);
+  }
+
+  // A goal created via "+" but abandoned before it got a name — tracked so
+  // a second "+" click elsewhere can clean up the still-blank one instead
+  // of leaving it stranded with an empty label forever.
+  let pendingNewGoal = null; // { id }
+
+  function discardPendingNewGoal() {
+    if (!pendingNewGoal) return;
+    CurriculumStore.removeGoal(pendingNewGoal.id);
+    pendingNewGoal = null;
+  }
+
+  function makeToggleBtn(collapsed, onToggle) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "goal-toggle-btn";
+    btn.textContent = collapsed ? "▸" : "▾";
+    btn.setAttribute("aria-label", "접기/펼치기");
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onToggle();
+    });
+    return btn;
+  }
+
+  // A compact "+" button that creates a goal immediately on click (with an
+  // empty label) instead of revealing an input first — the caller is
+  // expected to put the new node straight into inline-edit mode via
+  // makeInlineGoalLabelEditor.
+  function makeInstantAddButton(containerClass, label, onClick) {
     const container = document.createElement("div");
     container.className = containerClass;
-
-    function showButton() {
-      container.innerHTML = "";
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "ghost-btn goal-add-trigger-btn";
-      btn.textContent = buttonLabel;
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        showInput();
-      });
-      container.appendChild(btn);
-    }
-
-    function showInput() {
-      container.innerHTML = "";
-      const input = document.createElement("input");
-      input.type = "text";
-      input.className = "goal-add-input";
-      input.placeholder = placeholder;
-
-      let settled = false;
-      function commit() {
-        if (settled) return;
-        settled = true;
-        const label = input.value.trim();
-        if (label) onAdd(label);
-        else showButton();
-      }
-      function cancel() {
-        if (settled) return;
-        settled = true;
-        showButton();
-      }
-
-      input.addEventListener("keydown", (e) => {
-        e.stopPropagation();
-        if (e.key === "Enter") {
-          e.preventDefault();
-          commit();
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          cancel();
-        }
-      });
-      input.addEventListener("blur", cancel);
-      input.addEventListener("click", (e) => e.stopPropagation());
-
-      container.appendChild(input);
-      input.focus();
-    }
-
-    showButton();
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ghost-btn goal-add-trigger-btn";
+    btn.textContent = label;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onClick();
+    });
+    container.appendChild(btn);
     return container;
+  }
+
+  // Renders a freshly-created (still-unnamed) goal's label as a focused
+  // text input instead of a plain span. Enter/blur commits a non-empty
+  // value; Enter/blur with nothing typed, or Escape regardless, deletes the
+  // goal outright — it just disappears rather than sticking around blank.
+  function makeInlineGoalLabelEditor(initialValue, placeholder, onCommit, onCancelDelete) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "goal-title-input goal-item-label-input";
+    input.placeholder = placeholder;
+    input.value = initialValue;
+
+    let settled = false;
+    function commit() {
+      if (settled) return;
+      settled = true;
+      const value = input.value.trim();
+      if (value) onCommit(value);
+      else onCancelDelete();
+    }
+    function cancel() {
+      if (settled) return;
+      settled = true;
+      onCancelDelete();
+    }
+
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancel();
+      }
+    });
+    input.addEventListener("blur", commit);
+    input.addEventListener("click", (e) => e.stopPropagation());
+
+    return input;
   }
 
   function renderCurriculumItem(node, depth) {
@@ -546,6 +620,33 @@
 
     const row = document.createElement("div");
     row.className = "goal-item-row checklist-item" + (node.done ? " done" : "");
+
+    row.draggable = true;
+    row.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/plain", node.id);
+      e.dataTransfer.effectAllowed = "move";
+    });
+    row.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      const rect = row.getBoundingClientRect();
+      const before = e.clientY - rect.top < rect.height / 2;
+      row.classList.toggle("drag-over-before", before);
+      row.classList.toggle("drag-over-after", !before);
+    });
+    row.addEventListener("dragleave", () => {
+      row.classList.remove("drag-over-before", "drag-over-after");
+    });
+    row.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      row.classList.remove("drag-over-before", "drag-over-after");
+      const draggedId = e.dataTransfer.getData("text/plain");
+      if (!draggedId) return;
+      const rect = row.getBoundingClientRect();
+      const before = e.clientY - rect.top < rect.height / 2;
+      CurriculumStore.reorderGoal(draggedId, node.id, before);
+      renderCurriculum();
+    });
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
@@ -559,12 +660,53 @@
     });
     row.appendChild(checkbox);
 
-    const label = document.createElement("span");
-    label.className = "goal-item-label";
-    label.textContent = node.label;
-    row.appendChild(label);
+    const hasChildren = (node.children || []).length > 0;
+    const collapsed = hasChildren && isGoalCollapsed(node.id);
+    if (hasChildren) {
+      row.appendChild(
+        makeToggleBtn(collapsed, () => {
+          toggleGoalCollapsed(node.id);
+          renderCurriculum();
+        })
+      );
+    }
 
-    if ((node.children || []).length > 0) {
+    const isEditingLabel = pendingNewGoal && pendingNewGoal.id === node.id;
+    if (isEditingLabel) {
+      row.appendChild(
+        makeInlineGoalLabelEditor(
+          node.label,
+          depth === 0 ? "대목표 이름" : "하위 목표 이름",
+          (value) => {
+            CurriculumStore.renameGoal(node.id, value);
+            pendingNewGoal = null;
+            renderCurriculum();
+          },
+          () => {
+            CurriculumStore.removeGoal(node.id);
+            pendingNewGoal = null;
+            renderCurriculum();
+          }
+        )
+      );
+    } else {
+      const label = document.createElement("span");
+      label.className = "goal-item-label";
+      label.textContent = node.label;
+      row.appendChild(label);
+    }
+
+    row.appendChild(
+      makeInstantAddButton("goal-item-add", "+", () => {
+        discardPendingNewGoal();
+        if (collapsed) toggleGoalCollapsed(node.id);
+        const newNode = CurriculumStore.addGoal(node.id, "");
+        pendingNewGoal = { id: newNode.id };
+        renderCurriculum();
+      })
+    );
+
+    if (hasChildren) {
       const { total, done } = countGoalProgress(node);
       const progress = document.createElement("span");
       progress.className = "goal-item-progress";
@@ -572,13 +714,6 @@
       progress.textContent = depth === 0 ? `${done}/${total} (${percent}%)` : `${done}/${total}`;
       row.appendChild(progress);
     }
-
-    row.appendChild(
-      makeCurriculumAddTrigger("goal-item-add", "+", levelPlaceholder(depth + 1), (label) => {
-        CurriculumStore.addGoal(node.id, label);
-        renderCurriculum();
-      })
-    );
 
     const remove = document.createElement("span");
     remove.className = "checklist-item-remove";
@@ -599,7 +734,11 @@
     row.appendChild(remove);
 
     li.appendChild(row);
-    li.appendChild(renderCurriculumList(node.children || [], depth + 1, node.id, false));
+    // No trailing add-row here — this item's own "+" (above, right next to
+    // its label) is the only way to add into this children list.
+    if (!collapsed) {
+      li.appendChild(renderCurriculumList(node.children || [], depth + 1, node.id, false));
+    }
 
     return li;
   }
@@ -619,10 +758,14 @@
       wrapper.appendChild(ul);
     }
 
+    // Only the top level (adding a fresh 대목표) ever uses a trailing add
+    // trigger — nested levels are added via each item's own "+" instead.
     if (showTrailingAdd) {
       wrapper.appendChild(
-        makeCurriculumAddTrigger("goal-add-row", "+ 대목표 추가", levelPlaceholder(depth), (label) => {
-          CurriculumStore.addGoal(parentId, label);
+        makeInstantAddButton("goal-add-row", "+ 대목표 추가", () => {
+          discardPendingNewGoal();
+          const newNode = CurriculumStore.addGoal(parentId, "");
+          pendingNewGoal = { id: newNode.id };
           renderCurriculum();
         })
       );
@@ -635,6 +778,10 @@
     if (!container) return;
     container.innerHTML = "";
     container.appendChild(renderCurriculumList(CurriculumStore.getGoals(), 0, null, true));
+    if (pendingNewGoal) {
+      const input = container.querySelector(".goal-item-label-input");
+      if (input) input.focus();
+    }
   }
 
   function init() {

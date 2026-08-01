@@ -1363,6 +1363,11 @@ button.nav-item {
   outline: none;
 }
 
+.goal-item-label-input {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ---------- Routine tab ---------- */
 .routine-columns {
   display: grid;
@@ -1499,14 +1504,49 @@ button.nav-item {
   align-items: center;
 }
 
-.goal-item-label {
-  flex: 1;
+.goal-item-row .goal-toggle-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+}
+
+.goal-item-row.drag-over-before {
+  box-shadow: 0 -2px 0 0 var(--accent);
+}
+
+.goal-item-row.drag-over-after {
+  box-shadow: 0 2px 0 0 var(--accent);
 }
 
 .goal-item-progress {
   flex-shrink: 0;
   font-size: 11px;
   color: var(--text-faint);
+}
+
+.goal-item-add {
+  flex-shrink: 0;
+  max-width: 140px;
+}
+
+.goal-item-add .goal-add-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.goal-item-add .goal-add-input {
+  font-size: 12px;
+  padding: 4px 8px;
 }
 
 .goal-add-row {
@@ -1528,29 +1568,6 @@ button.nav-item {
   font-size: 13px;
   color: var(--text);
   outline: none;
-}
-
-.goal-item-add {
-  flex-shrink: 0;
-  max-width: 140px;
-}
-
-.goal-item-add .goal-add-trigger-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border-style: solid;
-  border-radius: 6px;
-  font-size: 13px;
-  line-height: 1;
-}
-
-.goal-item-add .goal-add-input {
-  font-size: 12px;
-  padding: 4px 8px;
 }
 
 .diary-streak {
