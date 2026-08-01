@@ -453,12 +453,24 @@
       .map((cell) => ({ date: cell.dataset.date, rect: cell.getBoundingClientRect() }));
 
     const startHeight = panel ? panel.getBoundingClientRect().height : 0;
-    const sectionRect = section.getBoundingClientRect();
-    const sectionMarginTop = panel ? parseFloat(window.getComputedStyle(section).marginTop) || 0 : 0;
-    const sectionOuterHeight = sectionRect.height + sectionMarginTop;
 
     weekWrap.hidden = false;
     renderWeekRate();
+
+    // Measure the TRUE final resting height by momentarily hiding the
+    // calendar section — same trick as expand's fix: subtracting the
+    // section's own outer height from startHeight was an estimate that
+    // could drift from the real value (margins, rounding), causing the
+    // exact overshoot-then-snap bug expand had. Flipping hidden on and
+    // back off within the same synchronous tick never paints, so there's
+    // no visible flicker.
+    let endHeight = startHeight;
+    if (panel) {
+      const wasHidden = section.hidden;
+      section.hidden = true;
+      endHeight = panel.scrollHeight;
+      section.hidden = wasHidden;
+    }
 
     const targetByDate = new Map();
     weekWrap.querySelectorAll(".routine-week-cell").forEach((cell) => targetByDate.set(cell.dataset.date, cell));
@@ -515,7 +527,7 @@
       });
       if (panel) {
         panel.style.transition = "height 300ms ease";
-        panel.style.height = Math.max(0, startHeight - sectionOuterHeight) + "px";
+        panel.style.height = endHeight + "px";
       }
     });
 
