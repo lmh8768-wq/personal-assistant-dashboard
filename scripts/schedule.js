@@ -527,22 +527,22 @@
     if (!list) return;
 
     const items = window.ScheduleStore.getOccurrences(toDateStr(new Date()));
-    const statEl = document.getElementById("statTodayCount");
-    if (statEl) statEl.textContent = items.length;
 
     const completedCount = items.filter((item) =>
       (item.completedDates || []).includes(item.occurrenceDate)
     ).length;
 
     const pendingCount = items.length - completedCount;
-    const pendingEl = document.getElementById("statPendingCount");
-    if (pendingEl) pendingEl.textContent = pendingCount;
 
     document.title = pendingCount > 0 ? `(${pendingCount}) 비서 | 개인 대시보드` : "비서 | 개인 대시보드";
 
-    const rateEl = document.getElementById("statCompletionRate");
-    if (rateEl) {
-      rateEl.textContent = items.length === 0 ? "—" : `${Math.round((completedCount / items.length) * 100)}%`;
+    const fillEl = document.getElementById("completionRateFill");
+    const valueEl = document.getElementById("completionRateValue");
+    const rate = items.length === 0 ? null : completedCount / items.length;
+    if (fillEl) fillEl.style.width = rate === null ? "0%" : `${Math.round(rate * 100)}%`;
+    if (valueEl) {
+      valueEl.textContent =
+        rate === null ? "오늘 일정 없음" : `${completedCount}/${items.length} · ${Math.round(rate * 100)}%`;
     }
 
     const displayItems = applyHideCompleted(items);

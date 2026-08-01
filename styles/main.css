@@ -346,32 +346,42 @@ button.nav-item {
   scrollbar-gutter: stable;
 }
 
-.stat-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
+.completion-rate-section {
   margin-bottom: 20px;
 }
 
-.stat-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px 18px;
+.completion-rate-header {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
-.stat-label {
-  font-size: 12px;
+.completion-rate-title {
+  font-size: 13px;
   color: var(--text-muted);
 }
 
-.stat-value {
-  font-size: 22px;
+.completion-rate-value {
+  font-size: 15px;
   font-weight: 700;
-  color: var(--text-faint);
+}
+
+.completion-rate-track {
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.completion-rate-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.3s ease;
 }
 
 .grid {
@@ -1011,7 +1021,7 @@ button.nav-item {
   accent-color: var(--accent);
 }
 
-.checklist-item.done span {
+.checklist-item.done span:not(.checklist-item-remove) {
   text-decoration: line-through;
   color: var(--text-faint);
 }
@@ -1635,6 +1645,66 @@ button.nav-item {
   border-color: var(--accent);
 }
 
+/* ---------- Learned exercises (grouped by body part) ---------- */
+.learned-exercise-group {
+  margin-bottom: 16px;
+}
+
+.learned-exercise-group-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.learned-exercise-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.learned-exercise-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.learned-exercise-name {
+  flex: 1;
+}
+
+.learned-exercise-detail {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.learned-exercise-add-row {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  vertical-align: middle;
+}
+
+.learned-exercise-add-row.expanded input {
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  flex: 1;
+  min-width: 100px;
+}
+
 /* ---------- Settings form ---------- */
 .settings-form {
   display: flex;
@@ -2118,9 +2188,6 @@ button.nav-item {
 @media (max-width: 960px) {
   .grid {
     grid-template-columns: 1fr;
-  }
-  .stat-row {
-    grid-template-columns: repeat(2, 1fr);
   }
   .schedule-layout {
     grid-template-columns: 1fr;

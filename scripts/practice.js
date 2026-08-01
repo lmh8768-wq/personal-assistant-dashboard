@@ -614,6 +614,65 @@
     return input;
   }
 
+  // A goal's label, editable by double-clicking it. Enter/blur commits a
+  // non-empty, changed value; Escape, or Enter/blur with nothing changed,
+  // just reverts to the original text — unlike makeInlineGoalLabelEditor,
+  // this is for an ALREADY-existing goal, so an empty/unchanged commit
+  // never deletes it.
+  function makeDblClickEditableGoalLabel(currentLabel, onSave) {
+    const container = document.createElement("span");
+    container.className = "goal-item-label";
+
+    function showView() {
+      container.innerHTML = "";
+      container.textContent = currentLabel;
+    }
+
+    function showEdit() {
+      container.innerHTML = "";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "goal-title-input goal-item-label-input";
+      input.value = currentLabel;
+
+      let settled = false;
+      function commit() {
+        if (settled) return;
+        settled = true;
+        const value = input.value.trim();
+        if (value && value !== currentLabel) onSave(value);
+        else showView();
+      }
+
+      input.addEventListener("keydown", (e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          settled = true;
+          showView();
+        }
+      });
+      input.addEventListener("blur", commit);
+      input.addEventListener("click", (e) => e.stopPropagation());
+      input.addEventListener("dblclick", (e) => e.stopPropagation());
+
+      container.appendChild(input);
+      input.focus();
+      input.select();
+    }
+
+    container.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      showEdit();
+    });
+
+    showView();
+    return container;
+  }
+
   function renderCurriculumItem(node, depth) {
     const li = document.createElement("li");
     li.className = "goal-item";
@@ -690,10 +749,12 @@
         )
       );
     } else {
-      const label = document.createElement("span");
-      label.className = "goal-item-label";
-      label.textContent = node.label;
-      row.appendChild(label);
+      row.appendChild(
+        makeDblClickEditableGoalLabel(node.label, (value) => {
+          CurriculumStore.renameGoal(node.id, value);
+          renderCurriculum();
+        })
+      );
     }
 
     row.appendChild(
