@@ -313,17 +313,23 @@
             <button class="primary-btn" id="addPracticeBtn">+ 연습 기록 추가</button>
           </div>
 
-          <div class="diary-header">
-            <h2>커리큘럼</h2>
-            <button type="button" class="icon-btn section-toggle-btn" id="toggleCurriculumBtn" aria-expanded="true" aria-label="커리큘럼 접기/펼치기">▾</button>
-          </div>
-          <div id="practiceCurriculum"></div>
+          <div class="practice-columns">
+            <div class="practice-column">
+              <div class="diary-header">
+                <h2>커리큘럼</h2>
+                <button type="button" class="icon-btn section-toggle-btn" id="toggleCurriculumBtn" aria-expanded="true" aria-label="커리큘럼 접기/펼치기">▾</button>
+              </div>
+              <div id="practiceCurriculum"></div>
+            </div>
 
-          <div class="diary-header">
-            <h2>연습 기록</h2>
-            <button type="button" class="icon-btn section-toggle-btn" id="toggleFeedBtn" aria-expanded="true" aria-label="연습 기록 접기/펼치기">▾</button>
+            <div class="practice-column">
+              <div class="diary-header">
+                <h2>연습 기록</h2>
+                <button type="button" class="icon-btn section-toggle-btn" id="toggleFeedBtn" aria-expanded="true" aria-label="연습 기록 접기/펼치기">▾</button>
+              </div>
+              <div class="diary-feed" id="practiceFeed"></div>
+            </div>
           </div>
-          <div class="diary-feed" id="practiceFeed"></div>
         </div>
 
         <div class="view" id="view-study" hidden>

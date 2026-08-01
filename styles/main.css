@@ -1165,6 +1165,17 @@ button.nav-item {
 }
 
 /* ---------- Bass practice log ---------- */
+.practice-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.practice-column {
+  min-width: 0;
+}
+
 .practice-card-checklist {
   margin: 0 0 8px;
   font-size: 12px;
@@ -2219,6 +2230,9 @@ button.nav-item {
     grid-template-columns: 1fr;
   }
   .schedule-layout {
+    grid-template-columns: 1fr;
+  }
+  .practice-columns {
     grid-template-columns: 1fr;
   }
 }
