@@ -437,6 +437,7 @@
     const section = document.getElementById("routineCalendarSection");
     const panel = document.getElementById("routineWeekPanel");
     const nav = section.querySelector(".routine-calendar-nav");
+    const weekdaysHeader = section.querySelector(".calendar-weekdays");
 
     const weekDates = [];
     const sunday = new Date();
@@ -536,6 +537,7 @@
       nav.style.transition = `opacity ${NAV_FADE_MS}ms ease`;
       nav.style.opacity = "0";
     }
+    if (weekdaysHeader) weekdaysHeader.style.transition = "none";
 
     void weekWrap.offsetHeight;
 
@@ -551,6 +553,13 @@
         c.style.opacity = "0";
         c.style.transform = "scale(0.5)";
       });
+      // The 일월화수목금토 labels were sitting untouched above the grid,
+      // still fully visible after everything else had faded/moved away —
+      // a lingering afterimage. Fades out with the rest of the grid.
+      if (weekdaysHeader) {
+        weekdaysHeader.style.transition = `opacity ${OTHERS_SHRINK_MS}ms ease`;
+        weekdaysHeader.style.opacity = "0";
+      }
       if (panel) {
         panel.style.transition = `height ${PANEL_SHRINK_MS}ms ease`;
         panel.style.height = endHeight + "px";
@@ -577,6 +586,10 @@
       if (nav) {
         nav.style.transition = "";
         nav.style.opacity = "";
+      }
+      if (weekdaysHeader) {
+        weekdaysHeader.style.transition = "";
+        weekdaysHeader.style.opacity = "";
       }
     }, Math.max(NAV_FADE_MS, ROW_MOVE_MS, OTHERS_SHRINK_MS, PANEL_SHRINK_MS) + 30);
   }
