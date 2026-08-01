@@ -541,17 +541,40 @@
     pendingNewGoal = null;
   }
 
+  // Toggling collapse used to just flip the stored flag and re-render the
+  // whole tree, which meant CSS transitions never had an existing element to
+  // animate from — the collapsed subtree was torn down and rebuilt already
+  // collapsed. Instead this owns its own state and hands the new value to
+  // onToggle, which is expected to persist it and flip a class on the
+  // already-in-the-DOM collapse region rather than trigger a full re-render.
   function makeToggleBtn(collapsed, onToggle) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "goal-toggle-btn";
-    btn.textContent = collapsed ? "▸" : "▾";
+    let state = collapsed;
+    btn.textContent = state ? "▸" : "▾";
     btn.setAttribute("aria-label", "접기/펼치기");
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      onToggle();
+      state = !state;
+      btn.textContent = state ? "▸" : "▾";
+      onToggle(state);
     });
     return btn;
+  }
+
+  // Wraps collapsible content in the CSS grid-rows collapse trick: a grid
+  // container with one row track (1fr expanded, 0fr collapsed) and an inner
+  // element that clips overflow while the track animates toward zero. Works
+  // for arbitrary/dynamic content height with no JS measurement.
+  function wrapCollapseRegion(contentEl, collapsed) {
+    const region = document.createElement("div");
+    region.className = "collapse-region" + (collapsed ? " collapsed" : "");
+    const inner = document.createElement("div");
+    inner.className = "collapse-region-inner";
+    inner.appendChild(contentEl);
+    region.appendChild(inner);
+    return region;
   }
 
   // A compact "+" button that creates a goal immediately on click (with an
@@ -721,11 +744,16 @@
 
     const hasChildren = (node.children || []).length > 0;
     const collapsed = hasChildren && isGoalCollapsed(node.id);
+    let childrenRegion = null;
     if (hasChildren) {
+      childrenRegion = wrapCollapseRegion(
+        renderCurriculumList(node.children || [], depth + 1, node.id, false),
+        collapsed
+      );
       row.appendChild(
-        makeToggleBtn(collapsed, () => {
+        makeToggleBtn(collapsed, (newCollapsed) => {
           toggleGoalCollapsed(node.id);
-          renderCurriculum();
+          childrenRegion.classList.toggle("collapsed", newCollapsed);
         })
       );
     }
@@ -797,9 +825,7 @@
     li.appendChild(row);
     // No trailing add-row here — this item's own "+" (above, right next to
     // its label) is the only way to add into this children list.
-    if (!collapsed) {
-      li.appendChild(renderCurriculumList(node.children || [], depth + 1, node.id, false));
-    }
+    if (childrenRegion) li.appendChild(childrenRegion);
 
     return li;
   }

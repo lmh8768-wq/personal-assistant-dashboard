@@ -1268,8 +1268,28 @@ button.nav-item {
 }
 
 /* ---------- Academics: semester goal tree ---------- */
+/* CSS grid-rows collapse trick: the row track animates between 1fr and 0fr
+   (a real transitionable property), while the inner element clips its
+   content as the track shrinks toward zero. Handles content of any/dynamic
+   height with no JS measurement. */
+.collapse-region {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.22s ease;
+}
+
+.collapse-region.collapsed {
+  grid-template-rows: 0fr;
+}
+
+.collapse-region-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
 .goal-period-card {
   cursor: default;
+  transition: padding 0.22s ease;
 }
 
 .goal-period-card + .goal-period-card {

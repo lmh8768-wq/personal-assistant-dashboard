@@ -355,17 +355,40 @@
   }
 
   // ---------- Rendering ----------
+  // Toggling collapse used to just flip the stored flag and re-render the
+  // whole tree, which meant CSS transitions never had an existing element to
+  // animate from — the collapsed subtree was torn down and rebuilt already
+  // collapsed. Instead this owns its own state and hands the new value to
+  // onToggle, which is expected to persist it and flip a class on the
+  // already-in-the-DOM collapse region rather than trigger a full re-render.
   function makeToggleBtn(collapsed, onToggle) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "goal-toggle-btn";
-    btn.textContent = collapsed ? "▸" : "▾";
+    let state = collapsed;
+    btn.textContent = state ? "▸" : "▾";
     btn.setAttribute("aria-label", "접기/펼치기");
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      onToggle();
+      state = !state;
+      btn.textContent = state ? "▸" : "▾";
+      onToggle(state);
     });
     return btn;
+  }
+
+  // Wraps collapsible content in the CSS grid-rows collapse trick: a grid
+  // container with one row track (1fr expanded, 0fr collapsed) and an inner
+  // element that clips overflow while the track animates toward zero. Works
+  // for arbitrary/dynamic content height with no JS measurement.
+  function wrapCollapseRegion(contentEl, collapsed) {
+    const region = document.createElement("div");
+    region.className = "collapse-region" + (collapsed ? " collapsed" : "");
+    const inner = document.createElement("div");
+    inner.className = "collapse-region-inner";
+    inner.appendChild(contentEl);
+    region.appendChild(inner);
+    return region;
   }
 
   // A compact "+" button that creates a goal immediately on click (with an
@@ -637,11 +660,16 @@
 
     const hasChildren = (node.children || []).length > 0;
     const collapsed = hasChildren && isGoalCollapsed(node.id);
+    let childrenRegion = null;
     if (hasChildren) {
+      childrenRegion = wrapCollapseRegion(
+        renderGoalList(yearId, periodId, node.children || [], depth + 1, node.id, onChange, false),
+        collapsed
+      );
       row.appendChild(
-        makeToggleBtn(collapsed, () => {
+        makeToggleBtn(collapsed, (newCollapsed) => {
           toggleGoalCollapsed(node.id);
-          onChange();
+          childrenRegion.classList.toggle("collapsed", newCollapsed);
         })
       );
     }
@@ -720,11 +748,7 @@
     // its label) is the only way to add into this children list, so it can
     // be clicked repeatedly to add as many nested sub-goals as needed, at
     // any depth, one at a time.
-    if (!collapsed) {
-      li.appendChild(
-        renderGoalList(yearId, periodId, node.children || [], depth + 1, node.id, onChange, false)
-      );
-    }
+    if (childrenRegion) li.appendChild(childrenRegion);
 
     return li;
   }
@@ -762,7 +786,8 @@
 
   function renderPeriodCard(yearId, period, onChange) {
     const card = document.createElement("div");
-    card.className = "diary-card goal-period-card" + (isPeriodCollapsed(period.id) ? " collapsed" : "");
+    const collapsed = isPeriodCollapsed(period.id);
+    card.className = "diary-card goal-period-card" + (collapsed ? " collapsed" : "");
 
     const headerRow = document.createElement("div");
     headerRow.className = "diary-card-header-row";
@@ -794,11 +819,15 @@
       actions.appendChild(summary);
     }
 
-    const collapsed = isPeriodCollapsed(period.id);
+    const goalListRegion = wrapCollapseRegion(
+      renderGoalList(yearId, period.id, goals, 0, null, onChange, true),
+      collapsed
+    );
     actions.appendChild(
-      makeToggleBtn(collapsed, () => {
+      makeToggleBtn(collapsed, (newCollapsed) => {
         togglePeriodCollapsed(period.id);
-        onChange();
+        card.classList.toggle("collapsed", newCollapsed);
+        goalListRegion.classList.toggle("collapsed", newCollapsed);
       })
     );
 
@@ -822,10 +851,7 @@
 
     headerRow.appendChild(actions);
     card.appendChild(headerRow);
-
-    if (!collapsed) {
-      card.appendChild(renderGoalList(yearId, period.id, goals, 0, null, onChange, true));
-    }
+    card.appendChild(goalListRegion);
 
     return card;
   }
@@ -846,10 +872,23 @@
     actions.className = "diary-card-header-actions";
 
     const collapsed = isYearCollapsed(year.id);
-    actions.appendChild(
-      makeToggleBtn(collapsed, () => {
-        toggleYearCollapsed(year.id);
+    const periodsWrap = document.createElement("div");
+    periodsWrap.className = "goal-periods-in-year";
+    GoalStore.getPeriods(year.id).forEach((period) =>
+      periodsWrap.appendChild(renderPeriodCard(year.id, period, onChange))
+    );
+    periodsWrap.appendChild(
+      makeAddTrigger("goal-add-row", "+ 구간 추가", "구간 이름 (예: 자격증 시험)", (label) => {
+        GoalStore.addPeriod(year.id, label);
         onChange();
+      })
+    );
+    const periodsRegion = wrapCollapseRegion(periodsWrap, collapsed);
+
+    actions.appendChild(
+      makeToggleBtn(collapsed, (newCollapsed) => {
+        toggleYearCollapsed(year.id);
+        periodsRegion.classList.toggle("collapsed", newCollapsed);
       })
     );
 
@@ -873,21 +912,7 @@
 
     header.appendChild(actions);
     section.appendChild(header);
-
-    if (!collapsed) {
-      const periodsWrap = document.createElement("div");
-      periodsWrap.className = "goal-periods-in-year";
-      GoalStore.getPeriods(year.id).forEach((period) =>
-        periodsWrap.appendChild(renderPeriodCard(year.id, period, onChange))
-      );
-      periodsWrap.appendChild(
-        makeAddTrigger("goal-add-row", "+ 구간 추가", "구간 이름 (예: 자격증 시험)", (label) => {
-          GoalStore.addPeriod(year.id, label);
-          onChange();
-        })
-      );
-      section.appendChild(periodsWrap);
-    }
+    section.appendChild(periodsRegion);
 
     return section;
   }
