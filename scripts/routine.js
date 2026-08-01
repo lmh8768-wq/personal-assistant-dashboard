@@ -330,6 +330,13 @@
     section.hidden = false;
     renderRateCalendar();
 
+    // Hide the strip now, BEFORE measuring the expanded height — otherwise
+    // scrollHeight still includes the (about-to-disappear) strip's own
+    // height on top of the calendar's, so the panel would grow past the
+    // true resting size and visibly snap back down once the strip is
+    // actually removed and the height is handed back to "auto".
+    weekWrap.hidden = true;
+
     if (panel) {
       const endHeight = panel.scrollHeight;
       panel.style.height = startHeight + "px";
@@ -368,10 +375,6 @@
       });
     });
 
-    // The animating row will visually sit exactly where the strip cells
-    // were, so the strip itself can disappear without an obvious jump.
-    weekWrap.hidden = true;
-
     if (matches.length === 0) return; // nothing to animate from — plain reveal, calendar is already fully visible
 
     const matched = matches.map((m) => m.target);
@@ -393,13 +396,19 @@
     // collapse both changes into one and skip the animation entirely.
     void section.offsetHeight;
 
+    const ROW_MOVE_MS = 260;
+    const OTHERS_GROW_MS = 320;
+
     requestAnimationFrame(() => {
       matched.forEach((target) => {
-        target.style.transition = "transform 260ms linear";
+        target.style.transition = `transform ${ROW_MOVE_MS}ms linear`;
         target.style.transform = "none";
       });
+      // Delayed so the rest of the grid only starts growing in once the
+      // current week's row has actually landed, instead of everything
+      // appearing at once.
       others.forEach((c) => {
-        c.style.transition = "opacity 320ms ease, transform 320ms ease";
+        c.style.transition = `opacity ${OTHERS_GROW_MS}ms ease ${ROW_MOVE_MS}ms, transform ${OTHERS_GROW_MS}ms ease ${ROW_MOVE_MS}ms`;
         c.style.opacity = "1";
         c.style.transform = "scale(1)";
       });
@@ -416,7 +425,7 @@
         c.style.opacity = "";
         c.style.transform = "";
       });
-    }, 450);
+    }, ROW_MOVE_MS + OTHERS_GROW_MS + 30);
   }
 
   // Mirror of expandCalendarAnimated: the current week's calendar-day cells
@@ -557,7 +566,7 @@
       toggleAnimating = true;
       setTimeout(() => {
         toggleAnimating = false;
-      }, 500); // covers the longer of the two animations (expand's cleanup fires at 450ms)
+      }, 650); // covers the longer of the two animations (expand's cleanup now fires at 610ms)
       if (expanding) {
         calendarViewDate = new Date();
         expandCalendarAnimated();
