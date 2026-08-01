@@ -210,6 +210,7 @@
 
       const cell = document.createElement("div");
       cell.className = "routine-week-cell" + (dStr === todayDateStr ? " today" : "") + (isFuture ? " future" : "");
+      cell.dataset.date = dStr;
       cell.style.background = isFuture ? "" : rateColor(rate);
 
       const weekday = document.createElement("span");
@@ -272,6 +273,7 @@
 
       const cell = document.createElement("div");
       cell.className = "routine-calendar-day" + (isOutside ? " outside" : "") + (dStr === todayDateStr ? " today" : "");
+      cell.dataset.date = dStr;
 
       const num = document.createElement("span");
       num.className = "routine-calendar-day-number";
@@ -300,6 +302,102 @@
     renderRateCalendar();
   }
 
+  // FLIP animation: the week strip's cells visually fly to wherever their
+  // same date lands in the freshly-rendered calendar grid, so the strip
+  // reads as "becoming" that row instead of the calendar just appearing
+  // underneath it. Only the current week's row can do this (it's the only
+  // one the strip has data for); the rest of the grid fades in around it.
+  function expandCalendarAnimated() {
+    const weekWrap = document.getElementById("routineWeekRate");
+    const section = document.getElementById("routineCalendarSection");
+
+    const sourceRects = [...weekWrap.querySelectorAll(".routine-week-cell")].map((cell) => ({
+      date: cell.dataset.date,
+      rect: cell.getBoundingClientRect(),
+    }));
+
+    section.hidden = false;
+    renderRateCalendar();
+
+    const targetByDate = new Map();
+    document.querySelectorAll(".routine-calendar-day").forEach((cell) => {
+      targetByDate.set(cell.dataset.date, cell);
+    });
+
+    // Collect the transform needed for each matching cell WITHOUT touching
+    // any styles yet — if nothing ends up matching (e.g. a layout engine
+    // that never gives real box sizes), we must bail before hiding anything,
+    // or the "others" fade-in would never get scheduled to run.
+    const matches = [];
+    sourceRects.forEach(({ date, rect }) => {
+      const target = targetByDate.get(date);
+      if (!target) return;
+      const targetRect = target.getBoundingClientRect();
+      if (targetRect.width === 0 || targetRect.height === 0 || rect.width === 0 || rect.height === 0) return;
+      matches.push({
+        target,
+        dx: rect.left - targetRect.left,
+        dy: rect.top - targetRect.top,
+        sx: rect.width / targetRect.width,
+        sy: rect.height / targetRect.height,
+      });
+    });
+
+    // The animating row will visually sit exactly where the strip cells
+    // were, so the strip itself can disappear without an obvious jump.
+    weekWrap.hidden = true;
+
+    if (matches.length === 0) return; // nothing to animate from — plain reveal, calendar is already fully visible
+
+    const matched = matches.map((m) => m.target);
+    matches.forEach(({ target, dx, dy, sx, sy }) => {
+      target.style.transition = "none";
+      target.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+      target.style.zIndex = "1";
+    });
+
+    const others = [...document.querySelectorAll(".routine-calendar-day")].filter((c) => !matched.includes(c));
+    others.forEach((c) => {
+      c.style.transition = "none";
+      c.style.opacity = "0";
+    });
+
+    // Force layout so the transform above is committed before the next
+    // frame flips it to the resting state — otherwise the browser may
+    // collapse both changes into one and skip the animation entirely.
+    void section.offsetHeight;
+
+    requestAnimationFrame(() => {
+      matched.forEach((target) => {
+        target.style.transition = "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)";
+        target.style.transform = "none";
+      });
+      others.forEach((c) => {
+        c.style.transition = "opacity 320ms ease";
+        c.style.opacity = "1";
+      });
+    });
+
+    setTimeout(() => {
+      matched.forEach((target) => {
+        target.style.transition = "";
+        target.style.transform = "";
+        target.style.zIndex = "";
+      });
+      others.forEach((c) => {
+        c.style.transition = "";
+        c.style.opacity = "";
+      });
+    }, 450);
+  }
+
+  function collapseCalendar() {
+    document.getElementById("routineCalendarSection").hidden = true;
+    const weekWrap = document.getElementById("routineWeekRate");
+    weekWrap.hidden = false;
+    renderWeekRate();
+  }
+
   function init() {
     TYPES.forEach((t) => {
       document.getElementById(t.addBtnId)?.addEventListener("click", () => handleAdd(t.key));
@@ -323,7 +421,12 @@
     document.getElementById("toggleRoutineCalendarBtn")?.addEventListener("click", (e) => {
       const section = document.getElementById("routineCalendarSection");
       const expanding = section.hidden;
-      section.hidden = !expanding;
+      if (expanding) {
+        calendarViewDate = new Date();
+        expandCalendarAnimated();
+      } else {
+        collapseCalendar();
+      }
       e.currentTarget.textContent = expanding ? "▾" : "▸";
       e.currentTarget.setAttribute("aria-expanded", String(expanding));
     });
