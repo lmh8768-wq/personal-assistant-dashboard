@@ -7,6 +7,28 @@
     { key: "life", listId: "lifeChecklistList", addRowId: "lifeChecklistAddRow" },
   ];
 
+  // Caps how wide the expanded month calendar can grow on wide screens —
+  // without this, a maximized window stretches the day cells so far apart
+  // that the whole month no longer fits in view at a glance. Only applied
+  // while the calendar is actually expanded; the collapsed week strip
+  // keeps using whatever width it already had.
+  const CALENDAR_MAX_WIDTH = 640;
+
+  // The checklists column shouldn't get so narrow beside the calendar that
+  // its own rows start wrapping awkwardly — below this width they belong
+  // stacked below the calendar instead.
+  const CHECKLISTS_MIN_WIDTH = 260;
+  const ROUTINE_LAYOUT_GAP = 14;
+
+  // Whether the calendar (capped at CALENDAR_MAX_WIDTH) and the checklists
+  // (at their minimum comfortable width) can actually fit side by side in
+  // `availableWidth` without wrapping — the real criterion for switching
+  // to the side-by-side layout, rather than a guessed viewport breakpoint.
+  function canFitSideBySide(availableWidth) {
+    const calendarWidth = Math.min(availableWidth, CALENDAR_MAX_WIDTH);
+    return availableWidth - calendarWidth - ROUTINE_LAYOUT_GAP >= CHECKLISTS_MIN_WIDTH;
+  }
+
   let calendarViewDate = new Date();
   // Blocks the toggle while an expand/collapse animation is in flight — a
   // rapid re-click mid-animation would otherwise start a second FLIP/height
@@ -257,9 +279,15 @@
   }
 
   // ---------- Weekly rate strip ----------
-  function rateColor(rate) {
-    if (rate === null) return "transparent";
-    return `color-mix(in srgb, var(--accent) ${Math.round(rate * 100)}%, var(--bg-elevated-2))`;
+  // Four emoji tiers instead of a color-coded background, so a rate reads
+  // at a glance without comparing shades of the same color:
+  //   0–24%  😞   25–49%  😐   50–74%  🙂   75–100%  😄
+  function rateEmoji(rate) {
+    if (rate === null) return "";
+    if (rate < 0.25) return "😞";
+    if (rate < 0.5) return "😐";
+    if (rate < 0.75) return "🙂";
+    return "😄";
   }
 
   function renderWeekRate() {
@@ -284,7 +312,6 @@
       const cell = document.createElement("div");
       cell.className = "routine-week-cell" + (dStr === todayDateStr ? " today" : "") + (isFuture ? " future" : "");
       cell.dataset.date = dStr;
-      cell.style.background = isFuture ? "" : rateColor(rate);
 
       const weekday = document.createElement("span");
       weekday.className = "routine-week-cell-label";
@@ -298,7 +325,7 @@
 
       const pct = document.createElement("span");
       pct.className = "routine-week-cell-pct";
-      pct.textContent = isFuture ? "" : rate === null ? "—" : `${Math.round(rate * 100)}%`;
+      pct.textContent = isFuture ? "" : rate === null ? "—" : `${rateEmoji(rate)} ${Math.round(rate * 100)}%`;
       cell.appendChild(pct);
 
       cell.title = isFuture || rate === null ? "" : `${done}/${total} 완료 (${Math.round(rate * 100)}%)`;
@@ -355,11 +382,10 @@
 
       if (!isFuture) {
         const { done, total, rate } = RoutineStore.getRateForDate(dStr);
-        cell.style.background = rateColor(rate);
         if (rate !== null) {
           const pct = document.createElement("span");
           pct.className = "routine-calendar-day-pct";
-          pct.textContent = `${Math.round(rate * 100)}%`;
+          pct.textContent = `${rateEmoji(rate)} ${Math.round(rate * 100)}%`;
           cell.appendChild(pct);
           cell.title = `${done}/${total} 완료 (${Math.round(rate * 100)}%)`;
         }
@@ -373,6 +399,50 @@
     TYPES.forEach((t) => renderList(t.key));
     renderWeekRate();
     renderRateCalendar();
+  }
+
+  // Moves #routineChecklists between "below the calendar" (stacked) and
+  // "beside the calendar" (its own column) by translating/resizing it from
+  // its old position to its new one — plain translate + width, no scale,
+  // so the checklist text never gets visually stretched.
+  function animateChecklistsLayout(expanding) {
+    const layout = document.getElementById("routineLayout");
+    const checklists = document.getElementById("routineChecklists");
+    if (!layout || !checklists) return;
+
+    // Only switch to the side-by-side layout if the checklists would
+    // actually fit beside the calendar without wrapping — otherwise leave
+    // them stacked below it. Collapsing always still runs (regardless of
+    // the current width) so the class never gets stuck on from before a
+    // resize.
+    if (expanding && !canFitSideBySide(layout.getBoundingClientRect().width)) return;
+
+    const startRect = checklists.getBoundingClientRect();
+    layout.classList.toggle("calendar-expanded", expanding);
+    const endRect = checklists.getBoundingClientRect();
+
+    if (startRect.width === 0 || endRect.width === 0) return; // no usable layout to animate from
+
+    const dx = startRect.left - endRect.left;
+    const dy = startRect.top - endRect.top;
+    const MOVE_MS = 300;
+
+    checklists.style.transition = "none";
+    checklists.style.width = startRect.width + "px";
+    checklists.style.transform = `translate(${dx}px, ${dy}px)`;
+    void checklists.offsetWidth;
+
+    requestAnimationFrame(() => {
+      checklists.style.transition = `transform ${MOVE_MS}ms ease, width ${MOVE_MS}ms ease`;
+      checklists.style.transform = "none";
+      checklists.style.width = endRect.width + "px";
+    });
+
+    setTimeout(() => {
+      checklists.style.transition = "";
+      checklists.style.transform = "";
+      checklists.style.width = "";
+    }, MOVE_MS + 30);
   }
 
   // FLIP animation: the week strip's cells visually fly to wherever their
@@ -389,6 +459,21 @@
       date: cell.dataset.date,
       rect: cell.getBoundingClientRect(),
     }));
+
+    // Snap the panel down to the "fits at a glance" width now, before the
+    // calendar renders — the FLIP targets measured below then already
+    // reflect the real final (narrow) layout instead of the wide
+    // pre-expand one. Nothing has painted yet at this point, so the panel
+    // visibly stays at its normal width right up until this click.
+    if (panel) {
+      const currentWidth = panel.getBoundingClientRect().width;
+      panel.style.maxWidth = Math.min(currentWidth, CALENDAR_MAX_WIDTH) + "px";
+    }
+
+    // Move the checklists over to the calendar's right side now that the
+    // calendar itself has its final (narrow) width — placed before the
+    // week-cell FLIP's own bail-out check further down so it always runs.
+    animateChecklistsLayout(true);
 
     // The card itself should grow into its taller (calendar-included)
     // height smoothly rather than snapping to it the instant the section
@@ -524,6 +609,18 @@
 
     const startHeight = panel ? panel.getBoundingClientRect().height : 0;
 
+    // Restore the panel's normal width now, before the week strip
+    // re-renders, so the FLIP targets measured below reflect their real
+    // final (wide) layout instead of the narrow expanded one. Nothing
+    // paints between here and the height clamp further down, so this
+    // never flashes a taller box in the process.
+    if (panel) panel.style.maxWidth = "";
+
+    // Move the checklists back below the calendar now that it's back to
+    // its full width — placed before the week-cell FLIP's own bail-out
+    // check further down so it always runs.
+    animateChecklistsLayout(false);
+
     weekWrap.hidden = false;
     renderWeekRate();
 
@@ -576,13 +673,7 @@
     const PANEL_SHRINK_MS = 300;
 
     matches.forEach(({ target, dx, dy, sx, sy }) => {
-      // Start showing whatever color it had as a calendar cell, and fade to
-      // the week cell's own color as it moves — if the two happen to match
-      // (the common case, since it's the same date either way), nothing
-      // visibly changes at all instead of an unnecessary flash.
       const sourceCell = calendarCellsByDate.get(target.dataset.date);
-      target.dataset.pendingBg = target.style.background;
-      target.style.background = sourceCell ? sourceCell.style.background : "";
       target.style.transition = "none";
       target.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
       target.style.zIndex = "1";
@@ -611,10 +702,8 @@
 
     requestAnimationFrame(() => {
       matched.forEach((target) => {
-        target.style.transition = `transform ${ROW_MOVE_MS}ms linear, background-color ${ROW_MOVE_MS}ms ease`;
+        target.style.transition = `transform ${ROW_MOVE_MS}ms linear`;
         target.style.transform = "none";
-        target.style.background = target.dataset.pendingBg || "";
-        delete target.dataset.pendingBg;
       });
       others.forEach((c) => {
         c.style.transition = `opacity ${OTHERS_SHRINK_MS}ms ease, transform ${OTHERS_SHRINK_MS}ms ease`;

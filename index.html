@@ -218,46 +218,48 @@
 
         <!-- 루틴 뷰 -->
         <div class="view" id="view-routine" hidden>
-          <div class="panel routine-week-panel" id="routineWeekPanel">
-            <div class="panel-header">
-              <h2>이번 주 달성률</h2>
-              <div class="diary-card-header-actions">
-                <span class="routine-week-average" id="routineWeekAverage"></span>
-                <button
-                  type="button"
-                  class="icon-btn section-toggle-btn"
-                  id="toggleRoutineCalendarBtn"
-                  aria-expanded="false"
-                  aria-label="달성률 캘린더 펼치기/접기"
-                >▸</button>
+          <div class="routine-layout" id="routineLayout">
+            <div class="panel routine-week-panel" id="routineWeekPanel">
+              <div class="panel-header">
+                <h2>이번 주 달성률</h2>
+                <div class="diary-card-header-actions">
+                  <span class="routine-week-average" id="routineWeekAverage"></span>
+                  <button
+                    type="button"
+                    class="icon-btn section-toggle-btn"
+                    id="toggleRoutineCalendarBtn"
+                    aria-expanded="false"
+                    aria-label="달성률 캘린더 펼치기/접기"
+                  >▸</button>
+                </div>
+              </div>
+              <div class="routine-week-rate" id="routineWeekRate"></div>
+
+              <div class="routine-calendar-section" id="routineCalendarSection" hidden>
+                <div class="routine-calendar-nav">
+                  <button type="button" class="icon-btn" id="routinePrevMonthBtn" aria-label="이전 달">‹</button>
+                  <span id="routineCalendarTitle"></span>
+                  <button type="button" class="icon-btn" id="routineNextMonthBtn" aria-label="다음 달">›</button>
+                </div>
+                <div class="calendar-weekdays">
+                  <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+                </div>
+                <div class="routine-calendar-grid" id="routineCalendarGrid"></div>
               </div>
             </div>
-            <div class="routine-week-rate" id="routineWeekRate"></div>
 
-            <div class="routine-calendar-section" id="routineCalendarSection" hidden>
-              <div class="routine-calendar-nav">
-                <button type="button" class="icon-btn" id="routinePrevMonthBtn" aria-label="이전 달">‹</button>
-                <span id="routineCalendarTitle"></span>
-                <button type="button" class="icon-btn" id="routineNextMonthBtn" aria-label="다음 달">›</button>
+            <div class="routine-checklists" id="routineChecklists">
+              <div class="panel routine-panel">
+                <div class="panel-header"><h2>루틴 체크리스트</h2></div>
+                <ul class="checklist-items" id="routineChecklistList"></ul>
+                <div class="checklist-add-row" id="routineChecklistAddRow"></div>
               </div>
-              <div class="calendar-weekdays">
-                <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+
+              <div class="panel routine-panel">
+                <div class="panel-header"><h2>생활 체크리스트</h2></div>
+                <ul class="checklist-items" id="lifeChecklistList"></ul>
+                <div class="checklist-add-row" id="lifeChecklistAddRow"></div>
               </div>
-              <div class="routine-calendar-grid" id="routineCalendarGrid"></div>
-            </div>
-          </div>
-
-          <div class="routine-checklists">
-            <div class="panel routine-panel">
-              <div class="panel-header"><h2>루틴 체크리스트</h2></div>
-              <ul class="checklist-items" id="routineChecklistList"></ul>
-              <div class="checklist-add-row" id="routineChecklistAddRow"></div>
-            </div>
-
-            <div class="panel routine-panel">
-              <div class="panel-header"><h2>생활 체크리스트</h2></div>
-              <ul class="checklist-items" id="lifeChecklistList"></ul>
-              <div class="checklist-add-row" id="lifeChecklistAddRow"></div>
             </div>
           </div>
         </div>

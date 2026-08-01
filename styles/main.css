@@ -1379,6 +1379,39 @@ button.nav-item {
 }
 
 /* ---------- Routine tab ---------- */
+.routine-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Toggled by JS the instant the calendar expands/collapses — the visible
+   motion comes from routine.js animating #routineChecklists' own
+   transform/width from its old position to its new one, not from this
+   layout swap itself (flex-direction changes don't interpolate). */
+.routine-layout.calendar-expanded {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.routine-layout.calendar-expanded .routine-week-panel {
+  /* Without an explicit width, this flex item would shrink-wrap to the
+     calendar grid's own minimum content size instead of actually reaching
+     the width capped via JS (max-width alone doesn't force a size). */
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.routine-layout.calendar-expanded .routine-checklists {
+  /* Capped instead of flex:1 — otherwise it stretches to fill whatever
+     space is left over on a wide screen instead of staying a reasonable,
+     readable width next to the calendar. */
+  width: 100%;
+  max-width: 380px;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
 .routine-checklists {
   display: flex;
   flex-direction: column;
@@ -1400,10 +1433,6 @@ button.nav-item {
 .routine-panel,
 .routine-week-panel {
   min-height: 0;
-}
-
-.routine-week-panel + .routine-checklists {
-  margin-top: 14px;
 }
 
 .routine-calendar-section {
