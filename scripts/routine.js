@@ -360,6 +360,7 @@
     others.forEach((c) => {
       c.style.transition = "none";
       c.style.opacity = "0";
+      c.style.transform = "scale(0.5)";
     });
 
     // Force layout so the transform above is committed before the next
@@ -373,8 +374,9 @@
         target.style.transform = "none";
       });
       others.forEach((c) => {
-        c.style.transition = "opacity 320ms ease";
+        c.style.transition = "opacity 320ms ease, transform 320ms ease";
         c.style.opacity = "1";
+        c.style.transform = "scale(1)";
       });
     });
 
@@ -387,6 +389,7 @@
       others.forEach((c) => {
         c.style.transition = "";
         c.style.opacity = "";
+        c.style.transform = "";
       });
     }, 450);
   }
