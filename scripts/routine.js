@@ -517,6 +517,10 @@
       target.style.transition = "none";
       target.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
       target.style.zIndex = "1";
+      // The flying week cell visually IS this calendar cell now — leaving
+      // the original in place too would show both at once (the calendar
+      // row sitting still while a "duplicate" flies away from it).
+      if (sourceCell) sourceCell.style.visibility = "hidden";
     });
     others.forEach((c) => {
       c.style.transition = "none";
