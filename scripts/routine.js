@@ -369,7 +369,7 @@
 
     requestAnimationFrame(() => {
       matched.forEach((target) => {
-        target.style.transition = "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)";
+        target.style.transition = "transform 420ms linear";
         target.style.transform = "none";
       });
       others.forEach((c) => {
