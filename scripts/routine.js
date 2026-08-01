@@ -507,11 +507,13 @@
     const PANEL_SHRINK_MS = 300;
 
     matches.forEach(({ target, dx, dy, sx, sy }) => {
-      // Hide its achievement-rate color while it's mid-flight — it reads as
-      // still "becoming" the week cell rather than already being it, and
-      // only settles into the right color once it's actually landed.
+      // Start showing whatever color it had as a calendar cell, and fade to
+      // the week cell's own color as it moves — if the two happen to match
+      // (the common case, since it's the same date either way), nothing
+      // visibly changes at all instead of an unnecessary flash.
+      const sourceCell = calendarCellsByDate.get(target.dataset.date);
       target.dataset.pendingBg = target.style.background;
-      target.style.background = "";
+      target.style.background = sourceCell ? sourceCell.style.background : "";
       target.style.transition = "none";
       target.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
       target.style.zIndex = "1";
@@ -535,8 +537,10 @@
 
     requestAnimationFrame(() => {
       matched.forEach((target) => {
-        target.style.transition = `transform ${ROW_MOVE_MS}ms linear`;
+        target.style.transition = `transform ${ROW_MOVE_MS}ms linear, background-color ${ROW_MOVE_MS}ms ease`;
         target.style.transform = "none";
+        target.style.background = target.dataset.pendingBg || "";
+        delete target.dataset.pendingBg;
       });
       others.forEach((c) => {
         c.style.transition = `opacity ${OTHERS_SHRINK_MS}ms ease, transform ${OTHERS_SHRINK_MS}ms ease`;
@@ -548,13 +552,6 @@
         panel.style.height = endHeight + "px";
       }
     });
-
-    setTimeout(() => {
-      matched.forEach((target) => {
-        target.style.background = target.dataset.pendingBg || "";
-        delete target.dataset.pendingBg;
-      });
-    }, ROW_MOVE_MS);
 
     setTimeout(() => {
       section.hidden = true;
