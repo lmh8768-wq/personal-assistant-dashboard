@@ -381,6 +381,307 @@
     }
   }
 
+  // ---------- Curriculum (대목표 > 중목표 > 소목표 goal tree, same mechanic as 학업) ----------
+  const CURRICULUM_KEY = "assistant.practiceCurriculum.v1";
+  const LEVEL_NAMES = ["대목표", "중목표", "소목표"];
+
+  function levelPlaceholder(depth) {
+    return (LEVEL_NAMES[depth] || `${depth + 1}단계 목표`) + " 이름";
+  }
+
+  function loadCurriculum() {
+    try {
+      const raw = localStorage.getItem(CURRICULUM_KEY);
+      const data = raw ? JSON.parse(raw) : [];
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveCurriculum(goals) {
+    localStorage.setItem(CURRICULUM_KEY, JSON.stringify(goals));
+  }
+
+  function findGoalNode(list, id) {
+    for (const node of list) {
+      if (node.id === id) return node;
+      const found = findGoalNode(node.children || [], id);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function extractGoalNode(list, id) {
+    const idx = list.findIndex((n) => n.id === id);
+    if (idx !== -1) {
+      const [node] = list.splice(idx, 1);
+      return node;
+    }
+    for (const node of list) {
+      const found = extractGoalNode(node.children || [], id);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function setGoalDoneRecursive(node, done) {
+    node.done = done;
+    (node.children || []).forEach((child) => setGoalDoneRecursive(child, done));
+  }
+
+  function findGoalParentId(list, childId) {
+    function search(nodes, parentId) {
+      for (const n of nodes) {
+        if (n.id === childId) return parentId;
+        const found = search(n.children || [], n.id);
+        if (found !== undefined) return found;
+      }
+      return undefined;
+    }
+    const found = search(list, null);
+    return found === undefined ? null : found;
+  }
+
+  function recomputeGoalNodeAndAncestors(list, nodeId) {
+    let currentId = nodeId;
+    while (currentId) {
+      const node = findGoalNode(list, currentId);
+      if (!node) break;
+      const kids = node.children || [];
+      if (kids.length > 0) node.done = kids.every((c) => c.done);
+      currentId = findGoalParentId(list, currentId);
+    }
+  }
+
+  function countGoalProgress(node) {
+    let total = 1;
+    let done = node.done ? 1 : 0;
+    (node.children || []).forEach((child) => {
+      const c = countGoalProgress(child);
+      total += c.total;
+      done += c.done;
+    });
+    return { total, done };
+  }
+
+  const CurriculumStore = {
+    getGoals() {
+      return loadCurriculum();
+    },
+    addGoal(parentId, label) {
+      const goals = loadCurriculum();
+      const node = { id: createId("curr"), label, done: false, children: [] };
+      if (!parentId) {
+        goals.push(node);
+      } else {
+        const parent = findGoalNode(goals, parentId);
+        if (!parent) return null;
+        parent.children = parent.children || [];
+        parent.children.push(node);
+        recomputeGoalNodeAndAncestors(goals, parentId);
+      }
+      saveCurriculum(goals);
+      return node;
+    },
+    // Returns false (rejected) if the goal has sub-goals that aren't all
+    // done yet — it can only become done by finishing all of them, never by
+    // being force-checked directly.
+    toggleDone(id) {
+      const goals = loadCurriculum();
+      const node = findGoalNode(goals, id);
+      if (!node) return false;
+      const hasChildren = (node.children || []).length > 0;
+      if (hasChildren && !node.done) return false;
+      setGoalDoneRecursive(node, !node.done);
+      const parentId = findGoalParentId(goals, id);
+      if (parentId) recomputeGoalNodeAndAncestors(goals, parentId);
+      saveCurriculum(goals);
+      return true;
+    },
+    removeGoal(id) {
+      const goals = loadCurriculum();
+      const parentId = findGoalParentId(goals, id);
+      const removed = extractGoalNode(goals, id);
+      if (!removed) return null;
+      if (parentId) recomputeGoalNodeAndAncestors(goals, parentId);
+      saveCurriculum(goals);
+      return { node: removed, parentId };
+    },
+    restoreGoal(parentId, node) {
+      const goals = loadCurriculum();
+      if (!parentId) {
+        goals.push(node);
+      } else {
+        const parent = findGoalNode(goals, parentId);
+        if (!parent) goals.push(node);
+        else {
+          parent.children = parent.children || [];
+          parent.children.push(node);
+          recomputeGoalNodeAndAncestors(goals, parentId);
+        }
+      }
+      saveCurriculum(goals);
+    },
+  };
+  window.PracticeCurriculumStore = CurriculumStore;
+
+  function makeCurriculumAddTrigger(containerClass, buttonLabel, placeholder, onAdd) {
+    const container = document.createElement("div");
+    container.className = containerClass;
+
+    function showButton() {
+      container.innerHTML = "";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ghost-btn goal-add-trigger-btn";
+      btn.textContent = buttonLabel;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showInput();
+      });
+      container.appendChild(btn);
+    }
+
+    function showInput() {
+      container.innerHTML = "";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "goal-add-input";
+      input.placeholder = placeholder;
+
+      let settled = false;
+      function commit() {
+        if (settled) return;
+        settled = true;
+        const label = input.value.trim();
+        if (label) onAdd(label);
+        else showButton();
+      }
+      function cancel() {
+        if (settled) return;
+        settled = true;
+        showButton();
+      }
+
+      input.addEventListener("keydown", (e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          cancel();
+        }
+      });
+      input.addEventListener("blur", cancel);
+      input.addEventListener("click", (e) => e.stopPropagation());
+
+      container.appendChild(input);
+      input.focus();
+    }
+
+    showButton();
+    return container;
+  }
+
+  function renderCurriculumItem(node, depth) {
+    const li = document.createElement("li");
+    li.className = "goal-item";
+
+    const row = document.createElement("div");
+    row.className = "goal-item-row checklist-item" + (node.done ? " done" : "");
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = !!node.done;
+    checkbox.addEventListener("change", () => {
+      const applied = CurriculumStore.toggleDone(node.id);
+      if (!applied && window.Toast) {
+        window.Toast.show("하위 목표를 모두 완료해야 체크할 수 있어요");
+      }
+      renderCurriculum();
+    });
+    row.appendChild(checkbox);
+
+    const label = document.createElement("span");
+    label.className = "goal-item-label";
+    label.textContent = node.label;
+    row.appendChild(label);
+
+    if ((node.children || []).length > 0) {
+      const { total, done } = countGoalProgress(node);
+      const progress = document.createElement("span");
+      progress.className = "goal-item-progress";
+      const percent = Math.round((done / total) * 100);
+      progress.textContent = depth === 0 ? `${done}/${total} (${percent}%)` : `${done}/${total}`;
+      row.appendChild(progress);
+    }
+
+    row.appendChild(
+      makeCurriculumAddTrigger("goal-item-add", "+", levelPlaceholder(depth + 1), (label) => {
+        CurriculumStore.addGoal(node.id, label);
+        renderCurriculum();
+      })
+    );
+
+    const remove = document.createElement("span");
+    remove.className = "checklist-item-remove";
+    remove.textContent = "×";
+    remove.addEventListener("click", () => {
+      const removed = CurriculumStore.removeGoal(node.id);
+      renderCurriculum();
+      if (removed && window.Toast) {
+        window.Toast.show("목표를 삭제했어요", {
+          actionLabel: "실행취소",
+          onAction: () => {
+            CurriculumStore.restoreGoal(removed.parentId, removed.node);
+            renderCurriculum();
+          },
+        });
+      }
+    });
+    row.appendChild(remove);
+
+    li.appendChild(row);
+    li.appendChild(renderCurriculumList(node.children || [], depth + 1, node.id, false));
+
+    return li;
+  }
+
+  function renderCurriculumList(nodes, depth, parentId, showTrailingAdd) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "goal-list-wrapper";
+    if (depth > 0) {
+      wrapper.style.marginLeft = depth * 22 + "px";
+      wrapper.style.marginTop = "4px";
+    }
+
+    if (nodes.length > 0) {
+      const ul = document.createElement("ul");
+      ul.className = "goal-list checklist-items";
+      nodes.forEach((node) => ul.appendChild(renderCurriculumItem(node, depth)));
+      wrapper.appendChild(ul);
+    }
+
+    if (showTrailingAdd) {
+      wrapper.appendChild(
+        makeCurriculumAddTrigger("goal-add-row", "+ 대목표 추가", levelPlaceholder(depth), (label) => {
+          CurriculumStore.addGoal(parentId, label);
+          renderCurriculum();
+        })
+      );
+    }
+    return wrapper;
+  }
+
+  function renderCurriculum() {
+    const container = document.getElementById("practiceCurriculum");
+    if (!container) return;
+    container.innerHTML = "";
+    container.appendChild(renderCurriculumList(CurriculumStore.getGoals(), 0, null, true));
+  }
+
   function init() {
     document.getElementById("addPracticeBtn").addEventListener("click", () => openModal("add"));
     document.getElementById("practiceForm").addEventListener("submit", handleSubmit);
@@ -401,6 +702,9 @@
     document.getElementById("togglePracticeStatusBtn").addEventListener("click", (e) => {
       toggleSection(document.getElementById("practiceStatusPanel"), e.currentTarget);
     });
+    document.getElementById("toggleCurriculumBtn")?.addEventListener("click", (e) => {
+      toggleSection(document.getElementById("practiceCurriculum"), e.currentTarget);
+    });
 
     document.getElementById("practiceModalOverlay").addEventListener("click", (e) => {
       if (e.target.id === "practiceModalOverlay") closeModal();
@@ -414,6 +718,7 @@
     renderStreak();
     renderStatusPanel();
     renderDashboardPractice();
+    renderCurriculum();
   }
 
   window.PracticeView = { init, refreshDashboard: renderDashboardPractice };
