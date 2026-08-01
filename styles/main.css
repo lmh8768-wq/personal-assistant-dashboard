@@ -1375,6 +1375,18 @@ button.nav-item {
   gap: 14px;
 }
 
+.routine-add-trigger-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+
 .routine-panel,
 .routine-week-panel {
   min-height: 0;

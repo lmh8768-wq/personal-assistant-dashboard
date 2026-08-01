@@ -3,8 +3,8 @@
   const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
   const TYPES = [
-    { key: "morning", listId: "morningRoutineList", inputId: "morningRoutineInput", addBtnId: "morningRoutineAddBtn" },
-    { key: "night", listId: "nightRoutineList", inputId: "nightRoutineInput", addBtnId: "nightRoutineAddBtn" },
+    { key: "morning", listId: "morningRoutineList", addRowId: "morningRoutineAddRow" },
+    { key: "night", listId: "nightRoutineList", addRowId: "nightRoutineAddRow" },
   ];
 
   let calendarViewDate = new Date();
@@ -178,14 +178,64 @@
     });
   }
 
-  function handleAdd(type) {
-    const config = TYPES.find((t) => t.key === type);
-    const input = document.getElementById(config.inputId);
-    const label = input.value.trim();
-    if (!label) return;
+  function handleAdd(type, label) {
     RoutineStore.addItem(type, label);
-    input.value = "";
     renderAll();
+  }
+
+  // Starts as a single compact "+" button; clicking it swaps in a text
+  // input (Enter commits, Escape/blur cancels) instead of leaving an open
+  // input box sitting around all the time.
+  function makeAddTrigger(onAdd) {
+    const container = document.createElement("div");
+
+    function showButton() {
+      container.innerHTML = "";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ghost-btn routine-add-trigger-btn";
+      btn.textContent = "+";
+      btn.addEventListener("click", () => showInput());
+      container.appendChild(btn);
+    }
+
+    function showInput() {
+      container.innerHTML = "";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "루틴 항목 이름";
+
+      let settled = false;
+      function commit() {
+        if (settled) return;
+        settled = true;
+        const label = input.value.trim();
+        if (label) onAdd(label);
+        showButton();
+      }
+      function cancel() {
+        if (settled) return;
+        settled = true;
+        showButton();
+      }
+
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          cancel();
+        }
+      });
+      input.addEventListener("blur", cancel);
+
+      container.appendChild(input);
+      input.focus();
+    }
+
+    showButton();
+    return container;
   }
 
   // ---------- Weekly rate strip ----------
@@ -596,13 +646,8 @@
 
   function init() {
     TYPES.forEach((t) => {
-      document.getElementById(t.addBtnId)?.addEventListener("click", () => handleAdd(t.key));
-      document.getElementById(t.inputId)?.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          handleAdd(t.key);
-        }
-      });
+      const addRow = document.getElementById(t.addRowId);
+      if (addRow) addRow.appendChild(makeAddTrigger((label) => handleAdd(t.key, label)));
     });
 
     document.getElementById("routinePrevMonthBtn")?.addEventListener("click", () => {
