@@ -340,6 +340,10 @@ button.nav-item {
   flex: 1;
   padding: 24px 28px 40px;
   overflow-y: auto;
+  /* Reserve the scrollbar's width up front so content doesn't visibly
+     narrow when a tall panel (like the expanding routine calendar) pushes
+     the page just past the viewport height and a scrollbar appears. */
+  scrollbar-gutter: stable;
 }
 
 .stat-row {
