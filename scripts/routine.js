@@ -436,6 +436,7 @@
     const weekWrap = document.getElementById("routineWeekRate");
     const section = document.getElementById("routineCalendarSection");
     const panel = document.getElementById("routineWeekPanel");
+    const nav = section.querySelector(".routine-calendar-nav");
 
     const weekDates = [];
     const sunday = new Date();
@@ -513,23 +514,38 @@
       panel.style.overflow = "hidden";
     }
 
+    // The month nav (title + prev/next) disappears first, on its own —
+    // everything else (row flying back, other cells fading, card shrinking)
+    // only starts once that's fully gone.
+    const NAV_FADE_MS = 150;
+    const ROW_MOVE_MS = 260;
+    const OTHERS_SHRINK_MS = 260;
+    const PANEL_SHRINK_MS = 300;
+
+    if (nav) {
+      nav.style.transition = `opacity ${NAV_FADE_MS}ms ease`;
+      nav.style.opacity = "0";
+    }
+
     void weekWrap.offsetHeight;
 
-    requestAnimationFrame(() => {
-      matched.forEach((target) => {
-        target.style.transition = "transform 260ms linear";
-        target.style.transform = "none";
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        matched.forEach((target) => {
+          target.style.transition = `transform ${ROW_MOVE_MS}ms linear`;
+          target.style.transform = "none";
+        });
+        others.forEach((c) => {
+          c.style.transition = `opacity ${OTHERS_SHRINK_MS}ms ease, transform ${OTHERS_SHRINK_MS}ms ease`;
+          c.style.opacity = "0";
+          c.style.transform = "scale(0.5)";
+        });
+        if (panel) {
+          panel.style.transition = `height ${PANEL_SHRINK_MS}ms ease`;
+          panel.style.height = endHeight + "px";
+        }
       });
-      others.forEach((c) => {
-        c.style.transition = "opacity 260ms ease, transform 260ms ease";
-        c.style.opacity = "0";
-        c.style.transform = "scale(0.5)";
-      });
-      if (panel) {
-        panel.style.transition = "height 300ms ease";
-        panel.style.height = endHeight + "px";
-      }
-    });
+    }, NAV_FADE_MS);
 
     setTimeout(() => {
       section.hidden = true;
@@ -548,7 +564,11 @@
         panel.style.overflow = "";
         panel.style.transition = "";
       }
-    }, 320);
+      if (nav) {
+        nav.style.transition = "";
+        nav.style.opacity = "";
+      }
+    }, NAV_FADE_MS + Math.max(ROW_MOVE_MS, OTHERS_SHRINK_MS, PANEL_SHRINK_MS) + 30);
   }
 
   function init() {
