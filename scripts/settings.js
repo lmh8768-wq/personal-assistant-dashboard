@@ -99,6 +99,9 @@
     if (!color) return;
     document.documentElement.style.setProperty("--accent", color);
     document.documentElement.style.setProperty("--accent-soft", hexToRgba(color, 0.14));
+    // All swatch presets are mid-saturation colors, unlike the default
+    // near-black/near-white accent — white text reads on every one of them.
+    document.documentElement.style.setProperty("--accent-contrast", "#fff");
     document.querySelectorAll(".accent-swatch").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.accent === color);
     });

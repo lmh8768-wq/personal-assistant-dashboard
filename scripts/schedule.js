@@ -1,6 +1,9 @@
 (function () {
   let viewDate = new Date();
   let selectedDate = new Date();
+  // Set by the prev/next month buttons right before renderCalendar() runs,
+  // so it knows which way to animate; 0 means "just redraw", no page-turn.
+  let monthNavDirection = 0;
   let editingId = null;
   let editingOccurrenceDate = null;
   let categoryFilter = null;
@@ -315,9 +318,18 @@
       highlighted.slice(0, CALENDAR_MAX_EVENT_CHIPS).forEach((item) => {
         const chip = document.createElement("span");
         chip.className = "calendar-day-event-chip";
-        chip.style.background = getCategoryColor(item.category);
-        chip.textContent = item.title;
         chip.title = item.title;
+
+        const dot = document.createElement("span");
+        dot.className = "calendar-day-event-chip-dot";
+        dot.style.background = getCategoryColor(item.category);
+        chip.appendChild(dot);
+
+        const label = document.createElement("span");
+        label.className = "calendar-day-event-chip-label";
+        label.textContent = item.title;
+        chip.appendChild(label);
+
         eventsWrap.appendChild(chip);
       });
       if (highlighted.length > CALENDAR_MAX_EVENT_CHIPS) {
@@ -367,11 +379,62 @@
     document.getElementById("calendarTitle").textContent = `${year}년 ${month + 1}월`;
 
     const grid = document.getElementById("calendarGrid");
-    grid.innerHTML = "";
+    const direction = monthNavDirection;
+    monthNavDirection = 0;
 
+    // Page-turn effect: freeze the outgoing month as an absolutely-positioned
+    // ghost that slides out over the grid, while the grid itself (already
+    // holding the new month, since rebuild happens below) is pre-positioned
+    // off to the entry side and slides into place. Without this, rebuilding
+    // the grid's innerHTML would just swap content instantly with nothing
+    // for a CSS transition to animate from.
+    // Clear out any ghost still mid-flight from a rapid previous click so
+    // ghosts never stack up.
+    grid.parentElement.querySelectorAll(".calendar-grid-ghost").forEach((el) => el.remove());
+
+    let ghost = null;
+    if (direction && grid.children.length) {
+      ghost = grid.cloneNode(true);
+      ghost.removeAttribute("id");
+      ghost.classList.add("calendar-grid-ghost");
+      grid.parentElement.appendChild(ghost);
+    }
+
+    if (ghost) {
+      grid.classList.remove("month-nav-animating");
+      grid.style.transform = `translateX(${direction > 0 ? "100%" : "-100%"})`;
+      grid.style.opacity = "0";
+    }
+
+    grid.innerHTML = "";
     buildMonthGrid(year, month).forEach((d) => {
       grid.appendChild(buildCalendarCell(d, d.getMonth() !== month));
     });
+
+    if (ghost) {
+      // Force layout so the pre-transition transform above actually takes
+      // hold before the class/transform change below is animated.
+      void grid.offsetWidth;
+      grid.classList.add("month-nav-animating");
+      grid.style.transform = "translateX(0)";
+      grid.style.opacity = "1";
+      grid.addEventListener(
+        "transitionend",
+        () => {
+          grid.classList.remove("month-nav-animating");
+          grid.style.transform = "";
+          grid.style.opacity = "";
+        },
+        { once: true }
+      );
+
+      requestAnimationFrame(() => {
+        ghost.style.transform = `translateX(${direction > 0 ? "-100%" : "100%"})`;
+        ghost.style.opacity = "0";
+      });
+      ghost.addEventListener("transitionend", () => ghost.remove(), { once: true });
+      setTimeout(() => ghost.remove(), 500);
+    }
   }
 
   // ---------- Filter bar ----------
@@ -915,11 +978,13 @@
 
     document.getElementById("prevMonthBtn").addEventListener("click", () => {
       viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);
+      monthNavDirection = -1;
       renderCalendarArea();
     });
 
     document.getElementById("nextMonthBtn").addEventListener("click", () => {
       viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
+      monthNavDirection = 1;
       renderCalendarArea();
     });
 
