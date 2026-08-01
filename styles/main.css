@@ -1467,10 +1467,9 @@ button.nav-item {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 8px 2px;
+  padding: 6px 2px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  min-height: 64px;
 }
 
 .routine-week-cell.today {
@@ -2159,9 +2158,6 @@ button.nav-item {
     grid-template-columns: repeat(2, 1fr);
   }
   .schedule-layout {
-    grid-template-columns: 1fr;
-  }
-  .routine-columns {
     grid-template-columns: 1fr;
   }
 }
