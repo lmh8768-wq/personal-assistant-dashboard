@@ -8,6 +8,11 @@
   ];
 
   let calendarViewDate = new Date();
+  // Blocks the toggle while an expand/collapse animation is in flight — a
+  // rapid re-click mid-animation would otherwise start a second FLIP/height
+  // transition on cells and a panel that are still mid-transition from the
+  // first one.
+  let toggleAnimating = false;
 
   function createId(prefix) {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -414,11 +419,115 @@
     }, 450);
   }
 
-  function collapseCalendar() {
-    document.getElementById("routineCalendarSection").hidden = true;
+  // Mirror of expandCalendarAnimated: the current week's calendar-day cells
+  // fly back to become the week strip, the rest of the grid fades out, and
+  // the card shrinks back to its collapsed height — all before the
+  // calendar section actually gets hidden.
+  function collapseCalendarAnimated() {
     const weekWrap = document.getElementById("routineWeekRate");
+    const section = document.getElementById("routineCalendarSection");
+    const panel = document.getElementById("routineWeekPanel");
+
+    const weekDates = [];
+    const sunday = new Date();
+    sunday.setDate(sunday.getDate() - sunday.getDay());
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i);
+      weekDates.push(toDateStr(d));
+    }
+
+    const calendarCellsByDate = new Map();
+    document.querySelectorAll(".routine-calendar-day").forEach((cell) => calendarCellsByDate.set(cell.dataset.date, cell));
+    const sourceRects = weekDates
+      .map((d) => calendarCellsByDate.get(d))
+      .filter(Boolean)
+      .map((cell) => ({ date: cell.dataset.date, rect: cell.getBoundingClientRect() }));
+
+    const startHeight = panel ? panel.getBoundingClientRect().height : 0;
+    const sectionRect = section.getBoundingClientRect();
+    const sectionMarginTop = panel ? parseFloat(window.getComputedStyle(section).marginTop) || 0 : 0;
+    const sectionOuterHeight = sectionRect.height + sectionMarginTop;
+
     weekWrap.hidden = false;
     renderWeekRate();
+
+    const targetByDate = new Map();
+    weekWrap.querySelectorAll(".routine-week-cell").forEach((cell) => targetByDate.set(cell.dataset.date, cell));
+
+    const matches = [];
+    sourceRects.forEach(({ date, rect }) => {
+      const target = targetByDate.get(date);
+      if (!target) return;
+      const targetRect = target.getBoundingClientRect();
+      if (targetRect.width === 0 || targetRect.height === 0 || rect.width === 0 || rect.height === 0) return;
+      matches.push({
+        target,
+        dx: rect.left - targetRect.left,
+        dy: rect.top - targetRect.top,
+        sx: rect.width / targetRect.width,
+        sy: rect.height / targetRect.height,
+      });
+    });
+
+    if (matches.length === 0 || startHeight === 0) {
+      // No usable layout to animate from — fall back to the plain, instant swap.
+      section.hidden = true;
+      renderWeekRate();
+      return;
+    }
+
+    const matched = matches.map((m) => m.target);
+    const others = [...document.querySelectorAll(".routine-calendar-day")].filter((c) => !weekDates.includes(c.dataset.date));
+
+    matches.forEach(({ target, dx, dy, sx, sy }) => {
+      target.style.transition = "none";
+      target.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+      target.style.zIndex = "1";
+    });
+    others.forEach((c) => {
+      c.style.transition = "none";
+    });
+    if (panel) {
+      panel.style.height = startHeight + "px";
+      panel.style.overflow = "hidden";
+    }
+
+    void weekWrap.offsetHeight;
+
+    requestAnimationFrame(() => {
+      matched.forEach((target) => {
+        target.style.transition = "transform 260ms linear";
+        target.style.transform = "none";
+      });
+      others.forEach((c) => {
+        c.style.transition = "opacity 260ms ease, transform 260ms ease";
+        c.style.opacity = "0";
+        c.style.transform = "scale(0.5)";
+      });
+      if (panel) {
+        panel.style.transition = "height 300ms ease";
+        panel.style.height = Math.max(0, startHeight - sectionOuterHeight) + "px";
+      }
+    });
+
+    setTimeout(() => {
+      section.hidden = true;
+      matched.forEach((target) => {
+        target.style.transition = "";
+        target.style.transform = "";
+        target.style.zIndex = "";
+      });
+      others.forEach((c) => {
+        c.style.transition = "";
+        c.style.opacity = "";
+        c.style.transform = "";
+      });
+      if (panel) {
+        panel.style.height = "";
+        panel.style.overflow = "";
+        panel.style.transition = "";
+      }
+    }, 320);
   }
 
   function init() {
@@ -442,13 +551,18 @@
     });
 
     document.getElementById("toggleRoutineCalendarBtn")?.addEventListener("click", (e) => {
+      if (toggleAnimating) return;
       const section = document.getElementById("routineCalendarSection");
       const expanding = section.hidden;
+      toggleAnimating = true;
+      setTimeout(() => {
+        toggleAnimating = false;
+      }, 500); // covers the longer of the two animations (expand's cleanup fires at 450ms)
       if (expanding) {
         calendarViewDate = new Date();
         expandCalendarAnimated();
       } else {
-        collapseCalendar();
+        collapseCalendarAnimated();
       }
       e.currentTarget.textContent = expanding ? "▾" : "▸";
       e.currentTarget.setAttribute("aria-expanded", String(expanding));
