@@ -320,6 +320,14 @@
       renderRateCalendar();
     });
 
+    document.getElementById("toggleRoutineCalendarBtn")?.addEventListener("click", (e) => {
+      const section = document.getElementById("routineCalendarSection");
+      const expanding = section.hidden;
+      section.hidden = !expanding;
+      e.currentTarget.textContent = expanding ? "▾" : "▸";
+      e.currentTarget.setAttribute("aria-expanded", String(expanding));
+    });
+
     renderAll();
   }
 

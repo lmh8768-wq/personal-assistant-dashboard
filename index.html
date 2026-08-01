@@ -226,9 +226,30 @@
           <div class="panel routine-week-panel">
             <div class="panel-header">
               <h2>이번 주 달성률</h2>
-              <span class="routine-week-average" id="routineWeekAverage"></span>
+              <div class="diary-card-header-actions">
+                <span class="routine-week-average" id="routineWeekAverage"></span>
+                <button
+                  type="button"
+                  class="icon-btn section-toggle-btn"
+                  id="toggleRoutineCalendarBtn"
+                  aria-expanded="false"
+                  aria-label="달성률 캘린더 펼치기/접기"
+                >▸</button>
+              </div>
             </div>
             <div class="routine-week-rate" id="routineWeekRate"></div>
+
+            <div class="routine-calendar-section" id="routineCalendarSection" hidden>
+              <div class="routine-calendar-nav">
+                <button type="button" class="icon-btn" id="routinePrevMonthBtn" aria-label="이전 달">‹</button>
+                <span id="routineCalendarTitle"></span>
+                <button type="button" class="icon-btn" id="routineNextMonthBtn" aria-label="다음 달">›</button>
+              </div>
+              <div class="calendar-weekdays">
+                <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+              </div>
+              <div class="routine-calendar-grid" id="routineCalendarGrid"></div>
+            </div>
           </div>
 
           <div class="routine-columns">
@@ -249,21 +270,6 @@
                 <button type="button" class="ghost-btn" id="nightRoutineAddBtn">추가</button>
               </div>
             </div>
-          </div>
-
-          <div class="panel routine-calendar-panel">
-            <div class="panel-header">
-              <h2>달성률 캘린더</h2>
-              <div class="routine-calendar-nav">
-                <button type="button" class="icon-btn" id="routinePrevMonthBtn" aria-label="이전 달">‹</button>
-                <span id="routineCalendarTitle"></span>
-                <button type="button" class="icon-btn" id="routineNextMonthBtn" aria-label="다음 달">›</button>
-              </div>
-            </div>
-            <div class="calendar-weekdays">
-              <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
-            </div>
-            <div class="routine-calendar-grid" id="routineCalendarGrid"></div>
           </div>
         </div>
 

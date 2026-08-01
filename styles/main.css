@@ -1446,14 +1446,18 @@ button.nav-item {
 }
 
 .routine-panel,
-.routine-week-panel,
-.routine-calendar-panel {
+.routine-week-panel {
   min-height: 0;
 }
 
-.routine-week-panel + .routine-columns,
-.routine-columns + .routine-calendar-panel {
+.routine-week-panel + .routine-columns {
   margin-top: 14px;
+}
+
+.routine-calendar-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
 .routine-week-average {
