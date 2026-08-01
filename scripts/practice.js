@@ -151,7 +151,6 @@
       bpmInput.addEventListener("change", () => {
         const value = bpmInput.value === "" ? null : Number(bpmInput.value);
         PracticeChecklistStore.update(item.id, { maxBpm: value });
-        renderBpmEditList();
         renderDashboardPractice();
       });
       li.appendChild(bpmInput);
@@ -164,7 +163,6 @@
         PracticeChecklistStore.remove(item.id);
         pendingChecked.delete(item.id);
         renderChecklistItems();
-        renderBpmEditList();
         renderDashboardPractice();
       });
       li.appendChild(remove);
@@ -181,7 +179,6 @@
     pendingChecked.add(item.id);
     input.value = "";
     renderChecklistItems();
-    renderBpmEditList();
     renderDashboardPractice();
   }
 
@@ -319,48 +316,6 @@
     contentEl.hidden = collapsing;
     btn.textContent = collapsing ? "▸" : "▾";
     btn.setAttribute("aria-expanded", String(!collapsing));
-  }
-
-  // ---------- Practice status editing (연습 현황 section) ----------
-  function renderBpmEditList() {
-    const list = document.getElementById("practiceBpmEditList");
-    const emptyNote = document.getElementById("practiceBpmEmptyNote");
-    const items = PracticeChecklistStore.getAll();
-
-    list.innerHTML = "";
-    emptyNote.hidden = items.length > 0;
-
-    items.forEach((item) => {
-      const li = document.createElement("li");
-      li.className = "practice-bpm-edit-row";
-
-      const span = document.createElement("span");
-      span.textContent = item.label;
-      li.appendChild(span);
-
-      const input = document.createElement("input");
-      input.type = "number";
-      input.min = "0";
-      input.placeholder = "-";
-      input.value = item.maxBpm ?? "";
-      input.addEventListener("change", () => {
-        const value = input.value === "" ? null : Number(input.value);
-        PracticeChecklistStore.update(item.id, { maxBpm: value });
-        renderDashboardPractice();
-      });
-      li.appendChild(input);
-
-      const unit = document.createElement("span");
-      unit.className = "practice-bpm-unit";
-      unit.textContent = "BPM";
-      li.appendChild(unit);
-
-      list.appendChild(li);
-    });
-  }
-
-  function renderStatusPanel() {
-    renderBpmEditList();
   }
 
   // ---------- Dashboard panel ----------
@@ -699,9 +654,6 @@
     document.getElementById("toggleFeedBtn").addEventListener("click", (e) => {
       toggleSection(document.getElementById("practiceFeed"), e.currentTarget);
     });
-    document.getElementById("togglePracticeStatusBtn").addEventListener("click", (e) => {
-      toggleSection(document.getElementById("practiceStatusPanel"), e.currentTarget);
-    });
     document.getElementById("toggleCurriculumBtn")?.addEventListener("click", (e) => {
       toggleSection(document.getElementById("practiceCurriculum"), e.currentTarget);
     });
@@ -716,7 +668,6 @@
 
     renderFeed();
     renderStreak();
-    renderStatusPanel();
     renderDashboardPractice();
     renderCurriculum();
   }
