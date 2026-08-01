@@ -310,14 +310,34 @@
   function expandCalendarAnimated() {
     const weekWrap = document.getElementById("routineWeekRate");
     const section = document.getElementById("routineCalendarSection");
+    const panel = document.getElementById("routineWeekPanel");
 
     const sourceRects = [...weekWrap.querySelectorAll(".routine-week-cell")].map((cell) => ({
       date: cell.dataset.date,
       rect: cell.getBoundingClientRect(),
     }));
 
+    // The card itself should grow into its taller (calendar-included)
+    // height smoothly rather than snapping to it the instant the section
+    // un-hides — measure before/after and animate between the two.
+    const startHeight = panel ? panel.getBoundingClientRect().height : 0;
+
     section.hidden = false;
     renderRateCalendar();
+
+    if (panel) {
+      const endHeight = panel.scrollHeight;
+      panel.style.height = startHeight + "px";
+      panel.style.overflow = "hidden";
+      void panel.offsetHeight;
+      panel.style.transition = "height 300ms ease";
+      panel.style.height = endHeight + "px";
+      setTimeout(() => {
+        panel.style.height = "";
+        panel.style.overflow = "";
+        panel.style.transition = "";
+      }, 320);
+    }
 
     const targetByDate = new Map();
     document.querySelectorAll(".routine-calendar-day").forEach((cell) => {
@@ -370,7 +390,7 @@
 
     requestAnimationFrame(() => {
       matched.forEach((target) => {
-        target.style.transition = "transform 420ms linear";
+        target.style.transition = "transform 260ms linear";
         target.style.transform = "none";
       });
       others.forEach((c) => {
