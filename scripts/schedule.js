@@ -287,6 +287,8 @@
     if (isOutside) cell.classList.add("outside");
     if (dStr === todayStr) cell.classList.add("today");
     if (dStr === selectedStr) cell.classList.add("selected");
+    if (d.getDay() === 0) cell.classList.add("weekday-sun");
+    if (d.getDay() === 6) cell.classList.add("weekday-sat");
 
     const topRow = document.createElement("div");
     topRow.className = "calendar-day-top";
@@ -318,18 +320,9 @@
       highlighted.slice(0, CALENDAR_MAX_EVENT_CHIPS).forEach((item) => {
         const chip = document.createElement("span");
         chip.className = "calendar-day-event-chip";
+        chip.style.background = getCategoryColor(item.category);
+        chip.textContent = item.title;
         chip.title = item.title;
-
-        const dot = document.createElement("span");
-        dot.className = "calendar-day-event-chip-dot";
-        dot.style.background = getCategoryColor(item.category);
-        chip.appendChild(dot);
-
-        const label = document.createElement("span");
-        label.className = "calendar-day-event-chip-label";
-        label.textContent = item.title;
-        chip.appendChild(label);
-
         eventsWrap.appendChild(chip);
       });
       if (highlighted.length > CALENDAR_MAX_EVENT_CHIPS) {
@@ -388,8 +381,6 @@
     // off to the entry side and slides into place. Without this, rebuilding
     // the grid's innerHTML would just swap content instantly with nothing
     // for a CSS transition to animate from.
-    // Clear out any ghost still mid-flight from a rapid previous click so
-    // ghosts never stack up.
     grid.parentElement.querySelectorAll(".calendar-grid-ghost").forEach((el) => el.remove());
 
     let ghost = null;
@@ -502,7 +493,7 @@
     items = applyHideCompleted(items);
 
     if (items.length === 0) {
-      list.innerHTML = `<li class="schedule-empty">이 날에는 일정이 없어요</li>`;
+      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon">🗓️</span>이 날에는 일정이 없어요</li>`;
       return;
     }
 
@@ -611,7 +602,7 @@
     const displayItems = applyHideCompleted(items);
     list.innerHTML = "";
     if (displayItems.length === 0) {
-      list.innerHTML = `<li class="schedule-empty">오늘 등록된 일정이 없어요</li>`;
+      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon">🗓️</span>오늘 등록된 일정이 없어요</li>`;
       return;
     }
     displayItems.forEach((item) => list.appendChild(renderScheduleItem(item, (it) => openModal("edit", it))));
@@ -637,7 +628,7 @@
     const displayItems = applyHideCompleted(importantItems);
     list.innerHTML = "";
     if (displayItems.length === 0) {
-      list.innerHTML = `<li class="schedule-empty">다가오는 중요 일정이 없어요</li>`;
+      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon">📭</span>다가오는 중요 일정이 없어요</li>`;
       return;
     }
     displayItems.slice(0, 8).forEach((item) => {

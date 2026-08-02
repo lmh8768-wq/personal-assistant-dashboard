@@ -34,6 +34,19 @@
   const LOG_KEY = "__cloudSync.log";
   const MAX_LOG_ENTRIES = 60;
 
+  // ---------- Persistent sync status indicator (sidebar footer) ----------
+  // logSync() above already records everything into the settings-page debug
+  // log, but that's only visible if you go dig for it — this surfaces the
+  // current state (synced/syncing/offline/error) at a glance everywhere.
+  function setSyncStatus(state, text) {
+    const el = document.getElementById("syncStatus");
+    const textEl = document.getElementById("syncStatusText");
+    if (!el || !textEl) return;
+    el.hidden = false;
+    el.className = "sync-status sync-status-" + state;
+    textEl.textContent = text;
+  }
+
   function logSync(msg) {
     let entries = [];
     try {
@@ -190,6 +203,7 @@
     pushPending = false;
     const payload = JSON.stringify(collectLocalState());
     logSync(`pushing to cloud... (${payload.length} chars)`);
+    setSyncStatus("syncing", "동기화 중...");
     if (payload.length > 800000) {
       // Firestore caps a document at ~1MiB; getting this close means the
       // next write could be rejected outright (most likely culprit: a big
@@ -204,11 +218,13 @@
     }).then(() => {
       logSync("push CONFIRMED by server");
       clearPending();
+      setSyncStatus("synced", "동기화됨");
     }).catch((err) => {
       logSync(`push FAILED: ${err.code || err.message}`);
       console.error("cloud sync push failed:", err);
       // Leave the pending marker set so the next load retries instead of
       // risking an overwrite from a stale remote copy.
+      setSyncStatus("error", "동기화 실패");
     });
   }
 
@@ -288,6 +304,7 @@
           } else if (doc.exists) {
             logSync("no pending change -> applying remote data");
             applyRemoteData(doc.data().payload);
+            setSyncStatus("synced", "동기화됨");
           } else {
             logSync("no remote doc yet -> pushing local as initial state");
             pushPending = true;
@@ -318,6 +335,7 @@
       (err) => {
         logSync(`listen ERROR: ${err.code || err.message}`);
         console.error("cloud sync listen failed:", err);
+        setSyncStatus("error", "동기화 연결 끊김");
         showApp();
         window.initFeatures && window.initFeatures();
       }
@@ -340,6 +358,7 @@
 
   function handleOfflineContinue() {
     logSync("user clicked offline-continue");
+    setSyncStatus("offline", "오프라인");
     showApp();
     window.initFeatures && window.initFeatures();
   }
@@ -349,6 +368,7 @@
     if (typeof firebase === "undefined") {
       // Firebase SDK failed to load: boot the app with whatever's local.
       logSync("firebase SDK not loaded, booting offline");
+      setSyncStatus("offline", "오프라인");
       document.getElementById("appRoot").hidden = false;
       document.getElementById("authGate").hidden = true;
       window.initFeatures && window.initFeatures();
@@ -389,6 +409,12 @@
         showLogin();
       }
     });
+
+    // The listeners above only catch failures while actively talking to
+    // Firestore — this also flags a plain loss of network connectivity
+    // (e.g. wifi drops) even when nothing was mid-sync at the time.
+    window.addEventListener("offline", () => setSyncStatus("offline", "오프라인"));
+    window.addEventListener("online", () => setSyncStatus("syncing", "재연결 중..."));
   }
 
   window.CloudSync = { init, renderDebugLog };

@@ -1,30 +1,28 @@
 /* ---------- Theme tokens ---------- */
 :root[data-theme="dark"] {
-  --bg: #0a0a0b;
-  --bg-elevated: #151517;
-  --bg-elevated-2: #1c1c1f;
-  --border: #2c2c30;
-  --text: #f2f2f3;
-  --text-muted: #9a9a9f;
-  --text-faint: #5c5c62;
-  --accent: #f2f2f3;
-  --accent-soft: rgba(242, 242, 243, 0.1);
-  --accent-contrast: #0a0a0b;
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --bg: #0f1115;
+  --bg-elevated: #171a21;
+  --bg-elevated-2: #1e222b;
+  --border: #2a2f3a;
+  --text: #e8eaed;
+  --text-muted: #9aa1ac;
+  --text-faint: #5c6270;
+  --accent: #7c9cff;
+  --accent-soft: rgba(124, 156, 255, 0.12);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 :root[data-theme="light"] {
-  --bg: #f7f7f8;
+  --bg: #f5f6f8;
   --bg-elevated: #ffffff;
-  --bg-elevated-2: #f0f0f1;
-  --border: #dfdfe2;
-  --text: #131315;
-  --text-muted: #63636a;
-  --text-faint: #a3a3aa;
-  --accent: #131315;
-  --accent-soft: rgba(19, 19, 21, 0.06);
-  --accent-contrast: #ffffff;
-  --shadow: 0 8px 24px rgba(15, 15, 20, 0.08);
+  --bg-elevated-2: #f0f1f4;
+  --border: #e3e5ea;
+  --text: #1c1e22;
+  --text-muted: #676d78;
+  --text-faint: #a3a8b2;
+  --accent: #4a63e0;
+  --accent-soft: rgba(74, 99, 224, 0.08);
+  --shadow: 0 8px 24px rgba(20, 20, 30, 0.06);
 }
 
 * { box-sizing: border-box; }
@@ -32,9 +30,9 @@
 [hidden] { display: none !important; }
 
 /* A handful of inputs set outline:none directly (see their rules below) to
-   replace it with a border-color change; this keeps every other interactive
-   element's keyboard-focus ring on the new monochrome accent instead of the
-   browser's mismatched default blue. */
+   replace it with a border-color change; this gives every other
+   interactive element a visible keyboard-focus ring too, instead of
+   relying on (or missing) the browser default. */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
@@ -68,43 +66,20 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+button, input {
+  font-family: inherit;
+  color: inherit;
 }
 
-*::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-*::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-  border: 2px solid var(--bg-elevated);
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--text-faint);
-}
-
-/* Native checkboxes render a different shape per browser/OS, which stood
-   out against the app's own sharp corner-radius scale — draw a matching
-   square checkbox instead. The checkmark is a static white SVG since it
-   reads fine on every accent (default monochrome or a custom preset color
-   from Settings, all mid-to-high contrast); the dark theme's near-white
-   accent needs a dark checkmark instead, handled by the override below. */
+/* Native checkboxes render a different shape per browser/OS — draw a
+   matching checkbox instead so it's consistent everywhere and on-theme. */
 input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   width: 16px;
   height: 16px;
   border: 1.5px solid var(--border);
-  border-radius: 2px;
+  border-radius: 4px;
   background-color: var(--bg-elevated-2);
   background-repeat: no-repeat;
   background-position: center;
@@ -117,15 +92,6 @@ input[type="checkbox"]:checked {
   background-color: var(--accent);
   border-color: var(--accent);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3,8.5 6.5,12 13,4.5'/%3E%3C/svg%3E");
-}
-
-:root[data-theme="dark"] input[type="checkbox"]:checked {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3,8.5 6.5,12 13,4.5'/%3E%3C/svg%3E");
-}
-
-button, input {
-  font-family: inherit;
-  color: inherit;
 }
 
 /* ---------- Layout ---------- */
@@ -176,7 +142,8 @@ button, input {
 
 .sidebar.collapsed .brand-name,
 .sidebar.collapsed .nav-label,
-.sidebar.collapsed .shortcut-group-label {
+.sidebar.collapsed .shortcut-group-label,
+.sidebar.collapsed .sync-status-text {
   display: none;
 }
 
@@ -212,12 +179,51 @@ button, input {
   margin-top: 10px;
 }
 
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 10px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.sync-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-faint);
+}
+
+.sync-status-synced .sync-status-dot {
+  background: #22c55e;
+}
+
+.sync-status-syncing .sync-status-dot {
+  background: var(--accent);
+  animation: sync-status-pulse 1s ease-in-out infinite;
+}
+
+.sync-status-offline .sync-status-dot {
+  background: var(--text-faint);
+}
+
+.sync-status-error .sync-status-dot {
+  background: #f31260;
+}
+
+@keyframes sync-status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 .nav-item {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  border-radius: 3px;
+  border-radius: 10px;
   color: var(--text-muted);
   text-decoration: none;
   font-size: 14px;
@@ -265,12 +271,17 @@ button.nav-item {
 
 /* ---------- Topbar ---------- */
 .topbar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 18px 28px;
   border-bottom: 1px solid var(--border);
   gap: 20px;
+}
+
+.icon-btn.mobile-search-btn {
+  display: none;
 }
 
 .topbar-left {
@@ -305,7 +316,7 @@ button.nav-item {
   gap: 8px;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 10px;
   padding: 8px 12px;
   color: var(--text-faint);
   transition: border-color 0.15s ease;
@@ -322,7 +333,7 @@ button.nav-item {
   right: 0;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 10px;
   box-shadow: var(--shadow);
   max-height: 320px;
   overflow-y: auto;
@@ -353,7 +364,7 @@ button.nav-item {
   font-size: 11px;
   color: var(--accent);
   background: var(--accent-soft);
-  border-radius: 3px;
+  border-radius: 999px;
   padding: 2px 8px;
 }
 
@@ -382,7 +393,7 @@ button.nav-item {
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 3px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg-elevated-2);
   color: var(--text-muted);
@@ -402,9 +413,9 @@ button.nav-item {
 .avatar {
   width: 36px;
   height: 36px;
-  border-radius: 3px;
+  border-radius: 50%;
   background: var(--accent);
-  color: var(--accent-contrast);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -448,7 +459,7 @@ button.nav-item {
 .completion-rate-track {
   width: 100%;
   height: 8px;
-  border-radius: 3px;
+  border-radius: 999px;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
   overflow: hidden;
@@ -457,7 +468,7 @@ button.nav-item {
 .completion-rate-fill {
   height: 100%;
   width: 0%;
-  border-radius: 3px;
+  border-radius: 999px;
   background: var(--accent);
   transition: width 0.3s ease;
 }
@@ -529,7 +540,7 @@ button.nav-item {
   font-size: 12px;
   font-weight: 600;
   padding: 5px 10px;
-  border-radius: 3px;
+  border-radius: 999px;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
   color: var(--text);
@@ -538,7 +549,7 @@ button.nav-item {
 .panel {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 14px;
   padding: 18px 20px;
   min-height: 220px;
   display: flex;
@@ -562,7 +573,7 @@ button.nav-item {
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 6px 8px;
   font-size: 12px;
   color: var(--text);
@@ -579,7 +590,7 @@ button.nav-item {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-muted);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 6px 10px;
   font-size: 12px;
   cursor: pointer;
@@ -594,22 +605,19 @@ button.nav-item {
 .primary-btn {
   background: var(--accent);
   border: none;
-  color: var(--accent-contrast);
-  border-radius: 3px;
+  color: #fff;
+  border-radius: 8px;
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.15s ease;
+  transition: filter 0.15s ease;
 }
 
-/* The old 0.95->1 dip was tuned for a saturated blue and barely registered
-   on a solid black/white button. A bigger dip on hover (full opacity at
-   rest) blends visibly toward the page background regardless of theme or
-   a custom accent color from Settings, since the backdrop is always
-   high-contrast against the button by design. */
+/* The old 0.95->1 opacity dip was barely perceptible — a real brightness
+   shift on hover actually reads as "this is clickable". */
 .primary-btn:hover {
-  opacity: 0.85;
+  filter: brightness(1.12);
 }
 
 .empty-state {
@@ -675,8 +683,10 @@ button.nav-item {
 .schedule-empty {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   color: var(--text-faint);
   font-size: 13px;
   padding: 30px 0;
@@ -701,7 +711,7 @@ button.nav-item {
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 10px;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
@@ -729,12 +739,38 @@ button.nav-item {
   border-style: solid;
 }
 
+/* A thin line alone was easy to lose track of mid-drag — the dot at its
+   start marks exactly where the item will land. */
+.schedule-item.drag-over-before,
+.schedule-item.drag-over-after {
+  position: relative;
+}
+
 .schedule-item.drag-over-before {
-  box-shadow: 0 -2px 0 0 var(--accent);
+  box-shadow: 0 -3px 0 0 var(--accent);
 }
 
 .schedule-item.drag-over-after {
-  box-shadow: 0 2px 0 0 var(--accent);
+  box-shadow: 0 3px 0 0 var(--accent);
+}
+
+.schedule-item.drag-over-before::before,
+.schedule-item.drag-over-after::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.schedule-item.drag-over-before::before {
+  top: -4.5px;
+}
+
+.schedule-item.drag-over-after::before {
+  bottom: -4.5px;
 }
 
 .schedule-item.completed .schedule-item-title {
@@ -806,7 +842,7 @@ button.nav-item {
 .day-panel {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 14px;
   padding: 18px 20px;
 }
 
@@ -840,6 +876,14 @@ button.nav-item {
   margin-bottom: 6px;
 }
 
+.calendar-weekdays .weekday-sun {
+  color: #f43f5e;
+}
+
+.calendar-weekdays .weekday-sat {
+  color: #3b82f6;
+}
+
 .calendar-grid-viewport {
   position: relative;
   overflow: hidden;
@@ -870,7 +914,7 @@ button.nav-item {
 
 .calendar-day {
   aspect-ratio: 3 / 4;
-  border-radius: 3px;
+  border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
   display: flex;
@@ -903,41 +947,33 @@ button.nav-item {
 }
 
 .calendar-day-event-chip {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.3;
   padding: 1px 4px;
-  border-radius: 2px;
-  background: #141416;
+  border-radius: 4px;
   color: #fff;
   text-align: left;
-}
-
-.calendar-day-event-chip-dot {
-  flex-shrink: 0;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-}
-
-.calendar-day-event-chip-label {
-  flex: 1;
-  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .calendar-day-event-more {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-faint);
   text-align: center;
 }
 
 .calendar-day:hover {
   background: var(--bg-elevated-2);
+}
+
+.calendar-day.weekday-sun {
+  color: #f43f5e;
+}
+
+.calendar-day.weekday-sat {
+  color: #3b82f6;
 }
 
 .calendar-day.outside {
@@ -952,9 +988,7 @@ button.nav-item {
 
 /* "today" and "selected" otherwise share the same border-color treatment,
    so an unselected today can get lost — filling the date number itself
-   (the classic "today" convention) keeps it recognizable at a glance,
-   without adding another dot that could be confused with the has-events
-   dot next to it. */
+   (the classic "today" convention) keeps it recognizable at a glance. */
 .calendar-day.today .day-number {
   display: inline-flex;
   align-items: center;
@@ -964,7 +998,7 @@ button.nav-item {
   padding: 0 2px;
   border-radius: 50%;
   background: var(--accent);
-  color: var(--accent-contrast);
+  color: #fff;
 }
 
 .calendar-day.selected {
@@ -1015,7 +1049,7 @@ button.nav-item {
   font-family: inherit;
   font-size: 12px;
   padding: 5px 10px;
-  border-radius: 3px;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--bg-elevated-2);
   color: var(--text);
@@ -1059,7 +1093,7 @@ button.nav-item {
   justify-content: space-between;
   background: var(--accent-soft);
   border: 1px solid var(--accent);
-  border-radius: 3px;
+  border-radius: 10px;
   padding: 10px 14px;
   margin-bottom: 12px;
   font-size: 13px;
@@ -1085,7 +1119,7 @@ button.nav-item {
   font-family: inherit;
   font-size: 12px;
   padding: 5px 10px;
-  border-radius: 3px;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--bg-elevated-2);
   color: var(--text-muted);
@@ -1114,7 +1148,7 @@ button.nav-item {
 .calendar-day-holiday {
   align-self: stretch;
   text-align: center;
-  font-size: 8px;
+  font-size: 9px;
   color: #f87171;
   line-height: 1;
   max-width: 100%;
@@ -1125,7 +1159,7 @@ button.nav-item {
 
 .checklist-section {
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 10px;
   padding: 12px;
 }
 
@@ -1162,7 +1196,7 @@ button.nav-item {
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 5px 8px;
   font-size: 12px;
   color: var(--text);
@@ -1194,7 +1228,7 @@ button.nav-item {
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 7px 10px;
   font-size: 13px;
   color: var(--text);
@@ -1206,7 +1240,7 @@ button.nav-item {
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 7px 10px;
   font-size: 13px;
   color: var(--text);
@@ -1225,7 +1259,7 @@ button.nav-item {
   margin-left: auto;
   width: 22px;
   height: 22px;
-  border-radius: 2px;
+  border-radius: 50%;
   border: none;
   background: transparent;
   color: var(--text-faint);
@@ -1263,6 +1297,13 @@ button.nav-item {
   font-weight: 700;
 }
 
+/* The topbar already shows the page title, so this row's own heading was
+   dropped to avoid repeating it — this keeps the add button pinned to the
+   right whether or not the streak badge next to it is showing. */
+.diary-header #addPracticeBtn {
+  margin-left: auto;
+}
+
 .diary-feed {
   display: flex;
   flex-direction: column;
@@ -1272,7 +1313,7 @@ button.nav-item {
 .diary-card {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 14px;
   padding: 16px 18px;
   cursor: pointer;
   transition: border-color 0.15s ease;
@@ -1305,6 +1346,22 @@ button.nav-item {
 
 .practice-column {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  min-height: 220px;
+}
+
+/* Bounding each column as its own card (above) fixed the empty column
+   reading as "broken" rather than "intentionally empty" — this stretches
+   its content to fill the card so an empty-state message centers in the
+   full height instead of sitting cramped at the top. */
+.practice-column > *:last-child {
+  flex: 1;
+  min-height: 0;
 }
 
 .practice-card-checklist {
@@ -1349,7 +1406,7 @@ button.nav-item {
   color: var(--text);
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 999px;
   padding: 5px 12px;
 }
 
@@ -1483,7 +1540,7 @@ button.nav-item {
   justify-content: center;
   width: 26px;
   height: 26px;
-  border-radius: 2px;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--bg-elevated-2);
   color: var(--text-muted);
@@ -1510,7 +1567,7 @@ button.nav-item {
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 2px;
+  border-radius: 6px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-faint);
@@ -1529,7 +1586,7 @@ button.nav-item {
   font-size: 12px;
   background: var(--bg-elevated-2);
   border: 1px solid var(--accent);
-  border-radius: 2px;
+  border-radius: 6px;
   padding: 3px 8px;
   color: var(--text);
   outline: none;
@@ -1622,7 +1679,7 @@ button.nav-item {
   justify-content: center;
   gap: 2px;
   padding: 6px 2px;
-  border-radius: 3px;
+  border-radius: 10px;
   border: 1px solid var(--border);
 }
 
@@ -1661,7 +1718,7 @@ button.nav-item {
 .routine-calendar-nav .icon-btn {
   width: 26px;
   height: 26px;
-  border-radius: 2px;
+  border-radius: 6px;
 }
 
 .routine-calendar-grid {
@@ -1672,7 +1729,7 @@ button.nav-item {
 
 .routine-calendar-day {
   aspect-ratio: 1;
-  border-radius: 3px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -1698,7 +1755,7 @@ button.nav-item {
 }
 
 .routine-calendar-day-pct {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-muted);
 }
 
@@ -1725,12 +1782,36 @@ button.nav-item {
   font-size: 11px;
 }
 
+.goal-item-row.drag-over-before,
+.goal-item-row.drag-over-after {
+  position: relative;
+}
+
 .goal-item-row.drag-over-before {
-  box-shadow: 0 -2px 0 0 var(--accent);
+  box-shadow: 0 -3px 0 0 var(--accent);
 }
 
 .goal-item-row.drag-over-after {
-  box-shadow: 0 2px 0 0 var(--accent);
+  box-shadow: 0 3px 0 0 var(--accent);
+}
+
+.goal-item-row.drag-over-before::before,
+.goal-item-row.drag-over-after::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.goal-item-row.drag-over-before::before {
+  top: -4.5px;
+}
+
+.goal-item-row.drag-over-after::before {
+  bottom: -4.5px;
 }
 
 .goal-item-progress {
@@ -1776,7 +1857,7 @@ button.nav-item {
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--accent);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 7px 10px;
   font-size: 13px;
   color: var(--text);
@@ -1825,7 +1906,7 @@ button.nav-item {
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 9px 10px;
   font-size: 13px;
   color: var(--text);
@@ -1861,7 +1942,7 @@ button.nav-item {
   font-size: 13px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 8px 10px;
 }
 
@@ -1887,7 +1968,7 @@ button.nav-item {
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--accent);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 7px 10px;
   font-size: 13px;
   color: var(--text);
@@ -1916,7 +1997,7 @@ button.nav-item {
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 9px 10px;
   font-size: 13px;
   color: var(--text);
@@ -1931,7 +2012,7 @@ button.nav-item {
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 9px 10px;
   font-size: 13px;
   color: var(--text);
@@ -1959,7 +2040,7 @@ button.nav-item {
 .storage-gauge {
   width: 100%;
   height: 8px;
-  border-radius: 3px;
+  border-radius: 999px;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
   overflow: hidden;
@@ -1968,7 +2049,7 @@ button.nav-item {
 .storage-gauge-fill {
   height: 100%;
   background: var(--accent);
-  border-radius: 3px;
+  border-radius: 999px;
   transition: width 0.2s ease;
 }
 
@@ -1997,7 +2078,7 @@ button.nav-item {
   padding: 10px 12px;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
   line-height: 1.5;
@@ -2041,30 +2122,41 @@ button.nav-item {
 
 .category-edit-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   margin-bottom: 10px;
 }
 
-.category-edit-row input[type="color"] {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 3px;
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
 .category-edit-row input[type="text"] {
-  flex: 1;
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 8px 10px;
   font-size: 13px;
   color: var(--text);
+}
+
+.category-color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.category-color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.category-color-swatch.active {
+  border-color: var(--text);
 }
 
 .custom-shortcut-list {
@@ -2080,7 +2172,7 @@ button.nav-item {
   justify-content: space-between;
   padding: 8px 10px;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   margin-bottom: 6px;
   font-size: 13px;
 }
@@ -2105,7 +2197,7 @@ button.nav-item {
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 8px 10px;
   font-size: 13px;
   color: var(--text);
@@ -2139,7 +2231,7 @@ button.nav-item {
   overflow-y: auto;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 16px;
   padding: 22px 24px;
   box-shadow: var(--shadow);
 }
@@ -2153,10 +2245,9 @@ button.nav-item {
 .modal-note {
   margin: -6px 0 0;
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--accent);
   background: var(--accent-soft);
-  border-left: 2px solid var(--accent);
-  border-radius: 0 3px 3px 0;
+  border-radius: 8px;
   padding: 8px 10px;
 }
 
@@ -2180,7 +2271,7 @@ button.nav-item {
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 8px;
   padding: 9px 10px;
   font-size: 13px;
   color: var(--text);
@@ -2230,7 +2321,7 @@ button.nav-item {
   height: 26px;
   padding: 0;
   border: none;
-  border-radius: 2px;
+  border-radius: 6px;
   background: transparent;
   color: var(--text-faint);
   font-size: 18px;
@@ -2344,12 +2435,26 @@ button.nav-item {
   gap: 12px;
   background: var(--bg-elevated);
   border: 1px solid var(--accent);
+  border-left: 3px solid var(--accent);
   color: var(--text);
-  border-radius: 3px;
+  border-radius: 10px;
   padding: 12px 16px;
   font-size: 13px;
   max-width: 320px;
   box-shadow: var(--shadow);
+}
+
+/* Every toast used the same neutral/accent border regardless of whether it
+   was confirming something or reporting that an action failed — these give
+   warnings and errors their own color so they actually stand out. */
+.toast-warning {
+  border-color: #f5a524;
+  border-left-color: #f5a524;
+}
+
+.toast-error {
+  border-color: #f31260;
+  border-left-color: #f31260;
 }
 
 .toast-text {
@@ -2407,6 +2512,20 @@ button.nav-item {
   }
   .search-box {
     display: none;
+  }
+  .icon-btn.mobile-search-btn {
+    display: inline-flex;
+  }
+  .search-box.mobile-open {
+    display: flex;
+    position: absolute;
+    top: 100%;
+    left: 16px;
+    right: 16px;
+    margin-top: 8px;
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow);
+    z-index: 40;
   }
   .topbar {
     padding: 14px 16px;

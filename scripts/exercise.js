@@ -150,7 +150,7 @@
         const bodyPart = bodyPartInput.value.trim();
         const name = nameInput.value.trim();
         if (!bodyPart || !name) {
-          if (window.Toast) window.Toast.show("부위와 운동 이름을 입력해주세요");
+          if (window.Toast) window.Toast.show("부위와 운동 이름을 입력해주세요", { type: "warning" });
           return;
         }
         settled = true;

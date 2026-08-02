@@ -44,7 +44,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="brand">
-          <span class="brand-mark">◆</span>
+          <span class="brand-mark">●</span>
           <span class="brand-name">비서</span>
         </div>
         <button class="icon-btn sidebar-toggle" id="sidebarToggle" aria-label="사이드바 접기/펼치기">
@@ -91,6 +91,10 @@
       </div>
 
       <div class="sidebar-footer">
+        <div class="sync-status" id="syncStatus" hidden>
+          <span class="sync-status-dot"></span>
+          <span class="sync-status-text" id="syncStatusText"></span>
+        </div>
         <a class="nav-item" href="#settings" data-view="settings">
           <span class="nav-icon">⚙</span><span class="nav-label">설정</span>
         </a>
@@ -118,6 +122,9 @@
             <input type="text" id="globalSearchInput" placeholder="검색..." aria-label="검색" autocomplete="off" />
             <div class="search-results" id="searchResults" hidden></div>
           </div>
+          <button class="icon-btn mobile-search-btn" id="mobileSearchBtn" aria-label="검색 열기">
+            <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
           <button class="icon-btn" id="themeToggle" aria-label="테마 전환">
             <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
           </button>
@@ -276,7 +283,7 @@
                 <button class="ghost-btn" id="todayBtn">오늘</button>
               </div>
               <div class="calendar-weekdays" id="calendarWeekdays">
-                <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+                <span class="weekday-sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="weekday-sat">토</span>
               </div>
               <div class="calendar-grid-viewport">
                 <div class="calendar-grid" id="calendarGrid"></div>
@@ -311,7 +318,7 @@
 
         <div class="view" id="view-practice" hidden>
           <div class="diary-header">
-            <h2>베이스 연습 일지 <span class="diary-streak" id="practiceStreak" hidden></span></h2>
+            <span class="diary-streak" id="practiceStreak" hidden></span>
             <button class="primary-btn" id="addPracticeBtn">+ 연습 기록 추가</button>
           </div>
 
@@ -335,10 +342,6 @@
         </div>
 
         <div class="view" id="view-study" hidden>
-          <div class="diary-header">
-            <h2>학업</h2>
-          </div>
-
           <div class="goal-periods" id="goalPeriods"></div>
         </div>
 
@@ -386,7 +389,6 @@
 
         <div class="view" id="view-assistant" hidden>
           <div class="panel assistant-panel-full">
-            <div class="panel-header"><h2>비서에게 묻기</h2></div>
             <div class="assistant-box">
               <span class="empty-icon">✦</span>
               <p class="assistant-placeholder">건강 상담, 공부 질문, 그 밖에 무엇이든<br />Claude 앱에서 바로 물어보세요</p>

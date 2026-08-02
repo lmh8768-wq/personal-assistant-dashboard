@@ -80,7 +80,7 @@
     if (sidebar) sidebar.classList.remove("mobile-open");
 
     if (!url) {
-      window.Toast.show(`${label} 주소를 먼저 설정에서 입력해주세요`);
+      window.Toast.show(`${label} 주소를 먼저 설정에서 입력해주세요`, { type: "warning" });
       document.querySelector('.nav-item[data-view="settings"]')?.click();
       return;
     }
@@ -99,9 +99,6 @@
     if (!color) return;
     document.documentElement.style.setProperty("--accent", color);
     document.documentElement.style.setProperty("--accent-soft", hexToRgba(color, 0.14));
-    // All swatch presets are mid-saturation colors, unlike the default
-    // near-black/near-white accent — white text reads on every one of them.
-    document.documentElement.style.setProperty("--accent-contrast", "#fff");
     document.querySelectorAll(".accent-swatch").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.accent === color);
     });
@@ -133,6 +130,14 @@
   }
 
   // ---------- Category customization ----------
+  // A native <input type="color"> used to sit here, popping up the OS's own
+  // color picker — a jarring detour from the app's own look. A small preset
+  // swatch grid keeps color choice inline and on-theme instead.
+  const CATEGORY_COLOR_PRESETS = [
+    "#7c9eff", "#4ade80", "#f472b6", "#fb923c", "#a78bfa",
+    "#f87171", "#22d3ee", "#fbbf24", "#6366f1", "#9ca3af",
+  ];
+
   function renderCategoryEditor() {
     const container = document.getElementById("categoryEditRows");
     if (!container) return;
@@ -143,17 +148,38 @@
       row.dataset.key = cat.key;
 
       const colorInput = document.createElement("input");
-      colorInput.type = "color";
+      colorInput.type = "hidden";
       colorInput.value = cat.color;
       colorInput.dataset.field = "color";
       row.appendChild(colorInput);
 
+      const swatchGroup = document.createElement("div");
+      swatchGroup.className = "category-color-swatches";
+      // The category's current color always gets a swatch, even if it's a
+      // one-off value the user picked before this preset grid existed.
+      const palette = CATEGORY_COLOR_PRESETS.includes(cat.color)
+        ? CATEGORY_COLOR_PRESETS
+        : [cat.color, ...CATEGORY_COLOR_PRESETS];
+      palette.forEach((color) => {
+        const swatch = document.createElement("button");
+        swatch.type = "button";
+        swatch.className = "category-color-swatch" + (color === cat.color ? " active" : "");
+        swatch.style.background = color;
+        swatch.setAttribute("aria-label", `색상 ${color}`);
+        swatch.addEventListener("click", () => {
+          colorInput.value = color;
+          swatchGroup.querySelectorAll(".category-color-swatch").forEach((s) => s.classList.remove("active"));
+          swatch.classList.add("active");
+        });
+        swatchGroup.appendChild(swatch);
+      });
       const labelInput = document.createElement("input");
       labelInput.type = "text";
       labelInput.value = cat.label;
       labelInput.dataset.field = "label";
       labelInput.maxLength = 10;
       row.appendChild(labelInput);
+      row.appendChild(swatchGroup);
 
       container.appendChild(row);
     });
@@ -329,7 +355,7 @@
         window.Toast.show(`데이터 ${count}개 항목을 ${shouldMerge ? "병합" : "가져왔어요"}. 새로고침합니다...`, { duration: 2000 });
         setTimeout(() => location.reload(), 1200);
       } catch {
-        window.Toast.show("올바른 백업 파일이 아니에요");
+        window.Toast.show("올바른 백업 파일이 아니에요", { type: "error" });
       }
     };
     reader.readAsText(file);
@@ -416,7 +442,7 @@
         await navigator.clipboard.writeText(text);
         window.Toast.show("로그를 복사했어요");
       } catch {
-        window.Toast.show("복사에 실패했어요. 로그를 길게 눌러 직접 선택해주세요.");
+        window.Toast.show("복사에 실패했어요. 로그를 길게 눌러 직접 선택해주세요.", { type: "error" });
       }
     });
   }

@@ -16,7 +16,7 @@
     const container = ensureContainer();
 
     const toast = document.createElement("div");
-    toast.className = "toast";
+    toast.className = "toast" + (opts.type ? ` toast-${opts.type}` : "");
 
     const text = document.createElement("span");
     text.className = "toast-text";

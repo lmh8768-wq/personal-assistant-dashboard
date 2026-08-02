@@ -45,6 +45,30 @@ document.addEventListener("click", (e) => {
   }
 });
 
+// ---------- Mobile search (the search box itself is hidden below 720px) ----------
+const mobileSearchBtn = document.getElementById("mobileSearchBtn");
+const searchBoxEl = document.getElementById("searchBox");
+
+if (mobileSearchBtn && searchBoxEl) {
+  mobileSearchBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    searchBoxEl.classList.toggle("mobile-open");
+    if (searchBoxEl.classList.contains("mobile-open")) {
+      window.GlobalSearch?.focusInput();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    const isMobile = window.matchMedia("(max-width: 720px)").matches;
+    if (!isMobile) return;
+    if (searchBoxEl.classList.contains("mobile-open") &&
+        !searchBoxEl.contains(e.target) &&
+        !mobileSearchBtn.contains(e.target)) {
+      searchBoxEl.classList.remove("mobile-open");
+    }
+  });
+}
+
 // ---------- Nav switching ----------
 const navItems = document.querySelectorAll(".nav-item[data-view]");
 const pageTitle = document.getElementById("pageTitle");

@@ -736,7 +736,7 @@
     checkbox.addEventListener("change", () => {
       const applied = CurriculumStore.toggleDone(node.id);
       if (!applied && window.Toast) {
-        window.Toast.show("하위 목표를 모두 완료해야 체크할 수 있어요");
+        window.Toast.show("하위 목표를 모두 완료해야 체크할 수 있어요", { type: "warning" });
       }
       renderCurriculum();
     });
