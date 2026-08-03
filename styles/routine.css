@@ -1,0 +1,311 @@
+/* ---------- Routine tab ---------- */
+.routine-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Toggled by JS the instant the calendar expands/collapses — the visible
+   motion comes from routine.js animating #routineChecklists' own
+   transform/width from its old position to its new one, not from this
+   layout swap itself (flex-direction changes don't interpolate). */
+.routine-layout.calendar-expanded {
+  flex-direction: row;
+  /* Stretch (rather than flex-start) so the checklists column matches the
+     calendar's height instead of stopping wherever its own, usually much
+     shorter, content ends — the last checklist card below absorbs the
+     leftover space so the two columns' bottoms line up. */
+  align-items: stretch;
+}
+
+.routine-layout.calendar-expanded .routine-checklists .routine-panel:last-child {
+  flex: 1;
+}
+
+.routine-layout.calendar-expanded .routine-week-panel {
+  /* Without an explicit width, this flex item would shrink-wrap to the
+     calendar grid's own minimum content size instead of actually reaching
+     the width capped via JS (max-width alone doesn't force a size). */
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.routine-layout.calendar-expanded .routine-checklists {
+  /* Capped instead of flex:1 — otherwise it stretches to fill whatever
+     space is left over on a wide screen instead of staying a reasonable,
+     readable width next to the calendar. */
+  width: 100%;
+  max-width: 480px;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.routine-checklists {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.routine-add-trigger-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+
+.routine-panel,
+.routine-week-panel {
+  min-height: 0;
+}
+
+.routine-calendar-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.routine-week-average {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.routine-week-rate {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.routine-week-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.routine-week-cell.today {
+  border-color: var(--accent);
+  border-width: 2px;
+}
+
+.routine-week-cell.future {
+  opacity: 0.5;
+}
+
+.routine-week-cell-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.routine-week-cell-date {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.routine-week-cell-pct {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.routine-calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.routine-calendar-nav .icon-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.routine-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.routine-calendar-day {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 11px;
+  overflow: hidden;
+}
+
+.routine-calendar-day.outside {
+  color: var(--text-faint);
+  opacity: 0.45;
+}
+
+.routine-calendar-day.today {
+  border-color: var(--accent);
+  border-width: 2px;
+}
+
+.routine-calendar-day-number {
+  font-weight: 600;
+}
+
+.routine-calendar-day-pct {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.goal-list-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+
+.goal-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.goal-item-row.checklist-item {
+  align-items: center;
+}
+
+.goal-item-row .goal-toggle-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+}
+
+.goal-item-row.drag-over-before,
+.goal-item-row.drag-over-after {
+  position: relative;
+}
+
+.goal-item-row.drag-over-before {
+  box-shadow: 0 -3px 0 0 var(--accent);
+}
+
+.goal-item-row.drag-over-after {
+  box-shadow: 0 3px 0 0 var(--accent);
+}
+
+.goal-item-row.drag-over-before::before,
+.goal-item-row.drag-over-after::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.goal-item-row.drag-over-before::before {
+  top: -4.5px;
+}
+
+.goal-item-row.drag-over-after::before {
+  bottom: -4.5px;
+}
+
+.goal-item-row.selected {
+  background: var(--accent-soft);
+  border-radius: 8px;
+}
+
+.goal-paste-btn {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  font-size: 11px;
+}
+
+.curriculum-clipboard-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.curriculum-clipboard-note .checklist-item-remove {
+  margin-left: 0;
+  flex-shrink: 0;
+}
+
+.goal-item-progress {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.goal-item-add {
+  flex-shrink: 0;
+  max-width: 140px;
+}
+
+.goal-item-add .goal-add-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.goal-item-add .goal-add-input {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.goal-add-row {
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+
+.goal-add-trigger-btn {
+  border-style: dashed;
+}
+
+.goal-add-input {
+  width: 100%;
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+}
+
+.diary-streak {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+

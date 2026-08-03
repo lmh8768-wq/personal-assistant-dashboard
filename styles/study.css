@@ -1,0 +1,142 @@
+/* ---------- Academics: semester goal tree ---------- */
+/* CSS grid-rows collapse trick: the row track animates between 1fr and 0fr
+   (a real transitionable property), while the inner element clips its
+   content as the track shrinks toward zero. Handles content of any/dynamic
+   height with no JS measurement. */
+.collapse-region {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.22s ease;
+}
+
+.collapse-region.collapsed {
+  grid-template-rows: 0fr;
+}
+
+.collapse-region-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.goal-period-card {
+  cursor: default;
+  transition: padding 0.22s ease;
+}
+
+.goal-period-card + .goal-period-card {
+  margin-top: 14px;
+}
+
+/* Collapsed cards pack tighter — less padding, and a run of consecutive
+   collapsed cards sits closer together than expanded ones would. */
+.goal-period-card.collapsed {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.goal-period-card.collapsed .diary-card-header-row {
+  margin-bottom: 0;
+}
+
+.goal-period-card.collapsed + .goal-period-card.collapsed {
+  margin-top: 6px;
+}
+
+.goal-periods {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.goal-year-section + .goal-year-section {
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.goal-year-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.goal-year-label {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.goal-year-remove {
+  font-size: 16px;
+}
+
+.goal-periods-in-year {
+  display: flex;
+  flex-direction: column;
+}
+
+.goal-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.goal-toggle-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.goal-editable-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.goal-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.goal-edit-btn:hover {
+  border-color: var(--border);
+  color: var(--accent);
+}
+
+.goal-title-input {
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 3px 8px;
+  color: var(--text);
+  outline: none;
+}
+
+.goal-item-label-input {
+  flex: 1;
+  min-width: 0;
+}
+

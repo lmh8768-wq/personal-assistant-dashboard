@@ -1,0 +1,233 @@
+/* ---------- Settings form ---------- */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 420px;
+}
+
+.settings-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-form input {
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+}
+
+.settings-form input:focus {
+  border-color: var(--accent);
+}
+
+.settings-form select {
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-form select:focus {
+  border-color: var(--accent);
+}
+
+.settings-form button {
+  align-self: flex-start;
+}
+
+#view-settings .panel {
+  margin-bottom: 16px;
+}
+
+.storage-usage {
+  margin-bottom: 16px;
+  max-width: 420px;
+}
+
+.storage-gauge {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.storage-gauge-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.storage-usage-text {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.data-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.danger-zone {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.sync-debug-log {
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.settings-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-notification-status {
+  margin: -6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.accent-swatch-row {
+  display: flex;
+  gap: 8px;
+}
+
+.accent-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.accent-swatch.active {
+  border-color: var(--text);
+}
+
+.category-settings-form {
+  max-width: 420px;
+}
+
+.category-edit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.category-edit-row input[type="text"] {
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.category-color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.category-color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.category-color-swatch.active {
+  border-color: var(--text);
+}
+
+.custom-shortcut-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  max-width: 420px;
+}
+
+.custom-shortcut-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.custom-shortcut-list li span.remove {
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.custom-shortcut-list li span.remove:hover {
+  color: var(--accent);
+}
+
+.custom-shortcut-form {
+  display: flex;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.custom-shortcut-form input {
+  flex: 1;
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.dashboard-greeting {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+

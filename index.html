@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>비서 | 개인 대시보드</title>
-<!-- Sets data-theme before styles/main.css is even requested, so a saved
+<!-- Sets data-theme before styles/base.css is even requested, so a saved
      "light" preference never flashes dark first — main.js's theme code
      runs at the end of body, long after the first paint would've happened. -->
 <script>
@@ -31,7 +31,20 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="비서" />
-<link rel="stylesheet" href="styles/main.css" />
+<!-- Split from a single styles/main.css into per-feature partials — order
+     matters here (matches the original file's section order) since later
+     rules can override earlier ones of equal specificity. -->
+<link rel="stylesheet" href="styles/base.css" />
+<link rel="stylesheet" href="styles/vongole.css" />
+<link rel="stylesheet" href="styles/schedule.css" />
+<link rel="stylesheet" href="styles/practice.css" />
+<link rel="stylesheet" href="styles/study.css" />
+<link rel="stylesheet" href="styles/routine.css" />
+<link rel="stylesheet" href="styles/exercise.css" />
+<link rel="stylesheet" href="styles/ledger.css" />
+<link rel="stylesheet" href="styles/settings.css" />
+<link rel="stylesheet" href="styles/components.css" />
+<link rel="stylesheet" href="styles/responsive.css" />
 </head>
 <body>
 

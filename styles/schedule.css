@@ -1,0 +1,615 @@
+/* ---------- Schedule list (shared: dashboard panel + day panel) ---------- */
+.schedule-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.schedule-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-faint);
+  font-size: 13px;
+  padding: 30px 0;
+}
+
+.checkbox-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px !important;
+  color: var(--text) !important;
+}
+
+.checkbox-row input {
+  width: 16px;
+  height: 16px;
+}
+
+.schedule-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.schedule-item:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.schedule-item.completed {
+  opacity: 0.6;
+}
+
+.schedule-item.selectable {
+  border-style: dashed;
+}
+
+.schedule-item.selectable .schedule-item-delete {
+  display: none;
+}
+
+.schedule-item.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  border-style: solid;
+}
+
+/* A thin line alone was easy to lose track of mid-drag — the dot at its
+   start marks exactly where the item will land. */
+.schedule-item.drag-over-before,
+.schedule-item.drag-over-after {
+  position: relative;
+}
+
+.schedule-item.drag-over-before {
+  box-shadow: 0 -3px 0 0 var(--accent);
+}
+
+.schedule-item.drag-over-after {
+  box-shadow: 0 3px 0 0 var(--accent);
+}
+
+.schedule-item.drag-over-before::before,
+.schedule-item.drag-over-after::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.schedule-item.drag-over-before::before {
+  top: -4.5px;
+}
+
+.schedule-item.drag-over-after::before {
+  bottom: -4.5px;
+}
+
+.schedule-item.completed .schedule-item-title {
+  text-decoration: line-through;
+}
+
+.schedule-item-checkbox {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.schedule-item-category-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+}
+
+.schedule-item-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.schedule-item-badge {
+  margin-left: 6px;
+  font-size: 11px;
+}
+
+.schedule-item-upcoming-date {
+  margin-right: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.schedule-item-stars {
+  margin-left: 6px;
+  font-size: 11px;
+  letter-spacing: -1px;
+}
+
+.schedule-item-stars .star-filled {
+  color: var(--accent);
+}
+
+.schedule-item-stars .star-empty {
+  color: var(--text-faint);
+}
+
+.schedule-item-memo {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ---------- Schedule view (calendar) ---------- */
+.schedule-layout {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.calendar-panel,
+.day-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+
+.day-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.calendar-header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.calendar-weekdays .weekday-sun {
+  color: #f43f5e;
+}
+
+.calendar-weekdays .weekday-sat {
+  color: #3b82f6;
+}
+
+.calendar-grid-viewport {
+  position: relative;
+  overflow: hidden;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+/* Month navigation "page turn": the incoming grid is transformed into
+   place by JS (see renderCalendar in schedule.js) while a cloned ghost of
+   the outgoing month slides out over it — this rule just supplies the
+   transition so both animate instead of jumping. */
+.calendar-grid.month-nav-animating {
+  transition: transform 0.28s ease, opacity 0.28s ease;
+}
+
+.calendar-grid-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  transition: transform 0.28s ease, opacity 0.28s ease;
+  pointer-events: none;
+}
+
+.calendar-day {
+  aspect-ratio: 3 / 4;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 2px;
+  padding: 4px 3px 3px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.calendar-day-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.calendar-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+  overflow: hidden;
+}
+
+.calendar-day-event-chip {
+  font-size: 10px;
+  line-height: 1.3;
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: #fff;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-day-event-more {
+  font-size: 10px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.calendar-day:hover {
+  background: var(--bg-elevated-2);
+}
+
+.calendar-day.weekday-sun {
+  color: #f43f5e;
+}
+
+.calendar-day.weekday-sat {
+  color: #3b82f6;
+}
+
+.calendar-day.outside {
+  color: var(--text-faint);
+  opacity: 0.55;
+}
+
+.calendar-day.today {
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+/* "today" and "selected" otherwise share the same border-color treatment,
+   so an unselected today can get lost — filling the date number itself
+   (the classic "today" convention) keeps it recognizable at a glance. */
+.calendar-day.today .day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 2px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+}
+
+.calendar-day.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.calendar-day.drag-over {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  border-style: dashed;
+}
+
+.calendar-day .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.day-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.day-panel-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.template-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.template-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.template-chip:hover {
+  background: var(--accent-soft);
+}
+
+.template-chip-remove {
+  color: var(--text-faint);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.template-chip-remove:hover {
+  color: var(--accent);
+}
+
+.template-save-btn {
+  align-self: flex-start;
+}
+
+.day-panel-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+/* ---------- Schedule: filters ---------- */
+.day-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-select-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.schedule-select-toolbar > div {
+  display: flex;
+  gap: 8px;
+}
+
+.schedule-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.schedule-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.schedule-filter-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.schedule-filter-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.schedule-filter-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.calendar-day-holiday {
+  align-self: stretch;
+  text-align: center;
+  font-size: 9px;
+  color: #f87171;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checklist-section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.checklist-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.checklist-items {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.checklist-item.done span:not(.checklist-item-remove) {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+
+.checklist-item-bpm-input {
+  width: 64px;
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--text);
+  outline: none;
+}
+
+.checklist-item-bpm-input:focus {
+  border-color: var(--accent);
+}
+
+.checklist-item-remove {
+  margin-left: auto;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.checklist-item-remove:hover {
+  color: var(--accent);
+}
+
+.checklist-add-row {
+  display: flex;
+  gap: 8px;
+}
+
+.checklist-add-row input {
+  flex: 1;
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+}
+
+.checklist-add-row select {
+  flex-shrink: 0;
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.schedule-item-checklist-badge {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+.schedule-item-delete {
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.schedule-item-delete:hover,
+.schedule-item-delete:focus-visible {
+  background: rgba(229, 104, 122, 0.15);
+  color: #e5687a;
+}
+
+.modal-actions-secondary {
+  display: flex;
+  gap: 8px;
+}
+
