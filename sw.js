@@ -1,3 +1,85 @@
+// ---------- Offline app-shell caching ----------
+// Bump this on any deploy that changes one of the precached files below —
+// it's the only thing that invalidates the old cache. skipWaiting() +
+// clients.claim() below mean a new service worker takes over immediately
+// (not "after all tabs are closed", the usual SW default), and activate()
+// deletes every cache whose name doesn't match CACHE_VERSION — so a stale
+// version can't linger and strand a user on old code the way an
+// unversioned/cache-forever setup could.
+//
+// Strategy is network-first for every same-origin GET: online, this always
+// serves the live deploy and just refreshes the cache alongside it — the
+// cache only actually gets read from when the network request fails
+// (offline). That trade deliberately favors "never see stale content while
+// online" over "instant load from cache", since staleness is the specific
+// failure mode this needs to avoid.
+const CACHE_VERSION = "v1";
+const CACHE_NAME = `assistant-shell-${CACHE_VERSION}`;
+
+const PRECACHE_URLS = [
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/styles/main.css",
+  "/scripts/toast.js",
+  "/scripts/modal-focus-trap.js",
+  "/scripts/store.js",
+  "/scripts/schedule.js",
+  "/scripts/settings.js",
+  "/scripts/notifications.js",
+  "/scripts/weather.js",
+  "/scripts/practice.js",
+  "/scripts/study.js",
+  "/scripts/exercise.js",
+  "/scripts/ledger.js",
+  "/scripts/vongole.js",
+  "/scripts/routine.js",
+  "/scripts/search.js",
+  "/scripts/main.js",
+  "/scripts/cloud-sync.js",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/apple-touch-icon.png",
+];
+
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) =>
+      // Precaching is best-effort — one missing/renamed file shouldn't
+      // block the whole install and leave offline support entirely broken.
+      Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url)))
+    )
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((names) => Promise.all(names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  // Only same-origin GETs — Firebase/Open-Meteo calls and anything
+  // cross-origin must always go straight to the network, never cached.
+  if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) return;
+
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        return response;
+      })
+      .catch(() => caches.match(request).then((cached) => cached || Promise.reject(new Error("offline, not cached"))))
+  );
+});
+
+// ---------- Push notifications ----------
 self.addEventListener("push", (event) => {
   let data = {};
   try {

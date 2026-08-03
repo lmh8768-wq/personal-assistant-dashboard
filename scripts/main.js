@@ -17,6 +17,20 @@ function safeSetItem(key, value) {
   }
 }
 
+// ---------- Service worker (offline app-shell caching) ----------
+// Previously only ever registered from inside the push-notification opt-in
+// flow (scripts/notifications.js) — meaning offline support silently never
+// activated for anyone who hadn't turned notifications on. Registering it
+// unconditionally here is what actually makes sw.js's caching apply
+// app-wide; notifications.js's own register() call for the same scriptURL
+// afterward just resolves to this same registration, it doesn't create a
+// second one.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch((err) => {
+    console.error("service worker registration failed", err);
+  });
+}
+
 // ---------- Theme ----------
 const root = document.documentElement;
 const themeToggle = document.getElementById("themeToggle");
