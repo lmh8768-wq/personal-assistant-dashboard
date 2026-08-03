@@ -1,9 +1,29 @@
 <!DOCTYPE html>
-<html lang="ko" data-theme="dark">
+<html lang="ko">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>비서 | 개인 대시보드</title>
+<!-- Sets data-theme before styles/main.css is even requested, so a saved
+     "light" preference never flashes dark first — main.js's theme code
+     runs at the end of body, long after the first paint would've happened. -->
+<script>
+  (function () {
+    var theme = "dark";
+    try {
+      theme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    } catch (e) {
+      theme = "dark";
+    }
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<!-- The three Firebase compat scripts (loaded at the end of body) all come
+     from this same origin — warming up the connection this early shaves
+     the DNS/TLS/TCP handshake off whichever of them is first to actually
+     be requested. -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+<link rel="dns-prefetch" href="https://www.gstatic.com" />
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <link rel="icon" href="icons/icon-192.png" />

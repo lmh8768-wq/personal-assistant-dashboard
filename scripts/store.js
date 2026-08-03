@@ -1,3 +1,20 @@
+// Shared by every store in this file and in the other scripts/*.js feature
+// modules (all of which load after this one) — a bare localStorage.setItem
+// throws if the quota is exceeded or storage is disabled (Safari private
+// mode, policy-restricted browsers), which would otherwise take down
+// whatever action the user just took with no explanation. This degrades to
+// "the write silently didn't happen, but at least says so" instead.
+window.safeSetLocalStorage = function (key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    console.error(`localStorage.setItem("${key}") failed`, err);
+    window.Toast?.show("저장에 실패했어요 (저장 공간이 가득 찼을 수 있어요)", { type: "error" });
+    return false;
+  }
+};
+
 // ---------- Schedule persistence (localStorage) ----------
 (function () {
   const SCHEDULE_KEY = "assistant.schedules.v1";
@@ -12,7 +29,7 @@
   }
 
   function saveSchedules(schedules) {
-    localStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedules));
+    window.safeSetLocalStorage(SCHEDULE_KEY, JSON.stringify(schedules));
   }
 
   function createId() {
@@ -223,7 +240,7 @@
   }
 
   function saveOrder(data) {
-    localStorage.setItem(ORDER_KEY, JSON.stringify(data));
+    window.safeSetLocalStorage(ORDER_KEY, JSON.stringify(data));
   }
 
   window.ScheduleOrderStore = {
@@ -270,7 +287,7 @@
       return loadPinnedOrder();
     },
     set(orderedIds) {
-      localStorage.setItem(PINNED_ORDER_KEY, JSON.stringify(orderedIds));
+      window.safeSetLocalStorage(PINNED_ORDER_KEY, JSON.stringify(orderedIds));
     },
   };
 })();
@@ -289,7 +306,7 @@
   }
 
   function saveTemplates(templates) {
-    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+    window.safeSetLocalStorage(TEMPLATES_KEY, JSON.stringify(templates));
   }
 
   function createId() {
@@ -344,7 +361,7 @@
   }
 
   function saveCategories(categories) {
-    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
+    window.safeSetLocalStorage(CATEGORIES_KEY, JSON.stringify(categories));
   }
 
   window.CategoryStore = {
@@ -417,7 +434,7 @@
   }
 
   function save(categories) {
-    localStorage.setItem(KEY, JSON.stringify(categories));
+    window.safeSetLocalStorage(KEY, JSON.stringify(categories));
   }
 
   window.LedgerCategoryStore = {
@@ -481,7 +498,7 @@
   }
 
   function save(entries) {
-    localStorage.setItem(KEY, JSON.stringify(entries));
+    window.safeSetLocalStorage(KEY, JSON.stringify(entries));
   }
 
   window.LedgerEntryStore = {
@@ -541,7 +558,7 @@ function createVongoleRecipeStore(key, idPrefix) {
   }
 
   function save(recipes) {
-    localStorage.setItem(key, JSON.stringify(recipes));
+    window.safeSetLocalStorage(key, JSON.stringify(recipes));
   }
 
   return {
@@ -602,7 +619,7 @@ window.VongoleCollectedRecipeStore = createVongoleRecipeStore("assistant.vongole
   }
 
   function save(entries) {
-    localStorage.setItem(KEY, JSON.stringify(entries));
+    window.safeSetLocalStorage(KEY, JSON.stringify(entries));
   }
 
   window.VongoleLogStore = {

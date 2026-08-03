@@ -57,7 +57,7 @@
       });
       if (!res.ok) throw new Error("save-subscription failed");
 
-      localStorage.setItem(ENABLED_KEY, "true");
+      window.safeSetLocalStorage(ENABLED_KEY, "true");
       window.Toast?.show("매일 아침 8시에 오늘의 일정 알림을 보내드릴게요");
       return true;
     } catch (err) {
@@ -75,7 +75,7 @@
     } catch {
       // ignore — worst case the subscription just goes stale server-side
     }
-    localStorage.setItem(ENABLED_KEY, "false");
+    window.safeSetLocalStorage(ENABLED_KEY, "false");
     window.Toast?.show("알림을 껐어요");
   }
 

@@ -8,6 +8,32 @@
   const CACHE_TTL_MS = 30 * 60 * 1000;
   const DEFAULT_LOCATION = { lat: 37.5665, lon: 126.978 }; // Seoul, used when geolocation is unavailable/denied
 
+  // Same-device cross-tab lock — two tabs opening the dashboard around the
+  // same moment both see the same stale cache and would otherwise both
+  // fire an API call. Whichever tab grabs this first fetches; the other
+  // just waits briefly for the cache that fetch produces.
+  const FETCH_LOCK_KEY = "weatherFetchLock.v1";
+  const FETCH_LOCK_TTL_MS = 5000;
+
+  function tryAcquireFetchLock() {
+    try {
+      const raw = localStorage.getItem(FETCH_LOCK_KEY);
+      if (raw && Date.now() - (JSON.parse(raw).at || 0) < FETCH_LOCK_TTL_MS) return false;
+      localStorage.setItem(FETCH_LOCK_KEY, JSON.stringify({ at: Date.now() }));
+      return true;
+    } catch {
+      return true; // storage broken — don't block fetching, just skip the coordination
+    }
+  }
+
+  function releaseFetchLock() {
+    try {
+      localStorage.removeItem(FETCH_LOCK_KEY);
+    } catch {
+      // not worth surfacing — it'll just expire on its own via the TTL check above
+    }
+  }
+
   const WEATHER_CODES = {
     0: ["☀️", "맑음"],
     1: ["🌤️", "대체로 맑음"],
@@ -53,7 +79,7 @@
   }
 
   function saveLocation(loc) {
-    localStorage.setItem(LOCATION_KEY, JSON.stringify(loc));
+    window.safeSetLocalStorage(LOCATION_KEY, JSON.stringify(loc));
   }
 
   function loadCache() {
@@ -66,7 +92,7 @@
   }
 
   function saveCache(entry) {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(entry));
+    window.safeSetLocalStorage(CACHE_KEY, JSON.stringify(entry));
   }
 
   function resolveLocation() {
@@ -199,6 +225,20 @@
     }
     if (cache) render(cache.weather, "업데이트 중…");
 
+    if (!tryAcquireFetchLock()) {
+      // Another tab already grabbed the lock and is fetching right now —
+      // give it a moment to finish and just pick up the cache it writes,
+      // instead of also hitting the API ourselves.
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const latest = loadCache();
+      if (latest && Date.now() - latest.fetchedAt < CACHE_TTL_MS) {
+        render(latest.weather, "");
+        return;
+      }
+      // The other tab didn't finish (or failed) in time — fall through and
+      // fetch ourselves rather than leaving the view stuck on stale data.
+    }
+
     try {
       const loc = await resolveLocation();
       const weather = await fetchWeather(loc);
@@ -210,6 +250,8 @@
       } else {
         render(null, "날씨 정보를 불러오지 못했어요");
       }
+    } finally {
+      releaseFetchLock();
     }
   }
 

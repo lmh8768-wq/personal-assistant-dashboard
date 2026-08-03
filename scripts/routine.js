@@ -165,7 +165,7 @@
   }
 
   function saveAll(data) {
-    localStorage.setItem(ROUTINES_KEY, JSON.stringify(data));
+    window.safeSetLocalStorage(ROUTINES_KEY, JSON.stringify(data));
   }
 
   const RoutineStore = {

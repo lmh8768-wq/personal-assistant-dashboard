@@ -46,6 +46,26 @@
   // Single filter box (#vongoleFilterInput) narrows all three lists at once.
   let filterQuery = "";
 
+  // Returns a wrapped fn that waits `delay` ms of silence before actually
+  // running — plus a .flush(...args) to run it (and cancel the pending
+  // timer) immediately, used on blur so nothing's lost.
+  function debounce(fn, delay) {
+    let timer = null;
+    function debounced(...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        fn(...args);
+      }, delay);
+    }
+    debounced.flush = (...args) => {
+      clearTimeout(timer);
+      timer = null;
+      fn(...args);
+    };
+    return debounced;
+  }
+
   function pad2(n) {
     return String(n).padStart(2, "0");
   }
@@ -123,6 +143,14 @@
     body.className = "vongole-recipe-body";
     body.hidden = !expandedRecipeIds.has(recipe.id);
 
+    // Every keystroke updating title/textContent on screen is free, but
+    // writing to localStorage on every single one isn't — a whole array of
+    // recipes gets re-stringified each time. Debounce the actual store
+    // write; flush immediately on blur so nothing's lost if the user
+    // clicks away right after typing.
+    const saveTitle = debounce((value) => store.update(recipe.id, { title: value }), 400);
+    const saveContent = debounce((value) => store.update(recipe.id, { content: value }), 400);
+
     const titleInput = document.createElement("input");
     titleInput.type = "text";
     titleInput.className = "vongole-recipe-title-input";
@@ -130,9 +158,10 @@
     titleInput.value = recipe.title;
     titleInput.addEventListener("click", (e) => e.stopPropagation());
     titleInput.addEventListener("input", () => {
-      store.update(recipe.id, { title: titleInput.value });
       title.textContent = titleInput.value || "(제목 없음)";
+      saveTitle(titleInput.value);
     });
+    titleInput.addEventListener("blur", () => saveTitle.flush(titleInput.value));
     body.appendChild(titleInput);
 
     const contentInput = document.createElement("textarea");
@@ -140,9 +169,8 @@
     contentInput.placeholder = "재료와 만드는 법을 적어보세요";
     contentInput.value = recipe.content || "";
     contentInput.addEventListener("click", (e) => e.stopPropagation());
-    contentInput.addEventListener("input", () => {
-      store.update(recipe.id, { content: contentInput.value });
-    });
+    contentInput.addEventListener("input", () => saveContent(contentInput.value));
+    contentInput.addEventListener("blur", () => saveContent.flush(contentInput.value));
     body.appendChild(contentInput);
 
     card.appendChild(body);
@@ -239,6 +267,9 @@
     return card;
   }
 
+  const LOG_PAGE_SIZE = 20;
+  let logVisibleCount = LOG_PAGE_SIZE;
+
   function renderLog() {
     const feed = document.getElementById("vongoleLogFeed");
     if (!feed) return;
@@ -255,7 +286,20 @@
       refreshDashboard();
       return;
     }
-    entries.forEach((entry) => feed.appendChild(buildLogCard(entry)));
+    entries.slice(0, logVisibleCount).forEach((entry) => feed.appendChild(buildLogCard(entry)));
+
+    if (entries.length > logVisibleCount) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "ghost-btn diary-load-more-btn";
+      more.textContent = `더 보기 (${entries.length - logVisibleCount}개 남음)`;
+      more.addEventListener("click", () => {
+        logVisibleCount += LOG_PAGE_SIZE;
+        renderLog();
+      });
+      feed.appendChild(more);
+    }
+
     refreshDashboard();
   }
 

@@ -64,7 +64,7 @@
   }
 
   function saveGoals(data) {
-    localStorage.setItem(GOALS_KEY, JSON.stringify(data));
+    window.safeSetLocalStorage(GOALS_KEY, JSON.stringify(data));
   }
 
   function findNode(list, id) {
@@ -308,7 +308,7 @@
   }
 
   function saveUiState(state) {
-    localStorage.setItem(UI_STATE_KEY, JSON.stringify(state));
+    window.safeSetLocalStorage(UI_STATE_KEY, JSON.stringify(state));
   }
 
   function isYearCollapsed(yearId) {

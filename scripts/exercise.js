@@ -17,7 +17,7 @@
   }
 
   function saveRecords(records) {
-    localStorage.setItem(RECORDS_KEY, JSON.stringify(records));
+    window.safeSetLocalStorage(RECORDS_KEY, JSON.stringify(records));
   }
 
   const ExerciseRecordStore = {
@@ -44,7 +44,7 @@
   }
 
   function saveLearned(items) {
-    localStorage.setItem(LEARNED_KEY, JSON.stringify(items));
+    window.safeSetLocalStorage(LEARNED_KEY, JSON.stringify(items));
   }
 
   const LearnedExerciseStore = {

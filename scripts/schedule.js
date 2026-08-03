@@ -975,7 +975,7 @@
 
   function toggleHideCompleted() {
     hideCompleted = !hideCompleted;
-    localStorage.setItem(HIDE_COMPLETED_KEY, String(hideCompleted));
+    window.safeSetLocalStorage(HIDE_COMPLETED_KEY, String(hideCompleted));
     document.getElementById("toggleHideCompletedBtn").textContent = hideCompleted
       ? "완료 항목 보기"
       : "완료 항목 숨기기";
@@ -1044,7 +1044,7 @@
       upcomingRangeSelect.value = String(upcomingRangeDays);
       upcomingRangeSelect.addEventListener("change", (e) => {
         upcomingRangeDays = Number(e.target.value);
-        localStorage.setItem(UPCOMING_RANGE_KEY, String(upcomingRangeDays));
+        window.safeSetLocalStorage(UPCOMING_RANGE_KEY, String(upcomingRangeDays));
         renderUpcoming();
       });
     }

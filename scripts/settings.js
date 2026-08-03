@@ -16,7 +16,7 @@
   }
 
   function saveSettings(settings) {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    window.safeSetLocalStorage(SETTINGS_KEY, JSON.stringify(settings));
   }
 
   window.SettingsStore = {
@@ -208,7 +208,7 @@
   }
 
   function saveCustomShortcuts(list) {
-    localStorage.setItem(CUSTOM_SHORTCUTS_KEY, JSON.stringify(list));
+    window.safeSetLocalStorage(CUSTOM_SHORTCUTS_KEY, JSON.stringify(list));
   }
 
   function renderCustomShortcuts() {

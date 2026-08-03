@@ -47,7 +47,7 @@
   }
 
   function saveChecklist(items) {
-    localStorage.setItem(CHECKLIST_KEY, JSON.stringify(items));
+    window.safeSetLocalStorage(CHECKLIST_KEY, JSON.stringify(items));
   }
 
   const PracticeChecklistStore = {
@@ -87,7 +87,7 @@
   }
 
   function saveEntries(entries) {
-    localStorage.setItem(PRACTICE_KEY, JSON.stringify(entries));
+    window.safeSetLocalStorage(PRACTICE_KEY, JSON.stringify(entries));
   }
 
   const PracticeStore = {
@@ -214,6 +214,15 @@
     return card;
   }
 
+  // Resets to the first page each time the feed view is (re)opened — a
+  // module-level count rather than persisted, since "where I left off
+  // scrolling" isn't worth remembering across sessions the way the data
+  // itself is. Rendering years of entries in one go (one full DOM subtree
+  // per diary card, rebuilt on every single edit) is the part that isn't
+  // free; showing only the most recent page up front keeps that cheap.
+  const FEED_PAGE_SIZE = 20;
+  let feedVisibleCount = FEED_PAGE_SIZE;
+
   function renderFeed() {
     const feed = document.getElementById("practiceFeed");
     const entries = PracticeStore.getAll();
@@ -223,15 +232,36 @@
       feed.innerHTML = `<div class="empty-state"><span class="empty-icon">🎸</span><p>아직 연습 기록이 없어요</p></div>`;
       return;
     }
-    entries.forEach((entry) => feed.appendChild(renderCard(entry, (e) => openModal("edit", e))));
+    entries
+      .slice(0, feedVisibleCount)
+      .forEach((entry) => feed.appendChild(renderCard(entry, (e) => openModal("edit", e))));
+
+    if (entries.length > feedVisibleCount) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "ghost-btn diary-load-more-btn";
+      more.textContent = `더 보기 (${entries.length - feedVisibleCount}개 남음)`;
+      more.addEventListener("click", () => {
+        feedVisibleCount += FEED_PAGE_SIZE;
+        renderFeed();
+      });
+      feed.appendChild(more);
+    }
   }
 
   // ---------- Streak ----------
-  function renderStreak() {
-    const el = document.getElementById("practiceStreak");
-    if (!el) return;
+  // Deliberately anchored to the device's local calendar day (via plain
+  // Date/setDate, no UTC conversion) rather than a fixed timezone — "did I
+  // practice today" should follow wherever the user actually is, which is
+  // exactly what the device's local clock already reflects for the
+  // overwhelmingly common case of never changing timezone mid-streak.
+  // Crossing timezones while entries are logged right at a day boundary is
+  // a real but rare edge case; pinning to a fixed "home" timezone instead
+  // would fix that at the cost of making every ordinary (non-traveling) day
+  // boundary wrong for whichever zone isn't "home" — a worse trade for the
+  // common case, so this stays local-clock-based on purpose.
+  function computeStreak() {
     const dateSet = new Set(loadEntries().map((e) => e.date));
-
     let streak = 0;
     const cursor = new Date();
     if (!dateSet.has(toDateStr(cursor))) {
@@ -241,6 +271,13 @@
       streak += 1;
       cursor.setDate(cursor.getDate() - 1);
     }
+    return streak;
+  }
+
+  function renderStreak() {
+    const el = document.getElementById("practiceStreak");
+    if (!el) return;
+    const streak = computeStreak();
 
     if (streak > 0) {
       el.hidden = false;
@@ -322,19 +359,7 @@
   function renderDashboardPractice() {
     const el = document.getElementById("dashboardPracticeStreak");
     if (!el) return;
-
-    const dateSet = new Set(loadEntries().map((e) => e.date));
-    let streak = 0;
-    const cursor = new Date();
-    if (!dateSet.has(toDateStr(cursor))) {
-      cursor.setDate(cursor.getDate() - 1);
-    }
-    while (dateSet.has(toDateStr(cursor))) {
-      streak += 1;
-      cursor.setDate(cursor.getDate() - 1);
-    }
-
-    el.textContent = streak;
+    el.textContent = computeStreak();
   }
 
   // ---------- Curriculum (대목표 > 중목표 > 소목표 goal tree, same mechanic as 학업) ----------
@@ -351,7 +376,7 @@
   }
 
   function saveCurriculum(goals) {
-    localStorage.setItem(CURRICULUM_KEY, JSON.stringify(goals));
+    window.safeSetLocalStorage(CURRICULUM_KEY, JSON.stringify(goals));
   }
 
   function findGoalNode(list, id) {
@@ -542,7 +567,7 @@
   }
 
   function saveCurriculumUiState(state) {
-    localStorage.setItem(CURRICULUM_UI_STATE_KEY, JSON.stringify(state));
+    window.safeSetLocalStorage(CURRICULUM_UI_STATE_KEY, JSON.stringify(state));
   }
 
   function isGoalCollapsed(goalId) {
