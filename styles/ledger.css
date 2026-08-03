@@ -1,13 +1,4 @@
 /* ---------- Ledger (가계부) ---------- */
-.ledger-summary-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-
 .ledger-period-tabs {
   display: flex;
   gap: 6px;

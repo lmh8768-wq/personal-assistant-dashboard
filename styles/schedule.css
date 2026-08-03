@@ -400,10 +400,6 @@
   color: var(--accent);
 }
 
-.template-save-btn {
-  align-self: flex-start;
-}
-
 .day-panel-toolbar {
   display: flex;
   justify-content: flex-end;
