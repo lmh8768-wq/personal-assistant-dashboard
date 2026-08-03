@@ -160,6 +160,92 @@
     lastSnapshotStr = currentSnapshotStr();
   }
 
+  // Per-key merge instead of a wholesale overwrite — used only for an
+  // in-session update from another device (see the snapshot listener
+  // below), never for the very first pull, where applyRemoteData's full
+  // replace is exactly right (there's nothing local worth preserving yet).
+  //
+  // The bug this fixes: two devices editing DIFFERENT things close
+  // together (device A adds a ledger entry, device B adds a recipe) used
+  // to race at the whole-document level — whichever push landed second
+  // would overwrite the *entire* payload with its own snapshot, silently
+  // erasing the other device's change even though the two edits never
+  // touched the same data. Every store in this app keeps its records as
+  // either an array of {id, ...} objects or a plain settings-shaped
+  // object, so merging generically per top-level key (array = union by id,
+  // remote wins on a genuine same-id conflict; object = shallow spread,
+  // remote wins per-field) recovers the common case without needing a
+  // bespoke merge rule per store. It's still not a full CRDT — two devices
+  // editing the *same* item's *same* field at the same time still has one
+  // side win — but that's a much narrower window than before.
+  function mergeStoredValue(existingRaw, incomingRaw) {
+    let existing;
+    let incoming;
+    try {
+      existing = existingRaw != null ? JSON.parse(existingRaw) : undefined;
+    } catch {
+      existing = undefined;
+    }
+    try {
+      incoming = incomingRaw != null ? JSON.parse(incomingRaw) : undefined;
+    } catch {
+      incoming = undefined;
+    }
+
+    if (Array.isArray(existing) && Array.isArray(incoming)) {
+      const byId = new Map(existing.filter((item) => item && item.id != null).map((item) => [item.id, item]));
+      incoming.filter((item) => item && item.id != null).forEach((item) => byId.set(item.id, item));
+      return JSON.stringify([...byId.values()]);
+    }
+    if (
+      existing &&
+      typeof existing === "object" &&
+      !Array.isArray(existing) &&
+      incoming &&
+      typeof incoming === "object" &&
+      !Array.isArray(incoming)
+    ) {
+      return JSON.stringify({ ...existing, ...incoming });
+    }
+    // Not both mergeable the same way (or one side missing/unparseable) —
+    // fall back to the old full-replace behavior for just this one key.
+    return incomingRaw;
+  }
+  // Exposed purely so tests/cloud-sync-merge.test.js can exercise the real
+  // shipped implementation instead of a duplicated copy — it's a stateless
+  // string-in/string-out transform, nothing sensitive to expose.
+  window.__mergeStoredValueForTest = mergeStoredValue;
+
+  function mergeRemoteData(payloadStr) {
+    let data;
+    try {
+      data = JSON.parse(payloadStr || "{}");
+    } catch {
+      return;
+    }
+    applyingRemote = true;
+    const allKeys = new Set([...Object.keys(localStorage).filter(isAppKey), ...Object.keys(data).filter(isAppKey)]);
+    allKeys.forEach((key) => {
+      const existingRaw = localStorage.getItem(key);
+      const incomingRaw = Object.prototype.hasOwnProperty.call(data, key) ? data[key] : null;
+      if (incomingRaw == null) {
+        // Remote doesn't have this key at all. Every store in this app
+        // always re-setItem's its key (even to an empty array), never
+        // removeItem's it — so a genuinely missing key here means the
+        // *other* device just hasn't loaded whatever feature wrote this
+        // key yet, not that it was deliberately cleared. Keep the local copy.
+        return;
+      }
+      if (existingRaw == null) {
+        originalSetItem(key, incomingRaw);
+        return;
+      }
+      originalSetItem(key, mergeStoredValue(existingRaw, incomingRaw));
+    });
+    applyingRemote = false;
+    lastSnapshotStr = currentSnapshotStr();
+  }
+
   // Durable marker (survives reload/app-kill): "local storage may contain
   // changes the server hasn't confirmed yet." As long as this is set, we
   // must never let a pulled remote snapshot overwrite local data — that's
@@ -334,10 +420,18 @@
           // land shortly and become the new authoritative version.
           return;
         }
-        // Another device changed the data — reload so every view re-renders
-        // from the freshly-synced localStorage.
-        logSync("applying remote update + reloading");
-        applyRemoteData(d.payload);
+        // Another device changed the data — merge (not overwrite) it into
+        // local storage, so a change this device made that the other
+        // device's snapshot didn't know about yet doesn't get silently
+        // erased, then reload so every view re-renders from the merged
+        // result. markPending() (durable — survives the reload) means the
+        // merged state gets pushed back up right after reload via the
+        // existing "pending local change found -> re-push" first-snapshot
+        // path below, so both devices converge on the same merged copy
+        // instead of the merge staying local-only.
+        logSync("merging remote update with local, then re-syncing");
+        mergeRemoteData(d.payload);
+        markPending();
         location.reload();
       },
       (err) => {
