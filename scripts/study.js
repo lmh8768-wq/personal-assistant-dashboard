@@ -415,42 +415,8 @@
   // value; Enter/blur with nothing typed, or Escape regardless, deletes the
   // goal outright — it was never really "there" from the user's point of
   // view, so it just disappears rather than sticking around blank.
-  function makeInlineGoalLabelEditor(initialValue, placeholder, onCommit, onCancelDelete) {
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "goal-title-input goal-item-label-input";
-    input.placeholder = placeholder;
-    input.value = initialValue;
-
-    let settled = false;
-    function commit() {
-      if (settled) return;
-      settled = true;
-      const value = input.value.trim();
-      if (value) onCommit(value);
-      else onCancelDelete();
-    }
-    function cancel() {
-      if (settled) return;
-      settled = true;
-      onCancelDelete();
-    }
-
-    input.addEventListener("keydown", (e) => {
-      e.stopPropagation();
-      if (e.key === "Enter") {
-        e.preventDefault();
-        commit();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        cancel();
-      }
-    });
-    input.addEventListener("blur", commit);
-    input.addEventListener("click", (e) => e.stopPropagation());
-
-    return input;
-  }
+  // Shared with practice.js's goal tree — see scripts/goal-label-editor.js.
+  const makeInlineGoalLabelEditor = window.GoalLabelEditor.makeInline;
 
   // Starts as a single compact "add" button; clicking it swaps in a text
   // input (Enter commits, Escape/blur cancels back to the button) instead of
@@ -580,64 +546,8 @@
     return container;
   }
 
-  // A goal's label, editable by double-clicking it. Enter/blur commits a
-  // non-empty, changed value; Escape, or Enter/blur with nothing changed,
-  // just reverts to the original text — unlike makeInlineGoalLabelEditor,
-  // this is for an ALREADY-existing goal, so an empty/unchanged commit
-  // never deletes it.
-  function makeDblClickEditableGoalLabel(currentLabel, onSave) {
-    const container = document.createElement("span");
-    container.className = "goal-item-label";
-
-    function showView() {
-      container.innerHTML = "";
-      container.textContent = currentLabel;
-    }
-
-    function showEdit() {
-      container.innerHTML = "";
-      const input = document.createElement("input");
-      input.type = "text";
-      input.className = "goal-title-input goal-item-label-input";
-      input.value = currentLabel;
-
-      let settled = false;
-      function commit() {
-        if (settled) return;
-        settled = true;
-        const value = input.value.trim();
-        if (value && value !== currentLabel) onSave(value);
-        else showView();
-      }
-
-      input.addEventListener("keydown", (e) => {
-        e.stopPropagation();
-        if (e.key === "Enter") {
-          e.preventDefault();
-          commit();
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          settled = true;
-          showView();
-        }
-      });
-      input.addEventListener("blur", commit);
-      input.addEventListener("click", (e) => e.stopPropagation());
-      input.addEventListener("dblclick", (e) => e.stopPropagation());
-
-      container.appendChild(input);
-      input.focus();
-      input.select();
-    }
-
-    container.addEventListener("dblclick", (e) => {
-      e.stopPropagation();
-      showEdit();
-    });
-
-    showView();
-    return container;
-  }
+  // Shared with practice.js's goal tree — see scripts/goal-label-editor.js.
+  const makeDblClickEditableGoalLabel = window.GoalLabelEditor.makeDblClickEditable;
 
   function renderGoalItem(yearId, periodId, node, depth, onChange) {
     const li = document.createElement("li");
