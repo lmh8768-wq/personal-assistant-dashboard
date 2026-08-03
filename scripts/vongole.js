@@ -114,6 +114,14 @@
   // Expanding a card puts it straight into edit mode — no modal, no
   // separate 수정 button. The title/content inputs save on every
   // keystroke; the header itself (anywhere except the × ) toggles collapse.
+  // How many attempt-log entries are linked to this exact recipe — the
+  // whole reason a log entry can point at a recipe by id (recipeId +
+  // recipeKind, since the two recipe stores share nothing but shape) instead
+  // of just free text is so this count can exist at all.
+  function countAttempts(recipeId, kind) {
+    return window.VongoleLogStore.getAll().filter((e) => e.recipeId === recipeId && e.recipeKind === kind).length;
+  }
+
   function buildRecipeCard(recipe, kind) {
     const store = RECIPE_SECTIONS[kind].store();
     const card = document.createElement("div");
@@ -126,6 +134,14 @@
     title.className = "vongole-recipe-title";
     title.textContent = recipe.title || "(제목 없음)";
     header.appendChild(title);
+
+    const attemptCount = countAttempts(recipe.id, kind);
+    if (attemptCount > 0) {
+      const badge = document.createElement("span");
+      badge.className = "vongole-recipe-attempt-badge";
+      badge.textContent = `${attemptCount}번 시도`;
+      header.appendChild(badge);
+    }
 
     const removeBtn = document.createElement("span");
     removeBtn.className = "checklist-item-remove";
@@ -240,6 +256,17 @@
     }
   }
 
+  // A log entry's linked recipe may since have been renamed or deleted —
+  // look its current title up fresh each render rather than trusting
+  // whatever the entry itself remembers, and fall back to a clear "no
+  // longer exists" label rather than silently showing nothing.
+  function resolveLinkedRecipeTitle(entry) {
+    if (!entry.recipeId || !entry.recipeKind) return null;
+    const section = RECIPE_SECTIONS[entry.recipeKind];
+    const recipe = section && section.store().getAll().find((r) => r.id === entry.recipeId);
+    return recipe ? recipe.title || "(제목 없음)" : "(삭제된 레시피)";
+  }
+
   // ---------- Attempt log (below, diary-style) ----------
   function buildLogCard(entry) {
     const card = document.createElement("div");
@@ -250,10 +277,17 @@
     date.textContent = formatDateLabel(entry.date);
     card.appendChild(date);
 
+    const linkedTitle = resolveLinkedRecipeTitle(entry);
+    if (linkedTitle) {
+      const linkedEl = document.createElement("p");
+      linkedEl.className = "diary-card-text";
+      linkedEl.textContent = `레시피: ${linkedTitle}`;
+      card.appendChild(linkedEl);
+    }
     if (entry.recipe) {
       const recipeEl = document.createElement("p");
       recipeEl.className = "diary-card-text";
-      recipeEl.textContent = `레시피: ${entry.recipe}`;
+      recipeEl.textContent = `메모: ${entry.recipe}`;
       card.appendChild(recipeEl);
     }
     if (entry.comment) {
@@ -303,10 +337,40 @@
     refreshDashboard();
   }
 
+  // Options are grouped by which of the two recipe lists they come from —
+  // encoded as "<kind>:<id>" since that's the only way to tell apart a
+  // VongoleRecipeStore id from a VongoleCollectedRecipeStore id sharing the
+  // same <select> (their id prefixes differ in practice, but nothing
+  // guarantees that, so don't rely on it).
+  function syncLogRecipeSelectOptions(selectedValue) {
+    const select = document.getElementById("vongoleLogRecipeSelectInput");
+    if (!select) return;
+    select.innerHTML = '<option value="">선택 안 함</option>';
+    Object.entries(RECIPE_SECTIONS).forEach(([kind, section]) => {
+      const recipes = section.store().getAll();
+      if (recipes.length === 0) return;
+      const group = document.createElement("optgroup");
+      group.label = kind === "success" ? "🏆 대성공 레시피" : "📎 수집한 레시피";
+      recipes.forEach((r) => {
+        const opt = document.createElement("option");
+        opt.value = `${kind}:${r.id}`;
+        opt.textContent = r.title || "(제목 없음)";
+        group.appendChild(opt);
+      });
+      select.appendChild(group);
+    });
+    select.value = selectedValue || "";
+    // The previously-linked recipe may since have been deleted — in that
+    // case the option no longer exists, so setting .value above is a no-op
+    // and it silently falls back to "선택 안 함" rather than leaving a
+    // dangling selection.
+  }
+
   function openLogModal(mode, data) {
     editingLogId = mode === "edit" ? data.id : null;
     document.getElementById("vongoleLogModalTitle").textContent = mode === "edit" ? "시도 기록 수정" : "시도 기록 추가";
     document.getElementById("vongoleLogDateInput").value = data?.date || toDateStr(new Date());
+    syncLogRecipeSelectOptions(data?.recipeId ? `${data.recipeKind}:${data.recipeId}` : "");
     document.getElementById("vongoleLogRecipeInput").value = data?.recipe || "";
     document.getElementById("vongoleLogCommentInput").value = data?.comment || "";
     document.getElementById("deleteVongoleLogBtn").hidden = mode !== "edit";
@@ -326,8 +390,11 @@
       window.Toast?.show("날짜를 입력해주세요", { type: "warning" });
       return;
     }
+    const [recipeKind, recipeId] = document.getElementById("vongoleLogRecipeSelectInput").value.split(":");
     const payload = {
       date,
+      recipeId: recipeId || null,
+      recipeKind: recipeId ? recipeKind : null,
       recipe: document.getElementById("vongoleLogRecipeInput").value.trim(),
       comment: document.getElementById("vongoleLogCommentInput").value.trim(),
     };
@@ -340,6 +407,7 @@
     }
     closeLogModal();
     renderLog();
+    renderAllRecipes();
   }
 
   function handleDeleteLog() {
@@ -348,12 +416,14 @@
     closeLogModal();
     const removed = window.VongoleLogStore.remove(id);
     renderLog();
+    renderAllRecipes();
     if (removed && window.Toast) {
       window.Toast.show("기록을 삭제했어요", {
         actionLabel: "실행취소",
         onAction: () => {
           window.VongoleLogStore.restore(removed.item, removed.index);
           renderLog();
+          renderAllRecipes();
         },
       });
     }
