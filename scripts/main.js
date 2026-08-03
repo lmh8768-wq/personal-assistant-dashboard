@@ -81,6 +81,7 @@ const viewTitles = {
   practice: "베이스 연습 일지",
   study: "학업",
   exercise: "운동",
+  ledger: "가계부",
   assistant: "비서에게 묻기",
   settings: "설정",
 };
@@ -181,6 +182,7 @@ window.initFeatures = function initFeatures() {
   if (window.PracticeView) window.PracticeView.init();
   if (window.StudyView) window.StudyView.init();
   if (window.ExerciseView) window.ExerciseView.init();
+  if (window.LedgerView) window.LedgerView.init();
   if (window.RoutineView) window.RoutineView.init();
   if (window.GlobalSearch) window.GlobalSearch.init();
 };

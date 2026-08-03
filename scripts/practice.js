@@ -415,6 +415,17 @@
     return { total, done };
   }
 
+  // Copies get fresh ids top to bottom so a pasted subtree never collides
+  // with the goal(s) it was copied from (or with itself, pasted twice).
+  function deepCloneGoalWithNewIds(node) {
+    return {
+      id: createId("curr"),
+      label: node.label,
+      done: !!node.done,
+      children: (node.children || []).map(deepCloneGoalWithNewIds),
+    };
+  }
+
   const CurriculumStore = {
     getGoals() {
       return loadCurriculum();
@@ -499,6 +510,19 @@
       node.label = label;
       saveCurriculum(goals);
     },
+    // Pastes deep clones of `nodes` (each gets an entirely new id, top to
+    // bottom) as new children of `targetParentId`.
+    pasteGoals(targetParentId, nodes) {
+      const goals = loadCurriculum();
+      const parent = findGoalNode(goals, targetParentId);
+      if (!parent) return [];
+      const cloned = nodes.map(deepCloneGoalWithNewIds);
+      parent.children = parent.children || [];
+      parent.children.push(...cloned);
+      recomputeGoalNodeAndAncestors(goals, targetParentId);
+      saveCurriculum(goals);
+      return cloned;
+    },
   };
   window.PracticeCurriculumStore = CurriculumStore;
 
@@ -539,6 +563,88 @@
     if (!pendingNewGoal) return;
     CurriculumStore.removeGoal(pendingNewGoal.id);
     pendingNewGoal = null;
+  }
+
+  // ---------- Multi-select copy/paste (drag across rows to select, copy, then paste as another goal's children) ----------
+  let curriculumSelectMode = false;
+  let selectedGoalIds = new Set();
+  let dragSelectValue = null; // true/false while a paint-select drag is in progress, else null
+  let clipboardGoals = []; // deep-cloned snapshot of the goals copied last
+
+  function setGoalSelected(id, val) {
+    if (val) selectedGoalIds.add(id);
+    else selectedGoalIds.delete(id);
+    const row = document.querySelector(`.goal-item-row[data-goal-id="${id}"]`);
+    if (row) {
+      row.classList.toggle("selected", val);
+      const cb = row.querySelector(".goal-select-checkbox");
+      if (cb) cb.checked = val;
+    }
+    updateCurriculumSelectToolbar();
+  }
+
+  function updateCurriculumSelectToolbar() {
+    const toolbar = document.getElementById("curriculumSelectToolbar");
+    if (!toolbar) return;
+    toolbar.hidden = !curriculumSelectMode;
+    const countEl = document.getElementById("curriculumSelectCount");
+    if (countEl) countEl.textContent = `${selectedGoalIds.size}개 선택됨`;
+    const copyBtn = document.getElementById("curriculumCopyBtn");
+    if (copyBtn) copyBtn.disabled = selectedGoalIds.size === 0;
+  }
+
+  function toggleCurriculumSelectMode() {
+    curriculumSelectMode = !curriculumSelectMode;
+    selectedGoalIds.clear();
+    document.getElementById("curriculumSelectModeBtn").textContent = curriculumSelectMode ? "선택 취소" : "선택";
+    updateCurriculumSelectToolbar();
+    renderCurriculum();
+  }
+
+  function exitCurriculumSelectMode() {
+    curriculumSelectMode = false;
+    selectedGoalIds.clear();
+    document.getElementById("curriculumSelectModeBtn").textContent = "선택";
+    updateCurriculumSelectToolbar();
+  }
+
+  function handleCurriculumCopy() {
+    if (selectedGoalIds.size === 0) return;
+    const goals = CurriculumStore.getGoals();
+    clipboardGoals = [...selectedGoalIds]
+      .map((id) => findGoalNode(goals, id))
+      .filter(Boolean)
+      .map((n) => JSON.parse(JSON.stringify(n)));
+    const count = clipboardGoals.length;
+    exitCurriculumSelectMode();
+    updateClipboardNote();
+    renderCurriculum();
+    window.Toast?.show(`${count}개 목표를 복사했어요. 붙여넣을 목표의 "붙여넣기"를 눌러주세요.`);
+  }
+
+  function updateClipboardNote() {
+    const note = document.getElementById("curriculumClipboardNote");
+    if (!note) return;
+    note.innerHTML = "";
+    if (clipboardGoals.length === 0) {
+      note.hidden = true;
+      return;
+    }
+    note.hidden = false;
+    const text = document.createElement("span");
+    text.textContent = `📋 ${clipboardGoals.length}개 복사됨 — 붙여넣을 목표의 "붙여넣기"를 누르세요.`;
+    note.appendChild(text);
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "checklist-item-remove";
+    clearBtn.textContent = "×";
+    clearBtn.setAttribute("aria-label", "복사 취소");
+    clearBtn.addEventListener("click", () => {
+      clipboardGoals = [];
+      updateClipboardNote();
+      renderCurriculum();
+    });
+    note.appendChild(clearBtn);
   }
 
   // Toggling collapse used to just flip the stored flag and re-render the
@@ -701,9 +807,12 @@
     li.className = "goal-item";
 
     const row = document.createElement("div");
-    row.className = "goal-item-row checklist-item" + (node.done ? " done" : "");
+    row.className = "goal-item-row checklist-item" +
+      (node.done ? " done" : "") +
+      (selectedGoalIds.has(node.id) ? " selected" : "");
+    row.dataset.goalId = node.id;
 
-    row.draggable = true;
+    row.draggable = !curriculumSelectMode;
     row.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", node.id);
       e.dataTransfer.effectAllowed = "move";
@@ -730,17 +839,39 @@
       renderCurriculum();
     });
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = !!node.done;
-    checkbox.addEventListener("change", () => {
-      const applied = CurriculumStore.toggleDone(node.id);
-      if (!applied && window.Toast) {
-        window.Toast.show("하위 목표를 모두 완료해야 체크할 수 있어요", { type: "warning" });
-      }
-      renderCurriculum();
-    });
-    row.appendChild(checkbox);
+    if (curriculumSelectMode) {
+      // Click-and-drag across rows paints them all to the same new
+      // selected state as the row the gesture started on.
+      row.addEventListener("mousedown", (e) => {
+        if (e.target.closest("button, .goal-item-label-input, .checklist-item-remove")) return;
+        e.preventDefault();
+        const newVal = !selectedGoalIds.has(node.id);
+        dragSelectValue = newVal;
+        setGoalSelected(node.id, newVal);
+      });
+      row.addEventListener("mouseenter", () => {
+        if (dragSelectValue === null) return;
+        setGoalSelected(node.id, dragSelectValue);
+      });
+
+      const selectCheckbox = document.createElement("input");
+      selectCheckbox.type = "checkbox";
+      selectCheckbox.className = "goal-select-checkbox";
+      selectCheckbox.checked = selectedGoalIds.has(node.id);
+      row.appendChild(selectCheckbox);
+    } else {
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = !!node.done;
+      checkbox.addEventListener("change", () => {
+        const applied = CurriculumStore.toggleDone(node.id);
+        if (!applied && window.Toast) {
+          window.Toast.show("하위 목표를 모두 완료해야 체크할 수 있어요", { type: "warning" });
+        }
+        renderCurriculum();
+      });
+      row.appendChild(checkbox);
+    }
 
     const hasChildren = (node.children || []).length > 0;
     const collapsed = hasChildren && isGoalCollapsed(node.id);
@@ -794,6 +925,21 @@
         renderCurriculum();
       })
     );
+
+    if (!curriculumSelectMode && clipboardGoals.length > 0) {
+      const pasteBtn = document.createElement("button");
+      pasteBtn.type = "button";
+      pasteBtn.className = "ghost-btn goal-paste-btn";
+      pasteBtn.textContent = "붙여넣기";
+      pasteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (collapsed) toggleGoalCollapsed(node.id);
+        const pasted = CurriculumStore.pasteGoals(node.id, clipboardGoals);
+        renderCurriculum();
+        window.Toast?.show(`${pasted.length}개 목표를 붙여넣었어요`);
+      });
+      row.appendChild(pasteBtn);
+    }
 
     if (hasChildren) {
       const { total, done } = countGoalProgress(node);
@@ -890,6 +1036,16 @@
     });
     document.getElementById("toggleCurriculumBtn")?.addEventListener("click", (e) => {
       toggleSection(document.getElementById("practiceCurriculum"), e.currentTarget);
+    });
+
+    document.getElementById("curriculumSelectModeBtn")?.addEventListener("click", toggleCurriculumSelectMode);
+    document.getElementById("curriculumCopyBtn")?.addEventListener("click", handleCurriculumCopy);
+    document.getElementById("curriculumCancelSelectBtn")?.addEventListener("click", () => {
+      exitCurriculumSelectMode();
+      renderCurriculum();
+    });
+    document.addEventListener("mouseup", () => {
+      dragSelectValue = null;
     });
 
     document.getElementById("practiceModalOverlay").addEventListener("click", (e) => {

@@ -71,6 +71,9 @@
         <a class="nav-item" href="#exercise" data-view="exercise">
           <span class="nav-icon">💪</span><span class="nav-label">운동</span>
         </a>
+        <a class="nav-item" href="#ledger" data-view="ledger">
+          <span class="nav-icon">💰</span><span class="nav-label">가계부</span>
+        </a>
         <a class="nav-item" href="#assistant" data-view="assistant">
           <span class="nav-icon">✦</span><span class="nav-label">비서에게 묻기</span>
         </a>
@@ -326,8 +329,19 @@
             <div class="practice-column">
               <div class="diary-header">
                 <h2>커리큘럼</h2>
-                <button type="button" class="icon-btn section-toggle-btn" id="toggleCurriculumBtn" aria-expanded="true" aria-label="커리큘럼 접기/펼치기">▾</button>
+                <div class="diary-header-actions">
+                  <button type="button" class="ghost-btn" id="curriculumSelectModeBtn">선택</button>
+                  <button type="button" class="icon-btn section-toggle-btn" id="toggleCurriculumBtn" aria-expanded="true" aria-label="커리큘럼 접기/펼치기">▾</button>
+                </div>
               </div>
+              <div class="schedule-select-toolbar" id="curriculumSelectToolbar" hidden>
+                <span id="curriculumSelectCount">0개 선택됨</span>
+                <div>
+                  <button type="button" class="ghost-btn" id="curriculumCopyBtn">복사</button>
+                  <button type="button" class="ghost-btn danger" id="curriculumCancelSelectBtn">취소</button>
+                </div>
+              </div>
+              <div class="curriculum-clipboard-note" id="curriculumClipboardNote" hidden></div>
               <div id="practiceCurriculum"></div>
             </div>
 
@@ -385,6 +399,39 @@
           </div>
           <div id="learnedExerciseGroups"></div>
           <datalist id="learnedExerciseBodyPartOptions"></datalist>
+        </div>
+
+        <div class="view" id="view-ledger" hidden>
+          <section class="ledger-total-budget-section" id="ledgerTotalBudgetSection">
+            <div class="ledger-total-budget-row" id="ledgerTotalBudgetRow"></div>
+            <div class="ledger-category-rows" id="ledgerCategoryRows" hidden></div>
+          </section>
+
+          <div class="schedule-layout" id="ledgerLayout">
+            <div class="calendar-panel" id="ledgerCalendarPanel">
+              <div class="calendar-header">
+                <button class="icon-btn" id="ledgerPrevMonthBtn" aria-label="이전">‹</button>
+                <h2 id="ledgerCalendarTitle"></h2>
+                <button class="icon-btn" id="ledgerNextMonthBtn" aria-label="다음">›</button>
+                <button class="ghost-btn" id="ledgerTodayBtn">오늘</button>
+              </div>
+              <div class="calendar-weekdays">
+                <span class="weekday-sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="weekday-sat">토</span>
+              </div>
+              <div class="calendar-grid-viewport">
+                <div class="calendar-grid" id="ledgerCalendarGrid"></div>
+              </div>
+            </div>
+
+            <div class="day-panel">
+              <div class="day-panel-header">
+                <h2 id="ledgerSelectedDateLabel"></h2>
+                <button class="primary-btn" id="addLedgerEntryBtn">+ 추가</button>
+              </div>
+              <div class="ledger-day-summary" id="ledgerDaySummary"></div>
+              <ul class="schedule-list" id="ledgerDayEntryList"></ul>
+            </div>
+          </div>
         </div>
 
         <div class="view" id="view-assistant" hidden>
@@ -584,6 +631,83 @@
     </div>
   </div>
 
+  <!-- 가계부: 지출 추가/수정 모달 -->
+  <div class="modal-overlay" id="ledgerModalOverlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ledgerModalTitle">
+      <h3 id="ledgerModalTitle">지출 추가</h3>
+      <form id="ledgerForm">
+        <div class="ledger-type-tabs" id="ledgerTypeTabs">
+          <button type="button" class="ledger-period-tab active" data-type="expense">지출</button>
+          <button type="button" class="ledger-period-tab" data-type="income">수입</button>
+        </div>
+        <div class="time-row">
+          <label>
+            날짜
+            <input type="date" id="ledgerDateInput" required />
+          </label>
+          <label>
+            금액 (원)
+            <input type="number" id="ledgerAmountInput" min="0" step="1" placeholder="예: 12000" required />
+          </label>
+        </div>
+        <label>
+          카테고리
+          <select id="ledgerCategoryInput"></select>
+        </label>
+        <label>
+          메모
+          <input type="text" id="ledgerMemoInput" placeholder="메모 (선택)" />
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn danger" id="deleteLedgerEntryBtn" hidden>삭제</button>
+          <div class="modal-actions-right">
+            <button type="button" class="ghost-btn" id="cancelLedgerBtn">취소</button>
+            <button type="submit" class="primary-btn">저장</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="ledgerCategoryModalOverlay" hidden>
+    <div class="modal ledger-category-modal" role="dialog" aria-modal="true" aria-labelledby="ledgerCategoryModalTitle">
+      <h3 id="ledgerCategoryModalTitle">설정</h3>
+
+      <div class="ledger-settings-tabs" id="ledgerSettingsTabs">
+        <button type="button" class="ledger-period-tab active" data-tab="categories">카테고리 관리</button>
+        <button type="button" class="ledger-period-tab" data-tab="analysis">분석</button>
+      </div>
+
+      <div id="ledgerSettingsCategoriesPanel">
+        <p class="ledger-category-manager-subheading">지출 카테고리</p>
+        <div id="ledgerExpenseCategoryEditRows"></div>
+        <button type="button" class="ghost-btn" id="addLedgerExpenseCategoryBtn">+ 지출 카테고리 추가</button>
+
+        <p class="ledger-category-manager-subheading">수입 카테고리</p>
+        <div id="ledgerIncomeCategoryEditRows"></div>
+        <button type="button" class="ghost-btn" id="addLedgerIncomeCategoryBtn">+ 수입 카테고리 추가</button>
+      </div>
+
+      <div id="ledgerSettingsAnalysisPanel" hidden>
+        <div class="ledger-period-tabs" id="ledgerPeriodTabs">
+          <button type="button" class="ledger-period-tab active" data-period="month">월간</button>
+          <button type="button" class="ledger-period-tab" data-period="year">연간</button>
+        </div>
+        <div class="ledger-total-row">
+          <span class="ledger-total-label" id="ledgerTotalLabel">이번 달 지출</span>
+          <span class="ledger-total-value" id="ledgerTotalValue">0원</span>
+        </div>
+        <div id="ledgerAnalysisBody"></div>
+      </div>
+
+      <div class="modal-actions">
+        <div class="modal-actions-right">
+          <button type="button" class="primary-btn" id="closeLedgerCategoryModalBtn">완료</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 반복 일정 삭제 범위 선택 모달 -->
   <div class="modal-overlay" id="deleteScopeModalOverlay" hidden>
     <div class="modal delete-scope-modal" role="dialog" aria-modal="true" aria-labelledby="deleteScopeTitle">
@@ -655,6 +779,7 @@
   <script src="scripts/practice.js"></script>
   <script src="scripts/study.js"></script>
   <script src="scripts/exercise.js"></script>
+  <script src="scripts/ledger.js"></script>
   <script src="scripts/routine.js"></script>
   <script src="scripts/search.js"></script>
   <script src="scripts/main.js"></script>

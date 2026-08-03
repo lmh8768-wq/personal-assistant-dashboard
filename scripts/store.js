@@ -365,6 +365,161 @@
   };
 })();
 
+// ---------- Ledger (가계부) categories ----------
+// A separate store from the schedule categories above: this one supports
+// freely adding/removing categories (not just relabeling a fixed set), and
+// each expense category carries its own monthly budget goal. Every category
+// is tagged "expense" or "income" — the two use separate category lists in
+// the UI, and only expense categories have a meaningful budget.
+(function () {
+  const KEY = "assistant.ledgerCategories.v1";
+  const DEFAULTS = [
+    { key: "food", label: "식비", color: "#f97316", budget: 0, type: "expense" },
+    { key: "transport", label: "교통", color: "#60a5fa", budget: 0, type: "expense" },
+    { key: "shopping", label: "쇼핑", color: "#f472b6", budget: 0, type: "expense" },
+    { key: "culture", label: "문화/여가", color: "#a78bfa", budget: 0, type: "expense" },
+    { key: "living", label: "주거/생활", color: "#4ade80", budget: 0, type: "expense" },
+    { key: "etc", label: "기타", color: "#94a3b8", budget: 0, type: "expense" },
+    { key: "salary", label: "급여", color: "#22c55e", budget: 0, type: "income" },
+    { key: "allowance", label: "용돈", color: "#38bdf8", budget: 0, type: "income" },
+    { key: "etc_income", label: "기타수입", color: "#a3a3a3", budget: 0, type: "income" },
+  ];
+
+  function createKey() {
+    return `cat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return DEFAULTS;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return DEFAULTS;
+
+      // Migrate categories saved before income categories existed — they
+      // were all implicitly expense categories, and income defaults get
+      // appended once so there's something to pick from for income entries.
+      let changed = false;
+      const migrated = parsed.map((c) => {
+        if (c.type) return c;
+        changed = true;
+        return { ...c, type: "expense" };
+      });
+      if (!migrated.some((c) => c.type === "income")) {
+        migrated.push(...DEFAULTS.filter((c) => c.type === "income"));
+        changed = true;
+      }
+      if (changed) save(migrated);
+      return migrated;
+    } catch {
+      return DEFAULTS;
+    }
+  }
+
+  function save(categories) {
+    localStorage.setItem(KEY, JSON.stringify(categories));
+  }
+
+  window.LedgerCategoryStore = {
+    getAll() {
+      return load();
+    },
+    getByKey(key) {
+      return load().find((c) => c.key === key) || null;
+    },
+    getByType(type) {
+      return load().filter((c) => c.type === type);
+    },
+    add(label, color, type) {
+      const categories = load();
+      const item = { key: createKey(), label, color, budget: 0, type: type === "income" ? "income" : "expense" };
+      categories.push(item);
+      save(categories);
+      return item;
+    },
+    update(key, patch) {
+      const categories = load();
+      const idx = categories.findIndex((c) => c.key === key);
+      if (idx === -1) return null;
+      categories[idx] = { ...categories[idx], ...patch };
+      save(categories);
+      return categories[idx];
+    },
+    remove(key) {
+      const categories = load();
+      const idx = categories.findIndex((c) => c.key === key);
+      if (idx === -1) return null;
+      const [removed] = categories.splice(idx, 1);
+      save(categories);
+      return { item: removed, index: idx };
+    },
+    restore(item, index) {
+      const categories = load();
+      const at = Math.min(index, categories.length);
+      categories.splice(at, 0, item);
+      save(categories);
+    },
+  };
+})();
+
+// ---------- Ledger (가계부) expense entries ----------
+(function () {
+  const KEY = "assistant.ledgerEntries.v1";
+
+  function createId() {
+    return `exp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      const data = raw ? JSON.parse(raw) : [];
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function save(entries) {
+    localStorage.setItem(KEY, JSON.stringify(entries));
+  }
+
+  window.LedgerEntryStore = {
+    getAll() {
+      return load();
+    },
+    add(entry) {
+      const entries = load();
+      const item = { id: createId(), ...entry };
+      entries.push(item);
+      save(entries);
+      return item;
+    },
+    update(id, patch) {
+      const entries = load();
+      const idx = entries.findIndex((e) => e.id === id);
+      if (idx === -1) return null;
+      entries[idx] = { ...entries[idx], ...patch };
+      save(entries);
+      return entries[idx];
+    },
+    remove(id) {
+      const entries = load();
+      const idx = entries.findIndex((e) => e.id === id);
+      if (idx === -1) return null;
+      const [removed] = entries.splice(idx, 1);
+      save(entries);
+      return { item: removed, index: idx };
+    },
+    restore(item, index) {
+      const entries = load();
+      const at = Math.min(index, entries.length);
+      entries.splice(at, 0, item);
+      save(entries);
+    },
+  };
+})();
+
 // ---------- Korean public holidays (2026, static) ----------
 window.KoreanHolidays = {
   "2026-01-01": "신정",

@@ -552,13 +552,22 @@
     // height on top of the calendar's, throwing both off.
     weekWrap.hidden = true;
 
-    // Snap the panel down to its fit-to-viewport size now, before the
-    // week-cell FLIP targets further down get measured — they then already
-    // reflect the real final layout instead of the pre-expand one.
+    // Only pull the panel in to its fit-to-viewport width when the
+    // checklists are actually about to sit beside it — that width is sized
+    // to leave them room, so applying it while they're staying stacked
+    // below (no room for them beside it, or just not worth it yet) would
+    // narrow the calendar for no reason. Stacked mode just grows taller
+    // instead, using the full width like before.
+    const sideBySide = layout ? canFitSideBySide(layout.getBoundingClientRect().width) : false;
     if (panel) {
-      const fit = computeCalendarFit();
-      panel.style.maxWidth = fit.width + "px";
-      if (layout) layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
+      if (sideBySide) {
+        const fit = computeCalendarFit();
+        panel.style.maxWidth = fit.width + "px";
+        if (layout) layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
+      } else {
+        panel.style.maxWidth = "";
+        if (layout) layout.style.marginTop = "";
+      }
     }
 
     // Move the checklists over to the calendar's right side now that the
@@ -892,33 +901,41 @@
   let responsiveResizeTimer = null;
 
   // Auto-expands the calendar (moving the checklists beside it) once the
-  // window is wide enough to fit both comfortably, and auto-collapses it
-  // again if the window shrinks back below that — so a maximized window
-  // doesn't require a manual click, and a squeezed-narrow window never gets
-  // stuck showing the calendar and checklists cramped side by side.
+  // window is wide enough to fit both comfortably, without needing a manual
+  // click. Once open (whether opened this way or by hand), it stays open —
+  // narrowing the window back below that just drops the checklists back to
+  // stacked below it and lets the calendar use the full width again; only
+  // the manual toggle actually closes it. See expandCalendarAnimated()'s
+  // comment for why side-by-side-ness and the fit-to-viewport width are
+  // tied together in the first place.
   function checkResponsiveCalendarLayout() {
     if (toggleAnimating) return;
     const layout = document.getElementById("routineLayout");
     const section = document.getElementById("routineCalendarSection");
-    if (!layout || !section) return;
+    const panel = document.getElementById("routineWeekPanel");
+    if (!layout || !section || !panel) return;
     const width = layout.getBoundingClientRect().width;
     if (width === 0) return; // view not currently visible — nothing to measure yet
+
     const fits = canFitSideBySide(width);
     const isExpanded = !section.hidden;
+
     if (fits && !isExpanded) {
       setCalendarExpanded(true);
-    } else if (!fits && isExpanded) {
-      setCalendarExpanded(false);
-    } else if (fits && isExpanded) {
-      // Still expanded and still fits, but the viewport's height may have
-      // changed (e.g. resized vertically only) — re-fit the calendar's own
-      // size to it.
-      const panel = document.getElementById("routineWeekPanel");
-      if (panel) {
-        const fit = computeCalendarFit();
-        panel.style.maxWidth = fit.width + "px";
-        layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
-      }
+      return;
+    }
+    if (!isExpanded) return; // stays collapsed; nothing else to reconcile
+
+    const isSideBySide = layout.classList.contains("calendar-expanded");
+    if (fits !== isSideBySide) animateChecklistsLayout(fits);
+
+    if (fits) {
+      const fit = computeCalendarFit();
+      panel.style.maxWidth = fit.width + "px";
+      layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
+    } else {
+      panel.style.maxWidth = "";
+      layout.style.marginTop = "";
     }
   }
 

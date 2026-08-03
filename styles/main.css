@@ -620,6 +620,16 @@ button.nav-item {
   color: var(--accent);
 }
 
+.ghost-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ghost-btn:disabled:hover {
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
 .primary-btn {
   background: var(--accent);
   border: none;
@@ -1315,6 +1325,12 @@ button.nav-item {
   font-weight: 700;
 }
 
+.diary-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* The topbar already shows the page title, so this row's own heading was
    dropped to avoid repeating it — this keeps the add button pinned to the
    right whether or not the streak badge next to it is showing. */
@@ -1840,6 +1856,36 @@ button.nav-item {
   bottom: -4.5px;
 }
 
+.goal-item-row.selected {
+  background: var(--accent-soft);
+  border-radius: 8px;
+}
+
+.goal-paste-btn {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  font-size: 11px;
+}
+
+.curriculum-clipboard-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.curriculum-clipboard-note .checklist-item-remove {
+  margin-left: 0;
+  flex-shrink: 0;
+}
+
 .goal-item-progress {
   flex-shrink: 0;
   font-size: 11px;
@@ -2001,6 +2047,425 @@ button.nav-item {
   outline: none;
   flex: 1;
   min-width: 100px;
+}
+
+/* ---------- Ledger (가계부) ---------- */
+.ledger-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.ledger-period-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ledger-settings-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.ledger-period-tab {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.ledger-period-tab.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ledger-type-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.ledger-calendar-day-amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-size: 9px;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.ledger-calendar-day-expense {
+  color: #f31260;
+}
+
+.ledger-calendar-day-income {
+  color: #17c964;
+}
+
+.ledger-day-summary {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ledger-day-summary-expense {
+  color: #f31260;
+}
+
+.ledger-day-summary-income {
+  color: #17c964;
+}
+
+.ledger-category-manager-subheading {
+  margin: 14px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ledger-category-manager-subheading:first-child {
+  margin-top: 0;
+}
+
+.ledger-entry-amount.income {
+  color: #17c964;
+}
+
+.ledger-total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ledger-total-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ledger-total-value {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.ledger-analysis-subheading {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ledger-analysis-subheading:first-child {
+  margin-top: 0;
+}
+
+.ledger-bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ledger-bar-row {
+  display: grid;
+  grid-template-columns: 64px 1fr 88px;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.ledger-bar-label {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-elevated-2);
+  overflow: hidden;
+}
+
+.ledger-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.ledger-bar-value {
+  text-align: right;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ledger-category-progress-note {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.ledger-total-budget-section {
+  margin-bottom: 20px;
+}
+
+.ledger-total-budget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ledger-total-budget-title-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ledger-total-budget-title {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ledger-settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.ledger-settings-btn:hover {
+  background: var(--bg-elevated-2);
+  opacity: 1;
+}
+
+.ledger-total-budget-value {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ledger-total-budget-track-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ledger-total-budget-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.ledger-total-budget-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.ledger-total-budget-fill.warning {
+  background: #f5a524;
+}
+
+.ledger-total-budget-fill.over {
+  background: #f31260;
+}
+
+.ledger-expand-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.ledger-expand-btn:hover {
+  background: var(--bg-elevated-2);
+  color: var(--text);
+}
+
+.ledger-expand-icon {
+  display: inline-block;
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.ledger-expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.ledger-category-rows {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.ledger-category-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ledger-category-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.ledger-category-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.ledger-category-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.ledger-category-row-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-category-row-amount {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ledger-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ledger-progress-track {
+  flex: 1;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--bg-elevated-2);
+  overflow: hidden;
+}
+
+.ledger-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.ledger-progress-fill.warning {
+  background: #f5a524 !important;
+}
+
+.ledger-progress-fill.over {
+  background: #f31260 !important;
+}
+
+.ledger-progress-pct {
+  flex-shrink: 0;
+  width: 38px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ledger-progress-pct-muted {
+  width: auto;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.ledger-category-edit-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ledger-category-budget-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ledger-category-budget-row input {
+  width: 100px;
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.ledger-entry-item {
+  align-items: center;
+}
+
+.ledger-entry-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ledger-entry-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ledger-entry-amount {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 /* ---------- Settings form ---------- */
@@ -2291,6 +2756,11 @@ button.nav-item {
   color: var(--text-muted);
 }
 
+.modal .ledger-category-budget-row {
+  flex-direction: row;
+  align-items: center;
+}
+
 .modal input,
 .modal textarea,
 .modal select {
@@ -2378,6 +2848,34 @@ button.nav-item {
 
 .delete-scope-modal {
   width: 340px;
+}
+
+.ledger-category-modal {
+  width: 460px;
+}
+
+@keyframes ledger-settings-overlay-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ledger-settings-modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+#ledgerCategoryModalOverlay:not([hidden]) {
+  animation: ledger-settings-overlay-enter 0.18s ease;
+}
+
+#ledgerCategoryModalOverlay:not([hidden]) .ledger-category-modal {
+  animation: ledger-settings-modal-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .delete-scope-actions {
