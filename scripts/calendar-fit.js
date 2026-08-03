@@ -83,5 +83,15 @@
     layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
   }
 
-  window.CalendarFit = { compute, apply };
+  // Adds the Sat/Sun coloring classes a calendar day cell gets in both
+  // schedule.js and ledger.js — the two calendars' cell-building otherwise
+  // diverges right after this point (schedule shows occurrence titles and a
+  // holiday label, ledger shows expense/income totals), so this one bit
+  // stayed the only thing worth sharing between them.
+  function applyWeekendClass(cell, date) {
+    if (date.getDay() === 0) cell.classList.add("weekday-sun");
+    if (date.getDay() === 6) cell.classList.add("weekday-sat");
+  }
+
+  window.CalendarFit = { compute, apply, applyWeekendClass };
 })();

@@ -307,8 +307,7 @@
     if (isOutside) cell.classList.add("outside");
     if (dStr === todayStr) cell.classList.add("today");
     if (dStr === selectedStr) cell.classList.add("selected");
-    if (d.getDay() === 0) cell.classList.add("weekday-sun");
-    if (d.getDay() === 6) cell.classList.add("weekday-sat");
+    window.CalendarFit.applyWeekendClass(cell, d);
 
     const topRow = document.createElement("div");
     topRow.className = "calendar-day-top";
