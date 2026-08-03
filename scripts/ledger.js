@@ -33,6 +33,29 @@
     return n.toLocaleString("ko-KR");
   }
 
+  // ---------- Live thousands-separator formatting for amount inputs ----------
+  // A plain <input type="number"> can't show "12,000" while typing — commas
+  // aren't valid there — so these amount fields are type="text" instead,
+  // reformatted with commas on every keystroke, with the digits-only value
+  // parsed back out via parseAmountInput() wherever it's read for saving.
+  function formatAmountForInput(value) {
+    const digits = String(value ?? "").replace(/[^\d]/g, "");
+    return digits ? Number(digits).toLocaleString("ko-KR") : "";
+  }
+
+  function parseAmountInput(el) {
+    return Number((el.value || "").replace(/[^\d]/g, "")) || 0;
+  }
+
+  function bindLiveAmountFormatting(input) {
+    input.type = "text";
+    input.inputMode = "numeric";
+    input.addEventListener("input", () => {
+      const digits = input.value.replace(/[^\d]/g, "");
+      input.value = digits ? Number(digits).toLocaleString("ko-KR") : "";
+    });
+  }
+
   function getCategory(key) {
     return window.LedgerCategoryStore.getByKey(key);
   }
@@ -286,13 +309,11 @@
     row.appendChild(select);
 
     const amount = document.createElement("input");
-    amount.type = "number";
+    bindLiveAmountFormatting(amount);
     amount.className = "ledger-row-amount";
-    amount.min = "0";
-    amount.step = "1";
-    amount.placeholder = "예: 12000";
+    amount.placeholder = "예: 12,000";
     amount.setAttribute("aria-label", "금액 (원)");
-    if (data?.amount != null) amount.value = data.amount;
+    if (data?.amount != null) amount.value = formatAmountForInput(data.amount);
     row.appendChild(amount);
 
     const removeBtn = document.createElement("span");
@@ -387,7 +408,7 @@
 
     if (editingId) {
       const row = rows[0];
-      const amount = Number(row.querySelector(".ledger-row-amount").value);
+      const amount = parseAmountInput(row.querySelector(".ledger-row-amount"));
       if (!amount || amount <= 0) {
         window.Toast?.show("금액을 입력해주세요", { type: "warning" });
         return;
@@ -409,7 +430,7 @@
     const entries = rows
       .map((row) => ({
         date,
-        amount: Number(row.querySelector(".ledger-row-amount").value),
+        amount: parseAmountInput(row.querySelector(".ledger-row-amount")),
         categoryKey: row.querySelector(".ledger-row-category").value,
         type: modalType,
       }))
@@ -709,13 +730,11 @@
       budgetText.textContent = "월 목표";
       budgetRow.appendChild(budgetText);
       const budgetInput = document.createElement("input");
-      budgetInput.type = "number";
-      budgetInput.min = "0";
-      budgetInput.step = "1000";
+      bindLiveAmountFormatting(budgetInput);
       budgetInput.placeholder = "0";
-      budgetInput.value = cat.budget || "";
+      budgetInput.value = cat.budget ? formatAmountForInput(cat.budget) : "";
       budgetInput.addEventListener("change", () => {
-        window.LedgerCategoryStore.update(cat.key, { budget: Number(budgetInput.value) || 0 });
+        window.LedgerCategoryStore.update(cat.key, { budget: parseAmountInput(budgetInput) });
         renderAll();
       });
       budgetRow.appendChild(budgetInput);

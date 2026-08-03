@@ -12,7 +12,6 @@
 
   function show(message, opts) {
     opts = opts || {};
-    const duration = opts.duration || 4000;
     const container = ensureContainer();
 
     const toast = document.createElement("div");
@@ -29,6 +28,11 @@
     const actions = opts.actions || (opts.actionLabel && opts.onAction
       ? [{ label: opts.actionLabel, onAction: opts.onAction }]
       : []);
+
+    // An actionable toast (almost always "실행취소" after a delete) needs
+    // longer than a plain status message — 4s barely gives time to read it,
+    // let alone notice and tap the button before the delete becomes final.
+    const duration = opts.duration || (actions.length > 0 ? 8000 : 4000);
 
     actions.forEach((action) => {
       const btn = document.createElement("button");

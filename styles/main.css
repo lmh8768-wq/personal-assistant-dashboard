@@ -703,6 +703,27 @@ button.nav-item {
 }
 
 /* ---------- Vongole pasta (봉골레 파스타) ---------- */
+.vongole-filter-row {
+  margin-bottom: 16px;
+}
+
+.vongole-filter-row input {
+  width: 100%;
+  max-width: 320px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  outline: none;
+}
+
+.vongole-filter-row input:focus {
+  border-color: var(--accent);
+}
+
 .vongole-recipe-list {
   display: flex;
   flex-direction: column;

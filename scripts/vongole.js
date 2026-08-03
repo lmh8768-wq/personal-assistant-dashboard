@@ -43,6 +43,8 @@
   // In-memory only — a freshly opened tab starts with every recipe collapsed
   // except whichever one was just created via the + button.
   const expandedRecipeIds = new Set();
+  // Single filter box (#vongoleFilterInput) narrows all three lists at once.
+  let filterQuery = "";
 
   function pad2(n) {
     return String(n).padStart(2, "0");
@@ -158,10 +160,14 @@
     const section = RECIPE_SECTIONS[kind];
     const list = document.getElementById(section.listId);
     if (!list) return;
-    const recipes = section.store().getAll();
+    const all = section.store().getAll();
+    const q = filterQuery.trim().toLowerCase();
+    const recipes = q ? all.filter((r) => `${r.title} ${r.content}`.toLowerCase().includes(q)) : all;
     list.innerHTML = "";
     if (recipes.length === 0) {
-      list.innerHTML = `<div class="empty-state"><span class="empty-icon">${section.emptyIcon}</span><p>${section.emptyText}</p></div>`;
+      const icon = q ? "🔍" : section.emptyIcon;
+      const text = q ? "검색 결과가 없어요" : section.emptyText;
+      list.innerHTML = `<div class="empty-state"><span class="empty-icon">${icon}</span><p>${text}</p></div>`;
       refreshDashboard();
       return;
     }
@@ -178,6 +184,10 @@
   // of opening a modal first — same "instant create, edit inline" pattern
   // the 커리큘럼 goal tree's + button uses.
   function addRecipe(kind) {
+    // Clear any active filter first — otherwise a brand-new blank recipe
+    // wouldn't match the filter text and would render straight into the
+    // "no results" empty state instead of showing up to be edited.
+    clearFilter();
     const created = RECIPE_SECTIONS[kind].store().add("", "");
     expandedRecipeIds.add(created.id);
     renderRecipeSection(kind);
@@ -232,10 +242,16 @@
   function renderLog() {
     const feed = document.getElementById("vongoleLogFeed");
     if (!feed) return;
-    const entries = [...window.VongoleLogStore.getAll()].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    const all = [...window.VongoleLogStore.getAll()].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    const q = filterQuery.trim().toLowerCase();
+    const entries = q
+      ? all.filter((e) => `${e.recipe || ""} ${e.comment || ""} ${e.date}`.toLowerCase().includes(q))
+      : all;
     feed.innerHTML = "";
     if (entries.length === 0) {
-      feed.innerHTML = `<div class="empty-state"><span class="empty-icon">🍝</span><p>아직 시도 기록이 없어요</p></div>`;
+      const icon = q ? "🔍" : "🍝";
+      const text = q ? "검색 결과가 없어요" : "아직 시도 기록이 없어요";
+      feed.innerHTML = `<div class="empty-state"><span class="empty-icon">${icon}</span><p>${text}</p></div>`;
       refreshDashboard();
       return;
     }
@@ -299,10 +315,22 @@
     }
   }
 
+  function clearFilter() {
+    filterQuery = "";
+    const input = document.getElementById("vongoleFilterInput");
+    if (input) input.value = "";
+  }
+
   function init() {
     seedDefaultRecipeIfEmpty();
     renderAllRecipes();
     renderLog();
+
+    document.getElementById("vongoleFilterInput")?.addEventListener("input", (e) => {
+      filterQuery = e.target.value;
+      renderAllRecipes();
+      renderLog();
+    });
 
     document.getElementById("addVongoleRecipeBtn")?.addEventListener("click", () => addRecipe("success"));
     document.getElementById("addVongoleCollectedRecipeBtn")?.addEventListener("click", () => addRecipe("collected"));
