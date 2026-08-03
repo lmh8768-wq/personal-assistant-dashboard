@@ -253,42 +253,9 @@ window.safeSetLocalStorage = function (key, value) {
 })();
 
 // ---------- Schedule templates (localStorage) ----------
-(function () {
-  const TEMPLATES_KEY = "assistant.templates.v1";
-
-  function loadTemplates() {
-    try {
-      const raw = localStorage.getItem(TEMPLATES_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveTemplates(templates) {
-    window.safeSetLocalStorage(TEMPLATES_KEY, JSON.stringify(templates));
-  }
-
-  function createId() {
-    return `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  }
-
-  window.TemplateStore = {
-    getAll() {
-      return loadTemplates();
-    },
-    add(template) {
-      const templates = loadTemplates();
-      const item = { id: createId(), ...template };
-      templates.push(item);
-      saveTemplates(templates);
-      return item;
-    },
-    remove(id) {
-      saveTemplates(loadTemplates().filter((t) => t.id !== id));
-    },
-  };
-})();
+// createEntityStore is declared further down in this file (as a function
+// declaration, so it's hoisted and already callable here).
+window.TemplateStore = createEntityStore("assistant.templates.v1", "tpl");
 
 // ---------- Schedule categories (localStorage) ----------
 (function () {
