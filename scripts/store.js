@@ -439,70 +439,13 @@ window.safeSetLocalStorage = function (key, value) {
   };
 })();
 
-// ---------- Ledger (가계부) expense entries ----------
-(function () {
-  const KEY = "assistant.ledgerEntries.v1";
-
-  function createId() {
-    return `exp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  }
-
-  function load() {
-    try {
-      const raw = localStorage.getItem(KEY);
-      const data = raw ? JSON.parse(raw) : [];
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function save(entries) {
-    window.safeSetLocalStorage(KEY, JSON.stringify(entries));
-  }
-
-  window.LedgerEntryStore = {
-    getAll() {
-      return load();
-    },
-    add(entry) {
-      const entries = load();
-      const item = { id: createId(), ...entry };
-      entries.push(item);
-      save(entries);
-      return item;
-    },
-    update(id, patch) {
-      const entries = load();
-      const idx = entries.findIndex((e) => e.id === id);
-      if (idx === -1) return null;
-      entries[idx] = { ...entries[idx], ...patch };
-      save(entries);
-      return entries[idx];
-    },
-    remove(id) {
-      const entries = load();
-      const idx = entries.findIndex((e) => e.id === id);
-      if (idx === -1) return null;
-      const [removed] = entries.splice(idx, 1);
-      save(entries);
-      return { item: removed, index: idx };
-    },
-    restore(item, index) {
-      const entries = load();
-      const at = Math.min(index, entries.length);
-      entries.splice(at, 0, item);
-      save(entries);
-    },
-  };
-})();
-
-// ---------- Vongole pasta (봉골레 파스타) recipes ----------
-// Same shape/logic backs two separate lists — 대성공 레시피 (personally
-// verified) and 수집한 레시피 (gathered from elsewhere, untried/unrated) —
-// so this factory builds each store from its own localStorage key rather
-// than duplicating the CRUD logic twice.
-function createVongoleRecipeStore(key, idPrefix) {
+// ---------- Generic flat-list entity store factory ----------
+// Ledger entries, vongole recipes (both lists), and the vongole attempt log
+// all reduce to the same shape — an id-keyed array in one localStorage key
+// with add/update/remove/restore — so every one of them is built from this
+// one factory instead of each hand-rolling its own copy of the same
+// getAll/find/splice logic.
+function createEntityStore(key, idPrefix) {
   function createId() {
     return `${idPrefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
@@ -517,106 +460,57 @@ function createVongoleRecipeStore(key, idPrefix) {
     }
   }
 
-  function save(recipes) {
-    window.safeSetLocalStorage(key, JSON.stringify(recipes));
+  function save(items) {
+    window.safeSetLocalStorage(key, JSON.stringify(items));
   }
 
   return {
     getAll() {
       return load();
     },
-    add(title, content) {
-      const recipes = load();
-      const item = { id: createId(), title, content };
-      recipes.push(item);
-      save(recipes);
+    add(entry) {
+      const items = load();
+      const item = { id: createId(), ...entry };
+      items.push(item);
+      save(items);
       return item;
     },
     update(id, patch) {
-      const recipes = load();
-      const idx = recipes.findIndex((r) => r.id === id);
+      const items = load();
+      const idx = items.findIndex((it) => it.id === id);
       if (idx === -1) return null;
-      recipes[idx] = { ...recipes[idx], ...patch };
-      save(recipes);
-      return recipes[idx];
+      items[idx] = { ...items[idx], ...patch };
+      save(items);
+      return items[idx];
     },
     remove(id) {
-      const recipes = load();
-      const idx = recipes.findIndex((r) => r.id === id);
+      const items = load();
+      const idx = items.findIndex((it) => it.id === id);
       if (idx === -1) return null;
-      const [removed] = recipes.splice(idx, 1);
-      save(recipes);
+      const [removed] = items.splice(idx, 1);
+      save(items);
       return { item: removed, index: idx };
     },
     restore(item, index) {
-      const recipes = load();
-      const at = Math.min(index, recipes.length);
-      recipes.splice(at, 0, item);
-      save(recipes);
+      const items = load();
+      const at = Math.min(index, items.length);
+      items.splice(at, 0, item);
+      save(items);
     },
   };
 }
 
-window.VongoleRecipeStore = createVongoleRecipeStore("assistant.vongoleRecipes.v1", "vr");
-window.VongoleCollectedRecipeStore = createVongoleRecipeStore("assistant.vongoleCollectedRecipes.v1", "vcr");
+// ---------- Ledger (가계부) expense entries ----------
+window.LedgerEntryStore = createEntityStore("assistant.ledgerEntries.v1", "exp");
+
+// ---------- Vongole pasta (봉골레 파스타) recipes ----------
+// Same shape/logic backs two separate lists — 대성공 레시피 (personally
+// verified) and 수집한 레시피 (gathered from elsewhere, untried/unrated).
+window.VongoleRecipeStore = createEntityStore("assistant.vongoleRecipes.v1", "vr");
+window.VongoleCollectedRecipeStore = createEntityStore("assistant.vongoleCollectedRecipes.v1", "vcr");
 
 // ---------- Vongole pasta (봉골레 파스타) attempt log ----------
-(function () {
-  const KEY = "assistant.vongoleLog.v1";
-
-  function createId() {
-    return `vl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  }
-
-  function load() {
-    try {
-      const raw = localStorage.getItem(KEY);
-      const data = raw ? JSON.parse(raw) : [];
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function save(entries) {
-    window.safeSetLocalStorage(KEY, JSON.stringify(entries));
-  }
-
-  window.VongoleLogStore = {
-    getAll() {
-      return load();
-    },
-    add(entry) {
-      const entries = load();
-      const item = { id: createId(), ...entry };
-      entries.push(item);
-      save(entries);
-      return item;
-    },
-    update(id, patch) {
-      const entries = load();
-      const idx = entries.findIndex((e) => e.id === id);
-      if (idx === -1) return null;
-      entries[idx] = { ...entries[idx], ...patch };
-      save(entries);
-      return entries[idx];
-    },
-    remove(id) {
-      const entries = load();
-      const idx = entries.findIndex((e) => e.id === id);
-      if (idx === -1) return null;
-      const [removed] = entries.splice(idx, 1);
-      save(entries);
-      return { item: removed, index: idx };
-    },
-    restore(item, index) {
-      const entries = load();
-      const at = Math.min(index, entries.length);
-      entries.splice(at, 0, item);
-      save(entries);
-    },
-  };
-})();
+window.VongoleLogStore = createEntityStore("assistant.vongoleLog.v1", "vl");
 
 // ---------- Korean public holidays ----------
 // Previously a single static object hardcoded for 2026 only — every other

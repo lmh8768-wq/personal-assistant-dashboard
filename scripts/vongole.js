@@ -86,7 +86,7 @@
 
   function seedDefaultRecipeIfEmpty() {
     if (window.VongoleRecipeStore.getAll().length === 0) {
-      window.VongoleRecipeStore.add("기본 레시피", DEFAULT_RECIPE_CONTENT);
+      window.VongoleRecipeStore.add({ title: "기본 레시피", content: DEFAULT_RECIPE_CONTENT });
     }
   }
 
@@ -216,7 +216,7 @@
     // wouldn't match the filter text and would render straight into the
     // "no results" empty state instead of showing up to be edited.
     clearFilter();
-    const created = RECIPE_SECTIONS[kind].store().add("", "");
+    const created = RECIPE_SECTIONS[kind].store().add({ title: "", content: "" });
     expandedRecipeIds.add(created.id);
     renderRecipeSection(kind);
     requestAnimationFrame(() => {

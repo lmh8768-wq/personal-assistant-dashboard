@@ -35,8 +35,8 @@ test("LedgerEntryStore: update/remove on an unknown id is a no-op, not a throw",
 test("VongoleRecipeStore and VongoleCollectedRecipeStore are independent (same factory, separate storage keys)", () => {
   const window = loadStoreModule();
 
-  const success = window.VongoleRecipeStore.add("대성공", "내용1");
-  window.VongoleCollectedRecipeStore.add("수집", "내용2");
+  const success = window.VongoleRecipeStore.add({ title: "대성공", content: "내용1" });
+  window.VongoleCollectedRecipeStore.add({ title: "수집", content: "내용2" });
 
   assert.equal(window.VongoleRecipeStore.getAll().length, 1);
   assert.equal(window.VongoleCollectedRecipeStore.getAll().length, 1);
