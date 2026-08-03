@@ -276,6 +276,78 @@
     renderCalendar();
   }
 
+  // Sizes the calendar panel so its full 6-row month grid fits the
+  // scrollable content area (below the topbar/search bar) without needing
+  // to scroll, and so the empty space below it matches the space above —
+  // mirroring the same fit-to-viewport approach the routine tab's calendar
+  // uses. Cells here are 3:4 (portrait) rather than square, so the width
+  // math differs from routine.js's version, but the idea is identical:
+  // everything in the panel except the grid has a width-independent
+  // height, so subtracting the grid's current height out of the panel's
+  // total pins down how much vertical room is "chrome" versus grid.
+  function computeScheduleCalendarFit() {
+    const panel = document.getElementById("calendarPanel");
+    const grid = document.getElementById("calendarGrid");
+    const layout = document.getElementById("scheduleLayout");
+    const contentEl = document.querySelector(".content");
+    const fallback = { width: 640, marginTop: 0 };
+    if (!panel || !grid || !layout || !contentEl || !grid.children.length) return fallback;
+
+    const ROWS = 6; // buildMonthGrid() always returns exactly 6 weeks
+    const GRID_GAP = 4; // must match .calendar-grid's gap in CSS
+    const CELL_ASPECT = 4 / 3; // height / width, matches .calendar-day's aspect-ratio: 3/4
+    const MIN_WIDTH = 420;
+    const DAY_PANEL_MIN_WIDTH = 280;
+    const LAYOUT_GAP = 14; // must match .schedule-layout's gap in CSS
+
+    const gridRect = grid.getBoundingClientRect();
+    const chromeHeight = panel.scrollHeight - gridRect.height;
+    const chromeWidth = panel.getBoundingClientRect().width - gridRect.width;
+
+    const contentStyle = getComputedStyle(contentEl);
+    const paddingTop = parseFloat(contentStyle.paddingTop) || 0;
+    const paddingBottom = parseFloat(contentStyle.paddingBottom) || 0;
+    // The smaller of the two margins can't be matched without either
+    // scrolling (shrinking it isn't possible, it's fixed page padding) or
+    // growing past the larger one — so equalize on whichever is bigger.
+    const margin = Math.max(paddingTop, paddingBottom);
+    const marginTop = margin - paddingTop;
+
+    // The extra 2px is slack for sub-pixel rounding across 6 rows of cell
+    // borders/padding — without it this occasionally overflows by a pixel
+    // or two and forces an (invisible-looking but real) scrollbar.
+    const targetPanelHeight = contentEl.clientHeight - margin * 2 - 2;
+    const targetGridHeight = Math.max(ROWS * 24, targetPanelHeight - chromeHeight);
+    const cellWidth = (targetGridHeight - (ROWS - 1) * GRID_GAP) / (ROWS * CELL_ASPECT);
+    let targetWidth = 7 * cellWidth + 6 * GRID_GAP + chromeWidth;
+
+    const available = layout.getBoundingClientRect().width;
+    targetWidth = Math.min(targetWidth, available - LAYOUT_GAP - DAY_PANEL_MIN_WIDTH);
+
+    return { width: Math.max(MIN_WIDTH, targetWidth), marginTop };
+  }
+
+  function applyScheduleCalendarFit() {
+    const layout = document.getElementById("scheduleLayout");
+    if (!layout || layout.getBoundingClientRect().width === 0) return; // view not visible yet
+
+    // Below this width the CSS media query stacks the calendar and day
+    // panel into a single column — an inline grid-template-columns would
+    // outrank that (it's more specific than a class selector regardless of
+    // the media query), so back off and let the stylesheet drive it there.
+    if (window.matchMedia("(max-width: 960px)").matches) {
+      layout.style.gridTemplateColumns = "";
+      layout.style.marginTop = "";
+      return;
+    }
+
+    const fit = computeScheduleCalendarFit();
+    layout.style.gridTemplateColumns = `${fit.width}px 1fr`;
+    layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
+  }
+
+  let scheduleResizeTimer = null;
+
   function buildCalendarCell(d, isOutside) {
     const dStr = toDateStr(d);
     const todayStr = toDateStr(new Date());
@@ -1039,12 +1111,19 @@
     });
 
     refreshAll();
+    applyScheduleCalendarFit();
+
+    window.addEventListener("resize", () => {
+      clearTimeout(scheduleResizeTimer);
+      scheduleResizeTimer = setTimeout(applyScheduleCalendarFit, 200);
+    });
   }
 
   window.ScheduleView = {
     init,
     refreshDashboard,
     refreshAll,
+    onShow: applyScheduleCalendarFit,
     openAddModal: () => openModal("add"),
     goToToday: () => {
       const now = new Date();

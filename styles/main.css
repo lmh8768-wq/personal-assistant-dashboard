@@ -1610,7 +1610,15 @@ button.nav-item {
    layout swap itself (flex-direction changes don't interpolate). */
 .routine-layout.calendar-expanded {
   flex-direction: row;
-  align-items: flex-start;
+  /* Stretch (rather than flex-start) so the checklists column matches the
+     calendar's height instead of stopping wherever its own, usually much
+     shorter, content ends — the last checklist card below absorbs the
+     leftover space so the two columns' bottoms line up. */
+  align-items: stretch;
+}
+
+.routine-layout.calendar-expanded .routine-checklists .routine-panel:last-child {
+  flex: 1;
 }
 
 .routine-layout.calendar-expanded .routine-week-panel {
@@ -1626,7 +1634,7 @@ button.nav-item {
      space is left over on a wide screen instead of staying a reasonable,
      readable width next to the calendar. */
   width: 100%;
-  max-width: 380px;
+  max-width: 480px;
   flex-shrink: 1;
   min-width: 0;
 }

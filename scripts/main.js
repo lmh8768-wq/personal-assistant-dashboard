@@ -101,6 +101,14 @@ function showView(viewName) {
   if (viewName === "dashboard" && window.WeatherView) {
     window.WeatherView.refreshDashboard();
   }
+  if (viewName === "routine" && window.RoutineView) {
+    // The routine layout was hidden (width 0) for any resize that happened
+    // while on another tab, so re-check now that it's actually measurable.
+    window.RoutineView.onShow();
+  }
+  if (viewName === "schedule" && window.ScheduleView) {
+    window.ScheduleView.onShow();
+  }
   if (viewName === "settings" && window.SettingsView) {
     window.SettingsView.refreshStorage();
   }

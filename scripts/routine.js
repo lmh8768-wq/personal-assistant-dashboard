@@ -7,12 +7,11 @@
     { key: "life", listId: "lifeChecklistList", addRowId: "lifeChecklistAddRow" },
   ];
 
-  // Caps how wide the expanded month calendar can grow on wide screens —
-  // without this, a maximized window stretches the day cells so far apart
-  // that the whole month no longer fits in view at a glance. Only applied
-  // while the calendar is actually expanded; the collapsed week strip
-  // keeps using whatever width it already had.
-  const CALENDAR_MAX_WIDTH = 640;
+  // A representative width, used only to decide whether the calendar and
+  // checklists have room to sit side by side at all — the calendar's real,
+  // final width is computed by computeCalendarFit() below once it actually
+  // expands, to fit the viewport's height instead of a fixed size.
+  const CALENDAR_TYPICAL_WIDTH = 700;
 
   // The checklists column shouldn't get so narrow beside the calendar that
   // its own rows start wrapping awkwardly — below this width they belong
@@ -20,13 +19,72 @@
   const CHECKLISTS_MIN_WIDTH = 260;
   const ROUTINE_LAYOUT_GAP = 14;
 
-  // Whether the calendar (capped at CALENDAR_MAX_WIDTH) and the checklists
-  // (at their minimum comfortable width) can actually fit side by side in
+  // Whether the calendar (at its typical width) and the checklists (at
+  // their minimum comfortable width) can actually fit side by side in
   // `availableWidth` without wrapping — the real criterion for switching
   // to the side-by-side layout, rather than a guessed viewport breakpoint.
   function canFitSideBySide(availableWidth) {
-    const calendarWidth = Math.min(availableWidth, CALENDAR_MAX_WIDTH);
+    const calendarWidth = Math.min(availableWidth, CALENDAR_TYPICAL_WIDTH);
     return availableWidth - calendarWidth - ROUTINE_LAYOUT_GAP >= CHECKLISTS_MIN_WIDTH;
+  }
+
+  // Sizes the expanded month calendar so its full 6-row grid fits the
+  // scrollable content area (below the topbar/search bar — that space
+  // isn't part of "the page" for this purpose) without needing to scroll,
+  // and so the empty space below the panel matches the space above it.
+  // Requires the grid to already have its 42 day cells rendered (their own
+  // height is what makes this calculation possible: everything else in the
+  // panel — header, nav, weekday labels, padding — has a height that
+  // doesn't depend on width, so subtracting the grid's current height out
+  // of the panel's total pins down exactly how much vertical room is
+  // "chrome" versus grid, at any width).
+  //
+  // Returns { width, marginTop }. #routineLayout's native top offset
+  // (.content's own top padding) is usually smaller than its bottom
+  // padding, so matching the two visually also means nudging the whole row
+  // — calendar AND checklists together, so their tops stay aligned — down
+  // by the difference; marginTop is that nudge, zero when the two paddings
+  // already happen to match.
+  function computeCalendarFit() {
+    const panel = document.getElementById("routineWeekPanel");
+    const grid = document.getElementById("routineCalendarGrid");
+    const layout = document.getElementById("routineLayout");
+    const contentEl = document.querySelector(".content");
+    if (!panel || !grid || !contentEl || !grid.children.length) {
+      return { width: CALENDAR_TYPICAL_WIDTH, marginTop: 0 };
+    }
+
+    const ROWS = 6; // buildMonthGrid() always returns exactly 6 weeks
+    const GRID_GAP = 4; // must match .routine-calendar-grid's gap in CSS
+    const MIN_WIDTH = 300;
+
+    const gridRect = grid.getBoundingClientRect();
+    const chromeHeight = panel.scrollHeight - gridRect.height;
+    const chromeWidth = panel.getBoundingClientRect().width - gridRect.width;
+
+    const contentStyle = getComputedStyle(contentEl);
+    const paddingTop = parseFloat(contentStyle.paddingTop) || 0;
+    const paddingBottom = parseFloat(contentStyle.paddingBottom) || 0;
+    // The smaller of the two margins can't be matched without either
+    // scrolling (shrinking it isn't possible, it's fixed page padding) or
+    // growing past the larger one — so equalize on whichever is bigger.
+    const margin = Math.max(paddingTop, paddingBottom);
+    const marginTop = margin - paddingTop;
+
+    // The extra 2px is slack for sub-pixel rounding across 6 rows of cell
+    // borders/padding — without it this occasionally overflows by a pixel
+    // or two and forces an (invisible-looking but real) scrollbar.
+    const targetPanelHeight = contentEl.clientHeight - margin * 2 - 2;
+    const targetGridHeight = Math.max(ROWS * 20, targetPanelHeight - chromeHeight);
+    const cellSize = (targetGridHeight - (ROWS - 1) * GRID_GAP) / ROWS;
+    let targetWidth = 7 * cellSize + 6 * GRID_GAP + chromeWidth;
+
+    if (layout) {
+      const available = layout.getBoundingClientRect().width;
+      targetWidth = Math.min(targetWidth, available - ROUTINE_LAYOUT_GAP - CHECKLISTS_MIN_WIDTH);
+    }
+
+    return { width: Math.max(MIN_WIDTH, targetWidth), marginTop };
   }
 
   let calendarViewDate = new Date();
@@ -402,10 +460,20 @@
   }
 
   // Moves #routineChecklists between "below the calendar" (stacked) and
-  // "beside the calendar" (its own column) by translating/resizing it from
-  // its old position to its new one — plain translate + width, no scale,
-  // so the checklist text never gets visually stretched.
-  function animateChecklistsLayout(expanding) {
+  // "beside the calendar" (its own column) by animating it from its old
+  // position to its new one along a slight downward arc rather than a
+  // straight line — a direct diagonal cuts right past the calendar panel
+  // as it's shrinking/growing right next to it, which read as the two
+  // colliding. Eased in and heavily eased out so it settles gently instead
+  // of stopping abruptly.
+  // `startRectOverride`: collapseCalendarAnimated() measures this itself
+  // right at the top, before it clears the panel's inline max-width — that
+  // width change reflows the still-side-by-side row (the panel growing
+  // shrinks the checklists' flex box) and corrupts a measurement taken
+  // any later than that, which made the checklists appear to jump to a
+  // wrong spot before animating from there instead of from their true
+  // on-screen position.
+  function animateChecklistsLayout(expanding, startRectOverride) {
     const layout = document.getElementById("routineLayout");
     const checklists = document.getElementById("routineChecklists");
     if (!layout || !checklists) return;
@@ -417,7 +485,7 @@
     // resize.
     if (expanding && !canFitSideBySide(layout.getBoundingClientRect().width)) return;
 
-    const startRect = checklists.getBoundingClientRect();
+    const startRect = startRectOverride || checklists.getBoundingClientRect();
     layout.classList.toggle("calendar-expanded", expanding);
     const endRect = checklists.getBoundingClientRect();
 
@@ -425,24 +493,29 @@
 
     const dx = startRect.left - endRect.left;
     const dy = startRect.top - endRect.top;
-    const MOVE_MS = 300;
+    const MOVE_MS = 420;
+    const DIP = 28; // extra downward travel at the midpoint of the arc
+    const midWidth = (startRect.width + endRect.width) / 2;
 
-    checklists.style.transition = "none";
-    checklists.style.width = startRect.width + "px";
-    checklists.style.transform = `translate(${dx}px, ${dy}px)`;
-    void checklists.offsetWidth;
-
-    requestAnimationFrame(() => {
-      checklists.style.transition = `transform ${MOVE_MS}ms ease, width ${MOVE_MS}ms ease`;
-      checklists.style.transform = "none";
-      checklists.style.width = endRect.width + "px";
-    });
-
-    setTimeout(() => {
-      checklists.style.transition = "";
-      checklists.style.transform = "";
-      checklists.style.width = "";
-    }, MOVE_MS + 30);
+    checklists.getAnimations().forEach((a) => a.cancel());
+    checklists.animate(
+      [
+        {
+          transform: `translate(${dx}px, ${dy}px)`,
+          width: `${startRect.width}px`,
+          offset: 0,
+          easing: "cubic-bezier(0.3, 0, 0.6, 1)",
+        },
+        {
+          transform: `translate(${dx * 0.35}px, ${dy * 0.35 + DIP}px)`,
+          width: `${midWidth}px`,
+          offset: 0.55,
+          easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+        },
+        { transform: "translate(0, 0)", width: `${endRect.width}px`, offset: 1 },
+      ],
+      { duration: MOVE_MS, fill: "none" }
+    );
   }
 
   // FLIP animation: the week strip's cells visually fly to wherever their
@@ -454,41 +527,44 @@
     const weekWrap = document.getElementById("routineWeekRate");
     const section = document.getElementById("routineCalendarSection");
     const panel = document.getElementById("routineWeekPanel");
+    const layout = document.getElementById("routineLayout");
 
     const sourceRects = [...weekWrap.querySelectorAll(".routine-week-cell")].map((cell) => ({
       date: cell.dataset.date,
       rect: cell.getBoundingClientRect(),
     }));
 
-    // Snap the panel down to the "fits at a glance" width now, before the
-    // calendar renders — the FLIP targets measured below then already
-    // reflect the real final (narrow) layout instead of the wide
-    // pre-expand one. Nothing has painted yet at this point, so the panel
-    // visibly stays at its normal width right up until this click.
-    if (panel) {
-      const currentWidth = panel.getBoundingClientRect().width;
-      panel.style.maxWidth = Math.min(currentWidth, CALENDAR_MAX_WIDTH) + "px";
-    }
-
-    // Move the checklists over to the calendar's right side now that the
-    // calendar itself has its final (narrow) width — placed before the
-    // week-cell FLIP's own bail-out check further down so it always runs.
-    animateChecklistsLayout(true);
-
     // The card itself should grow into its taller (calendar-included)
     // height smoothly rather than snapping to it the instant the section
     // un-hides — measure before/after and animate between the two.
     const startHeight = panel ? panel.getBoundingClientRect().height : 0;
 
+    // Reveal + render now (nothing has painted yet, so this causes no
+    // flash) so computeCalendarFit() below has a real grid to measure — it
+    // needs the day cells' rendered height to work out how much vertical
+    // room is chrome versus grid.
     section.hidden = false;
     renderRateCalendar();
 
-    // Hide the strip now, BEFORE measuring the expanded height — otherwise
+    // Hide the strip now too, before computeCalendarFit() and the
+    // expanded-height measurement further down — otherwise the panel's
     // scrollHeight still includes the (about-to-disappear) strip's own
-    // height on top of the calendar's, so the panel would grow past the
-    // true resting size and visibly snap back down once the strip is
-    // actually removed and the height is handed back to "auto".
+    // height on top of the calendar's, throwing both off.
     weekWrap.hidden = true;
+
+    // Snap the panel down to its fit-to-viewport size now, before the
+    // week-cell FLIP targets further down get measured — they then already
+    // reflect the real final layout instead of the pre-expand one.
+    if (panel) {
+      const fit = computeCalendarFit();
+      panel.style.maxWidth = fit.width + "px";
+      if (layout) layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
+    }
+
+    // Move the checklists over to the calendar's right side now that the
+    // calendar itself has its final width — placed before the week-cell
+    // FLIP's own bail-out check further down so it always runs.
+    animateChecklistsLayout(true);
 
     if (panel) {
       const endHeight = panel.scrollHeight;
@@ -589,8 +665,15 @@
     const weekWrap = document.getElementById("routineWeekRate");
     const section = document.getElementById("routineCalendarSection");
     const panel = document.getElementById("routineWeekPanel");
+    const layout = document.getElementById("routineLayout");
     const nav = section.querySelector(".routine-calendar-nav");
     const weekdaysHeader = section.querySelector(".calendar-weekdays");
+
+    // Captured before anything below reflows the still-expanded row layout
+    // (see the comment on animateChecklistsLayout) so the checklists'
+    // FLIP animates from where they're actually sitting on screen.
+    const checklistsEl = document.getElementById("routineChecklists");
+    const checklistsStartRect = checklistsEl ? checklistsEl.getBoundingClientRect() : null;
 
     const weekDates = [];
     const sunday = new Date();
@@ -609,17 +692,18 @@
 
     const startHeight = panel ? panel.getBoundingClientRect().height : 0;
 
-    // Restore the panel's normal width now, before the week strip
+    // Restore the panel's normal width/position now, before the week strip
     // re-renders, so the FLIP targets measured below reflect their real
     // final (wide) layout instead of the narrow expanded one. Nothing
     // paints between here and the height clamp further down, so this
     // never flashes a taller box in the process.
     if (panel) panel.style.maxWidth = "";
+    if (layout) layout.style.marginTop = "";
 
     // Move the checklists back below the calendar now that it's back to
     // its full width — placed before the week-cell FLIP's own bail-out
     // check further down so it always runs.
-    animateChecklistsLayout(false);
+    animateChecklistsLayout(false, checklistsStartRect);
 
     weekWrap.hidden = false;
     renderWeekRate();
@@ -766,26 +850,77 @@
       renderRateCalendar();
     });
 
-    document.getElementById("toggleRoutineCalendarBtn")?.addEventListener("click", (e) => {
-      if (toggleAnimating) return;
+    document.getElementById("toggleRoutineCalendarBtn")?.addEventListener("click", () => {
       const section = document.getElementById("routineCalendarSection");
-      const expanding = section.hidden;
-      toggleAnimating = true;
-      setTimeout(() => {
-        toggleAnimating = false;
-      }, 650); // covers the longer of the two animations (expand's cleanup now fires at 610ms)
-      if (expanding) {
-        calendarViewDate = new Date();
-        expandCalendarAnimated();
-      } else {
-        collapseCalendarAnimated();
-      }
-      e.currentTarget.textContent = expanding ? "▾" : "▸";
-      e.currentTarget.setAttribute("aria-expanded", String(expanding));
+      setCalendarExpanded(section.hidden);
+    });
+
+    window.addEventListener("resize", () => {
+      clearTimeout(responsiveResizeTimer);
+      // Debounced so a window being actively dragged wider/narrower doesn't
+      // fire the (fairly involved) FLIP animation on every intermediate
+      // pixel — only once movement settles.
+      responsiveResizeTimer = setTimeout(checkResponsiveCalendarLayout, 200);
     });
 
     renderAll();
+    checkResponsiveCalendarLayout();
   }
 
-  window.RoutineView = { init };
+  // Sets the calendar expanded/collapsed, running the matching FLIP
+  // animation and keeping the toggle button in sync — shared by the manual
+  // toggle click and the width-based auto layout below.
+  function setCalendarExpanded(expanding) {
+    if (toggleAnimating) return;
+    const btn = document.getElementById("toggleRoutineCalendarBtn");
+    toggleAnimating = true;
+    setTimeout(() => {
+      toggleAnimating = false;
+    }, 650); // covers the longer of the two animations (expand's cleanup now fires at 610ms)
+    if (expanding) {
+      calendarViewDate = new Date();
+      expandCalendarAnimated();
+    } else {
+      collapseCalendarAnimated();
+    }
+    if (btn) {
+      btn.textContent = expanding ? "▾" : "▸";
+      btn.setAttribute("aria-expanded", String(expanding));
+    }
+  }
+
+  let responsiveResizeTimer = null;
+
+  // Auto-expands the calendar (moving the checklists beside it) once the
+  // window is wide enough to fit both comfortably, and auto-collapses it
+  // again if the window shrinks back below that — so a maximized window
+  // doesn't require a manual click, and a squeezed-narrow window never gets
+  // stuck showing the calendar and checklists cramped side by side.
+  function checkResponsiveCalendarLayout() {
+    if (toggleAnimating) return;
+    const layout = document.getElementById("routineLayout");
+    const section = document.getElementById("routineCalendarSection");
+    if (!layout || !section) return;
+    const width = layout.getBoundingClientRect().width;
+    if (width === 0) return; // view not currently visible — nothing to measure yet
+    const fits = canFitSideBySide(width);
+    const isExpanded = !section.hidden;
+    if (fits && !isExpanded) {
+      setCalendarExpanded(true);
+    } else if (!fits && isExpanded) {
+      setCalendarExpanded(false);
+    } else if (fits && isExpanded) {
+      // Still expanded and still fits, but the viewport's height may have
+      // changed (e.g. resized vertically only) — re-fit the calendar's own
+      // size to it.
+      const panel = document.getElementById("routineWeekPanel");
+      if (panel) {
+        const fit = computeCalendarFit();
+        panel.style.maxWidth = fit.width + "px";
+        layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
+      }
+    }
+  }
+
+  window.RoutineView = { init, onShow: checkResponsiveCalendarLayout };
 })();
