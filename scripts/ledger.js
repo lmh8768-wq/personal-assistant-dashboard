@@ -468,69 +468,24 @@
     }
   }
 
-  // Mirrors schedule.js's computeScheduleCalendarFit()/applyScheduleCalendarFit()
-  // (which sizes the 일정 tab's calendar to fill the viewport without
-  // scrolling) — same math, since this view reuses the same .schedule-layout/
-  // .calendar-panel/.calendar-grid CSS. The one difference: the 목표 소비
-  // budget section sits above the calendar here (schedule has nothing above
-  // its layout), so its rendered height has to be subtracted from the space
-  // the calendar gets to fit into as well.
-  function computeLedgerCalendarFit() {
-    const panel = document.getElementById("ledgerCalendarPanel");
-    const grid = document.getElementById("ledgerCalendarGrid");
-    const layout = document.getElementById("ledgerLayout");
-    const budgetSection = document.getElementById("ledgerTotalBudgetSection");
-    const contentEl = document.querySelector(".content");
-    const fallback = { width: 640, marginTop: 0 };
-    if (!panel || !grid || !layout || !contentEl || !grid.children.length) return fallback;
-
-    const ROWS = 6; // buildMonthGrid() always returns exactly 6 weeks
-    const GRID_GAP = 4; // must match .calendar-grid's gap in CSS
-    const CELL_ASPECT = 4 / 3; // height / width, matches .calendar-day's aspect-ratio: 3/4
-    const MIN_WIDTH = 420;
-    const DAY_PANEL_MIN_WIDTH = 280;
-    const LAYOUT_GAP = 14; // must match .schedule-layout's gap in CSS
-
-    const gridRect = grid.getBoundingClientRect();
-    const chromeHeight = panel.scrollHeight - gridRect.height;
-    const chromeWidth = panel.getBoundingClientRect().width - gridRect.width;
-
-    const contentStyle = getComputedStyle(contentEl);
-    const paddingTop = parseFloat(contentStyle.paddingTop) || 0;
-    const paddingBottom = parseFloat(contentStyle.paddingBottom) || 0;
-    const margin = Math.max(paddingTop, paddingBottom);
-    const marginTop = margin - paddingTop;
-
-    // Its own margin-bottom (20px, see .ledger-total-budget-section) needs
-    // to come along — that gap disappears too if the section isn't there.
-    const budgetHeight = budgetSection ? budgetSection.getBoundingClientRect().height + 20 : 0;
-
-    const targetPanelHeight = contentEl.clientHeight - margin * 2 - 2 - budgetHeight;
-    const targetGridHeight = Math.max(ROWS * 24, targetPanelHeight - chromeHeight);
-    const cellWidth = (targetGridHeight - (ROWS - 1) * GRID_GAP) / (ROWS * CELL_ASPECT);
-    let targetWidth = 7 * cellWidth + 6 * GRID_GAP + chromeWidth;
-
-    const available = layout.getBoundingClientRect().width;
-    targetWidth = Math.min(targetWidth, available - LAYOUT_GAP - DAY_PANEL_MIN_WIDTH);
-
-    return { width: Math.max(MIN_WIDTH, targetWidth), marginTop };
-  }
-
+  // The actual compute/apply logic lives in scripts/calendar-fit.js now —
+  // shared with schedule.js, which used to hand-maintain an identical copy.
+  // The one thing this view needs on top: the 목표 소비 budget section sits
+  // above the calendar here (schedule has nothing above its layout), so its
+  // rendered height has to be subtracted from the space the calendar gets
+  // to fit into as well.
   function applyLedgerCalendarFit() {
-    const layout = document.getElementById("ledgerLayout");
-    if (!layout || layout.getBoundingClientRect().width === 0) return; // view not visible yet
-
-    // Below this width the CSS media query stacks the calendar and day
-    // panel into a single column — let the stylesheet drive it there.
-    if (window.matchMedia("(max-width: 960px)").matches) {
-      layout.style.gridTemplateColumns = "";
-      layout.style.marginTop = "";
-      return;
-    }
-
-    const fit = computeLedgerCalendarFit();
-    layout.style.gridTemplateColumns = `${fit.width}px 1fr`;
-    layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
+    window.CalendarFit.apply({
+      layoutId: "ledgerLayout",
+      panelId: "ledgerCalendarPanel",
+      gridId: "ledgerCalendarGrid",
+      extraHeight: () => {
+        // Its own margin-bottom (20px, see .ledger-total-budget-section)
+        // needs to come along — that gap disappears too if absent.
+        const budgetSection = document.getElementById("ledgerTotalBudgetSection");
+        return budgetSection ? budgetSection.getBoundingClientRect().height + 20 : 0;
+      },
+    });
   }
 
   let ledgerResizeTimer = null;
