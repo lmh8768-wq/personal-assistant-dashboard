@@ -210,9 +210,14 @@
 
             <div class="panel panel-practice-status">
               <div class="panel-header"><h2>베이스 연습</h2></div>
-              <div class="practice-status-block">
-                <span class="practice-status-label">기본기 최대 BPM</span>
-                <ul class="practice-status-bpm-list" id="dashboardPracticeBpmList"></ul>
+              <div class="practice-streak-display">
+                <div class="practice-streak-caption-col">
+                  <span class="practice-streak-caption">연속 연습</span>
+                </div>
+                <div class="practice-streak-main">
+                  <span class="practice-streak-number" id="dashboardPracticeStreak">0</span>
+                  <span class="practice-streak-unit">일째</span>
+                </div>
               </div>
             </div>
 
@@ -233,6 +238,22 @@
               <div class="practice-status-row">
                 <strong>데드리프트</strong>
                 <span id="dashboardExerciseDeadlift"></span>
+              </div>
+            </div>
+
+            <div class="panel panel-vongole-status">
+              <div class="panel-header"><h2>🍝 봉골레 파스타</h2></div>
+              <div class="practice-status-row">
+                <strong>대성공 레시피</strong>
+                <span id="dashboardVongoleSuccessCount"></span>
+              </div>
+              <div class="practice-status-row">
+                <strong>수집한 레시피</strong>
+                <span id="dashboardVongoleCollectedCount"></span>
+              </div>
+              <div class="practice-status-row">
+                <strong>최근 시도</strong>
+                <span id="dashboardVongoleLastAttempt"></span>
               </div>
             </div>
 

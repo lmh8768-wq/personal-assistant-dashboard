@@ -318,22 +318,23 @@
     btn.setAttribute("aria-expanded", String(!collapsing));
   }
 
-  // ---------- Dashboard panel ----------
+  // ---------- Dashboard panel (just the practice streak, in big text) ----------
   function renderDashboardPractice() {
-    const bpmList = document.getElementById("dashboardPracticeBpmList");
-    if (!bpmList) return;
+    const el = document.getElementById("dashboardPracticeStreak");
+    if (!el) return;
 
-    const items = PracticeChecklistStore.getAll().filter((item) => item.maxBpm);
-    bpmList.innerHTML = "";
-    if (items.length === 0) {
-      bpmList.innerHTML = `<li>기록된 BPM이 없어요</li>`;
-    } else {
-      items.forEach((item) => {
-        const li = document.createElement("li");
-        li.innerHTML = `${item.label} <strong>${item.maxBpm}</strong>`;
-        bpmList.appendChild(li);
-      });
+    const dateSet = new Set(loadEntries().map((e) => e.date));
+    let streak = 0;
+    const cursor = new Date();
+    if (!dateSet.has(toDateStr(cursor))) {
+      cursor.setDate(cursor.getDate() - 1);
     }
+    while (dateSet.has(toDateStr(cursor))) {
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    el.textContent = streak;
   }
 
   // ---------- Curriculum (대목표 > 중목표 > 소목표 goal tree, same mechanic as 학업) ----------

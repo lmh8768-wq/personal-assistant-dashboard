@@ -116,6 +116,9 @@ function showView(viewName) {
   if (viewName === "dashboard" && window.LedgerView) {
     window.LedgerView.refreshDashboard();
   }
+  if (viewName === "dashboard" && window.VongoleView) {
+    window.VongoleView.refreshDashboard();
+  }
   if (viewName === "routine" && window.RoutineView) {
     // The routine layout was hidden (width 0) for any resize that happened
     // while on another tab, so re-check now that it's actually measurable.

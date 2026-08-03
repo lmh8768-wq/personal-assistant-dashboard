@@ -68,6 +68,26 @@
     }
   }
 
+  // ---------- Dashboard summary ----------
+  function refreshDashboard() {
+    const successEl = document.getElementById("dashboardVongoleSuccessCount");
+    const collectedEl = document.getElementById("dashboardVongoleCollectedCount");
+    const lastAttemptEl = document.getElementById("dashboardVongoleLastAttempt");
+    if (!successEl || !collectedEl || !lastAttemptEl) return;
+
+    successEl.textContent = `${window.VongoleRecipeStore.getAll().length}개`;
+    collectedEl.textContent = `${window.VongoleCollectedRecipeStore.getAll().length}개`;
+
+    const entries = window.VongoleLogStore.getAll();
+    if (entries.length === 0) {
+      lastAttemptEl.textContent = "기록 없음";
+      return;
+    }
+    const latest = [...entries].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))[0];
+    const d = parseDateStr(latest.date);
+    lastAttemptEl.textContent = `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  }
+
   // ---------- Recipes (collapsible cards, shared by both sections) ----------
   // Expanding a card puts it straight into edit mode — no modal, no
   // separate 수정 button. The title/content inputs save on every
@@ -142,9 +162,11 @@
     list.innerHTML = "";
     if (recipes.length === 0) {
       list.innerHTML = `<div class="empty-state"><span class="empty-icon">${section.emptyIcon}</span><p>${section.emptyText}</p></div>`;
+      refreshDashboard();
       return;
     }
     recipes.forEach((r) => list.appendChild(buildRecipeCard(r, kind)));
+    refreshDashboard();
   }
 
   function renderAllRecipes() {
@@ -214,9 +236,11 @@
     feed.innerHTML = "";
     if (entries.length === 0) {
       feed.innerHTML = `<div class="empty-state"><span class="empty-icon">🍝</span><p>아직 시도 기록이 없어요</p></div>`;
+      refreshDashboard();
       return;
     }
     entries.forEach((entry) => feed.appendChild(buildLogCard(entry)));
+    refreshDashboard();
   }
 
   function openLogModal(mode, data) {
@@ -297,5 +321,5 @@
     });
   }
 
-  window.VongoleView = { init };
+  window.VongoleView = { init, refreshDashboard };
 })();
