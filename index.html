@@ -320,11 +320,6 @@
         </div>
 
         <div class="view" id="view-practice" hidden>
-          <div class="diary-header">
-            <span class="diary-streak" id="practiceStreak" hidden></span>
-            <button class="primary-btn" id="addPracticeBtn">+ 연습 기록 추가</button>
-          </div>
-
           <div class="practice-columns">
             <div class="practice-column">
               <div class="diary-header">
@@ -338,6 +333,7 @@
                 <span id="curriculumSelectCount">0개 선택됨</span>
                 <div>
                   <button type="button" class="ghost-btn" id="curriculumCopyBtn">복사</button>
+                  <button type="button" class="ghost-btn danger" id="curriculumDeleteBtn">삭제</button>
                   <button type="button" class="ghost-btn danger" id="curriculumCancelSelectBtn">취소</button>
                 </div>
               </div>
@@ -348,7 +344,11 @@
             <div class="practice-column">
               <div class="diary-header">
                 <h2>연습 기록</h2>
-                <button type="button" class="icon-btn section-toggle-btn" id="toggleFeedBtn" aria-expanded="true" aria-label="연습 기록 접기/펼치기">▾</button>
+                <div class="diary-header-actions">
+                  <span class="diary-streak" id="practiceStreak" hidden></span>
+                  <button class="primary-btn" id="addPracticeBtn">+ 연습 기록 추가</button>
+                  <button type="button" class="icon-btn section-toggle-btn" id="toggleFeedBtn" aria-expanded="true" aria-label="연습 기록 접기/펼치기">▾</button>
+                </div>
               </div>
               <div class="diary-feed" id="practiceFeed"></div>
             </div>
@@ -640,24 +640,9 @@
           <button type="button" class="ledger-period-tab active" data-type="expense">지출</button>
           <button type="button" class="ledger-period-tab" data-type="income">수입</button>
         </div>
-        <div class="time-row">
-          <label>
-            날짜
-            <input type="date" id="ledgerDateInput" required />
-          </label>
-          <label>
-            금액 (원)
-            <input type="number" id="ledgerAmountInput" min="0" step="1" placeholder="예: 12000" required />
-          </label>
-        </div>
-        <label>
-          카테고리
-          <select id="ledgerCategoryInput"></select>
-        </label>
-        <label>
-          메모
-          <input type="text" id="ledgerMemoInput" placeholder="메모 (선택)" />
-        </label>
+        <input type="hidden" id="ledgerDateInput" />
+        <div class="ledger-entry-rows" id="ledgerEntryRows"></div>
+        <button type="button" class="ghost-btn ledger-add-row-btn" id="ledgerAddRowBtn" aria-label="항목 추가">+</button>
         <div class="modal-actions">
           <button type="button" class="ghost-btn danger" id="deleteLedgerEntryBtn" hidden>삭제</button>
           <div class="modal-actions-right">

@@ -1331,13 +1331,6 @@ button.nav-item {
   gap: 8px;
 }
 
-/* The topbar already shows the page title, so this row's own heading was
-   dropped to avoid repeating it — this keeps the add button pinned to the
-   right whether or not the streak badge next to it is showing. */
-.diary-header #addPracticeBtn {
-  margin-left: auto;
-}
-
 .diary-feed {
   display: flex;
   flex-direction: column;
@@ -1940,7 +1933,6 @@ button.nav-item {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
-  margin-left: 8px;
 }
 
 /* ---------- Exercise personal records ---------- */
@@ -2466,6 +2458,45 @@ button.nav-item {
   flex-shrink: 0;
   font-size: 13px;
   font-weight: 700;
+}
+
+.ledger-entry-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ledger-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ledger-entry-row .ledger-row-category {
+  flex: 1;
+  min-width: 0;
+}
+
+.ledger-entry-row .ledger-row-amount {
+  flex: 1;
+  min-width: 0;
+}
+
+.ledger-entry-row .ledger-row-remove {
+  flex-shrink: 0;
+  margin-left: 0;
+}
+
+.ledger-add-row-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
 }
 
 /* ---------- Settings form ---------- */

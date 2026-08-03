@@ -591,6 +591,8 @@
     if (countEl) countEl.textContent = `${selectedGoalIds.size}개 선택됨`;
     const copyBtn = document.getElementById("curriculumCopyBtn");
     if (copyBtn) copyBtn.disabled = selectedGoalIds.size === 0;
+    const deleteBtn = document.getElementById("curriculumDeleteBtn");
+    if (deleteBtn) deleteBtn.disabled = selectedGoalIds.size === 0;
   }
 
   function toggleCurriculumSelectMode() {
@@ -620,6 +622,36 @@
     updateClipboardNote();
     renderCurriculum();
     window.Toast?.show(`${count}개 목표를 복사했어요. 붙여넣을 목표의 "붙여넣기"를 눌러주세요.`);
+  }
+
+  function getTopLevelSelectedIds() {
+    const goals = CurriculumStore.getGoals();
+    return [...selectedGoalIds].filter((id) => {
+      let parentId = findGoalParentId(goals, id);
+      while (parentId) {
+        if (selectedGoalIds.has(parentId)) return false;
+        parentId = findGoalParentId(goals, parentId);
+      }
+      return true;
+    });
+  }
+
+  function handleCurriculumDelete() {
+    if (selectedGoalIds.size === 0) return;
+    const removed = getTopLevelSelectedIds()
+      .map((id) => CurriculumStore.removeGoal(id))
+      .filter(Boolean);
+    exitCurriculumSelectMode();
+    renderCurriculum();
+    if (removed.length > 0 && window.Toast) {
+      window.Toast.show(`${removed.length}개 목표를 삭제했어요`, {
+        actionLabel: "실행취소",
+        onAction: () => {
+          removed.forEach(({ parentId, node }) => CurriculumStore.restoreGoal(parentId, node));
+          renderCurriculum();
+        },
+      });
+    }
   }
 
   function updateClipboardNote() {
@@ -1040,6 +1072,7 @@
 
     document.getElementById("curriculumSelectModeBtn")?.addEventListener("click", toggleCurriculumSelectMode);
     document.getElementById("curriculumCopyBtn")?.addEventListener("click", handleCurriculumCopy);
+    document.getElementById("curriculumDeleteBtn")?.addEventListener("click", handleCurriculumDelete);
     document.getElementById("curriculumCancelSelectBtn")?.addEventListener("click", () => {
       exitCurriculumSelectMode();
       renderCurriculum();

@@ -203,12 +203,12 @@
 
       const title = document.createElement("div");
       title.className = "schedule-item-title";
-      title.textContent = entry.memo || getCategoryLabel(entry.categoryKey);
+      title.textContent = getCategoryLabel(entry.categoryKey);
       body.appendChild(title);
 
       const meta = document.createElement("div");
       meta.className = "ledger-entry-meta";
-      meta.textContent = entry.memo ? getCategoryLabel(entry.categoryKey) : (entryType(entry) === "income" ? "수입" : "지출");
+      meta.textContent = entryType(entry) === "income" ? "수입" : "지출";
       body.appendChild(meta);
 
       li.appendChild(body);
@@ -241,21 +241,81 @@
     document.querySelectorAll("#ledgerTypeTabs .ledger-period-tab").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.type === modalType);
     });
-    syncCategorySelectOptions();
+    syncAllRowCategoryOptions();
   }
 
-  function syncCategorySelectOptions() {
-    const select = document.getElementById("ledgerCategoryInput");
-    if (!select) return;
-    const current = select.value;
-    select.innerHTML = "";
+  // Switching the 지출/수입 tab swaps out every row's category list for the
+  // other type's — the two types never share categories, so there's no
+  // matching option to preserve, only the amount each row already has.
+  function syncAllRowCategoryOptions() {
+    document.querySelectorAll("#ledgerEntryRows .ledger-row-category").forEach((select) => {
+      select.innerHTML = "";
+      window.LedgerCategoryStore.getByType(modalType).forEach((cat) => {
+        const opt = document.createElement("option");
+        opt.value = cat.key;
+        opt.textContent = cat.label;
+        select.appendChild(opt);
+      });
+    });
+  }
+
+  // A row can only be removed down to the last one — with zero rows there'd
+  // be nothing to submit, so the last remaining row's × is hidden instead.
+  function updateRowRemoveVisibility() {
+    const rows = document.querySelectorAll("#ledgerEntryRows .ledger-entry-row");
+    rows.forEach((row) => {
+      const removeBtn = row.querySelector(".ledger-row-remove");
+      if (removeBtn) removeBtn.hidden = rows.length <= 1;
+    });
+  }
+
+  function buildEntryRow(data) {
+    const row = document.createElement("div");
+    row.className = "ledger-entry-row";
+
+    const select = document.createElement("select");
+    select.className = "ledger-row-category";
+    select.setAttribute("aria-label", "카테고리");
     window.LedgerCategoryStore.getByType(modalType).forEach((cat) => {
       const opt = document.createElement("option");
       opt.value = cat.key;
       opt.textContent = cat.label;
       select.appendChild(opt);
     });
-    if (current && [...select.options].some((o) => o.value === current)) select.value = current;
+    if (data?.categoryKey) select.value = data.categoryKey;
+    row.appendChild(select);
+
+    const amount = document.createElement("input");
+    amount.type = "number";
+    amount.className = "ledger-row-amount";
+    amount.min = "0";
+    amount.step = "1";
+    amount.placeholder = "예: 12000";
+    amount.setAttribute("aria-label", "금액 (원)");
+    if (data?.amount != null) amount.value = data.amount;
+    row.appendChild(amount);
+
+    const removeBtn = document.createElement("span");
+    removeBtn.className = "checklist-item-remove ledger-row-remove";
+    removeBtn.textContent = "×";
+    removeBtn.setAttribute("role", "button");
+    removeBtn.setAttribute("aria-label", "이 항목 제거");
+    removeBtn.addEventListener("click", () => {
+      row.remove();
+      updateRowRemoveVisibility();
+    });
+    row.appendChild(removeBtn);
+
+    return row;
+  }
+
+  function addEntryRow() {
+    const rowsContainer = document.getElementById("ledgerEntryRows");
+    if (!rowsContainer) return;
+    const row = buildEntryRow(null);
+    rowsContainer.appendChild(row);
+    updateRowRemoveVisibility();
+    row.querySelector(".ledger-row-amount")?.focus();
   }
 
   function setSettingsTab(tab) {
@@ -301,41 +361,67 @@
     document.getElementById("ledgerModalTitle").textContent = mode === "edit" ? "내역 수정" : "내역 추가";
     setModalType(type);
     document.getElementById("ledgerDateInput").value = data?.date || toDateStr(selectedDate);
-    document.getElementById("ledgerAmountInput").value = data?.amount ?? "";
-    document.getElementById("ledgerCategoryInput").value = data?.categoryKey || window.LedgerCategoryStore.getByType(type)[0].key;
-    document.getElementById("ledgerMemoInput").value = data?.memo || "";
+
+    const rowsContainer = document.getElementById("ledgerEntryRows");
+    rowsContainer.innerHTML = "";
+    rowsContainer.appendChild(buildEntryRow(mode === "edit" ? { categoryKey: data.categoryKey, amount: data.amount } : null));
+    updateRowRemoveVisibility();
+
+    // Adding several entries at once only makes sense when creating new
+    // ones — editing is always about a single already-existing entry.
+    document.getElementById("ledgerAddRowBtn").hidden = mode === "edit";
     document.getElementById("deleteLedgerEntryBtn").hidden = mode !== "edit";
     document.getElementById("ledgerModalOverlay").hidden = false;
-    document.getElementById("ledgerAmountInput").focus();
+    rowsContainer.querySelector(".ledger-row-amount")?.focus();
   }
 
   function closeModal() {
     document.getElementById("ledgerModalOverlay").hidden = true;
-    document.getElementById("ledgerForm").reset();
     editingId = null;
   }
 
   function handleSubmit(e) {
     e.preventDefault();
-    const amount = Number(document.getElementById("ledgerAmountInput").value);
-    if (!amount || amount <= 0) {
+    const date = document.getElementById("ledgerDateInput").value;
+    const rows = [...document.querySelectorAll("#ledgerEntryRows .ledger-entry-row")];
+
+    if (editingId) {
+      const row = rows[0];
+      const amount = Number(row.querySelector(".ledger-row-amount").value);
+      if (!amount || amount <= 0) {
+        window.Toast?.show("금액을 입력해주세요", { type: "warning" });
+        return;
+      }
+      window.LedgerEntryStore.update(editingId, {
+        date,
+        amount,
+        categoryKey: row.querySelector(".ledger-row-category").value,
+        type: modalType,
+      });
+      window.Toast?.show("내역을 수정했어요");
+      closeModal();
+      renderAll();
+      return;
+    }
+
+    // Rows left at 0/empty are treated as abandoned, not an error — only
+    // an entirely empty submission (nothing filled in at all) is rejected.
+    const entries = rows
+      .map((row) => ({
+        date,
+        amount: Number(row.querySelector(".ledger-row-amount").value),
+        categoryKey: row.querySelector(".ledger-row-category").value,
+        type: modalType,
+      }))
+      .filter((entry) => entry.amount > 0);
+
+    if (entries.length === 0) {
       window.Toast?.show("금액을 입력해주세요", { type: "warning" });
       return;
     }
-    const payload = {
-      date: document.getElementById("ledgerDateInput").value,
-      amount,
-      categoryKey: document.getElementById("ledgerCategoryInput").value,
-      memo: document.getElementById("ledgerMemoInput").value.trim(),
-      type: modalType,
-    };
-    if (editingId) {
-      window.LedgerEntryStore.update(editingId, payload);
-      window.Toast?.show("내역을 수정했어요");
-    } else {
-      window.LedgerEntryStore.add(payload);
-      window.Toast?.show("내역을 추가했어요");
-    }
+
+    entries.forEach((entry) => window.LedgerEntryStore.add(entry));
+    window.Toast?.show(entries.length > 1 ? `${entries.length}건 추가했어요` : "내역을 추가했어요");
     closeModal();
     renderAll();
   }
@@ -360,6 +446,73 @@
       });
     }
   }
+
+  // Mirrors schedule.js's computeScheduleCalendarFit()/applyScheduleCalendarFit()
+  // (which sizes the 일정 tab's calendar to fill the viewport without
+  // scrolling) — same math, since this view reuses the same .schedule-layout/
+  // .calendar-panel/.calendar-grid CSS. The one difference: the 목표 소비
+  // budget section sits above the calendar here (schedule has nothing above
+  // its layout), so its rendered height has to be subtracted from the space
+  // the calendar gets to fit into as well.
+  function computeLedgerCalendarFit() {
+    const panel = document.getElementById("ledgerCalendarPanel");
+    const grid = document.getElementById("ledgerCalendarGrid");
+    const layout = document.getElementById("ledgerLayout");
+    const budgetSection = document.getElementById("ledgerTotalBudgetSection");
+    const contentEl = document.querySelector(".content");
+    const fallback = { width: 640, marginTop: 0 };
+    if (!panel || !grid || !layout || !contentEl || !grid.children.length) return fallback;
+
+    const ROWS = 6; // buildMonthGrid() always returns exactly 6 weeks
+    const GRID_GAP = 4; // must match .calendar-grid's gap in CSS
+    const CELL_ASPECT = 4 / 3; // height / width, matches .calendar-day's aspect-ratio: 3/4
+    const MIN_WIDTH = 420;
+    const DAY_PANEL_MIN_WIDTH = 280;
+    const LAYOUT_GAP = 14; // must match .schedule-layout's gap in CSS
+
+    const gridRect = grid.getBoundingClientRect();
+    const chromeHeight = panel.scrollHeight - gridRect.height;
+    const chromeWidth = panel.getBoundingClientRect().width - gridRect.width;
+
+    const contentStyle = getComputedStyle(contentEl);
+    const paddingTop = parseFloat(contentStyle.paddingTop) || 0;
+    const paddingBottom = parseFloat(contentStyle.paddingBottom) || 0;
+    const margin = Math.max(paddingTop, paddingBottom);
+    const marginTop = margin - paddingTop;
+
+    // Its own margin-bottom (20px, see .ledger-total-budget-section) needs
+    // to come along — that gap disappears too if the section isn't there.
+    const budgetHeight = budgetSection ? budgetSection.getBoundingClientRect().height + 20 : 0;
+
+    const targetPanelHeight = contentEl.clientHeight - margin * 2 - 2 - budgetHeight;
+    const targetGridHeight = Math.max(ROWS * 24, targetPanelHeight - chromeHeight);
+    const cellWidth = (targetGridHeight - (ROWS - 1) * GRID_GAP) / (ROWS * CELL_ASPECT);
+    let targetWidth = 7 * cellWidth + 6 * GRID_GAP + chromeWidth;
+
+    const available = layout.getBoundingClientRect().width;
+    targetWidth = Math.min(targetWidth, available - LAYOUT_GAP - DAY_PANEL_MIN_WIDTH);
+
+    return { width: Math.max(MIN_WIDTH, targetWidth), marginTop };
+  }
+
+  function applyLedgerCalendarFit() {
+    const layout = document.getElementById("ledgerLayout");
+    if (!layout || layout.getBoundingClientRect().width === 0) return; // view not visible yet
+
+    // Below this width the CSS media query stacks the calendar and day
+    // panel into a single column — let the stylesheet drive it there.
+    if (window.matchMedia("(max-width: 960px)").matches) {
+      layout.style.gridTemplateColumns = "";
+      layout.style.marginTop = "";
+      return;
+    }
+
+    const fit = computeLedgerCalendarFit();
+    layout.style.gridTemplateColumns = `${fit.width}px 1fr`;
+    layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
+  }
+
+  let ledgerResizeTimer = null;
 
   // ---------- Category budget progress (expense categories, calendarViewDate's month) ----------
   function renderCategoryProgress() {
@@ -388,6 +541,7 @@
       empty.innerHTML = `<span class="empty-icon">🏷️</span><p>지출 카테고리를 추가해주세요</p>`;
       totalRow.appendChild(empty);
       rowsContainer.hidden = true;
+      applyLedgerCalendarFit();
       return;
     }
 
@@ -503,6 +657,8 @@
 
       rowsContainer.appendChild(row);
     });
+
+    applyLedgerCalendarFit();
   }
 
   // ---------- Category manager (add / rename / recolor / set budget / delete) ----------
@@ -755,6 +911,7 @@
 
   function init() {
     document.getElementById("addLedgerEntryBtn")?.addEventListener("click", () => openModal("add"));
+    document.getElementById("ledgerAddRowBtn")?.addEventListener("click", addEntryRow);
     document.getElementById("cancelLedgerBtn")?.addEventListener("click", closeModal);
     document.getElementById("ledgerForm")?.addEventListener("submit", handleSubmit);
     document.getElementById("deleteLedgerEntryBtn")?.addEventListener("click", handleDeleteFromModal);
@@ -802,7 +959,13 @@
     });
 
     renderAll();
+    applyLedgerCalendarFit();
+
+    window.addEventListener("resize", () => {
+      clearTimeout(ledgerResizeTimer);
+      ledgerResizeTimer = setTimeout(applyLedgerCalendarFit, 200);
+    });
   }
 
-  window.LedgerView = { init };
+  window.LedgerView = { init, onShow: applyLedgerCalendarFit };
 })();

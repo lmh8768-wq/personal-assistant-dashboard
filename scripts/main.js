@@ -120,6 +120,9 @@ function showView(viewName) {
   if (viewName === "schedule" && window.ScheduleView) {
     window.ScheduleView.onShow();
   }
+  if (viewName === "ledger" && window.LedgerView) {
+    window.LedgerView.onShow();
+  }
   if (viewName === "settings" && window.SettingsView) {
     window.SettingsView.refreshStorage();
   }
