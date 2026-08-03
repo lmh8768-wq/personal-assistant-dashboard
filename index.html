@@ -622,7 +622,7 @@
         <div class="time-row">
           <label>
             날짜
-            <input type="date" id="scheduleDateInput" required />
+            <input type="date" id="scheduleDateInput" min="2000-01-01" max="2100-12-31" required />
           </label>
           <label>
             카테고리
@@ -660,7 +660,7 @@
           </label>
           <label id="repeatUntilDateRow" hidden>
             종료일
-            <input type="date" id="scheduleRepeatUntilInput" />
+            <input type="date" id="scheduleRepeatUntilInput" min="2000-01-01" max="2100-12-31" />
           </label>
         </div>
         <p class="modal-note" id="repeatNote" hidden>반복 일정은 시리즈 전체가 함께 수정·삭제돼요.</p>
@@ -785,7 +785,7 @@
       <form id="practiceForm">
         <label>
           날짜
-          <input type="date" id="practiceDateInput" required />
+          <input type="date" id="practiceDateInput" min="2000-01-01" max="2100-12-31" required />
         </label>
         <div class="checklist-section">
           <span class="checklist-label">기본기 체크리스트</span>
@@ -817,7 +817,7 @@
       <form id="vongoleLogForm">
         <label>
           날짜
-          <input type="date" id="vongoleLogDateInput" required />
+          <input type="date" id="vongoleLogDateInput" min="2000-01-01" max="2100-12-31" required />
         </label>
         <label>
           그 날의 레시피

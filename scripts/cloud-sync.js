@@ -101,10 +101,14 @@
 
   function collectLocalState() {
     const data = {};
-    for (const key in localStorage) {
-      if (!Object.prototype.hasOwnProperty.call(localStorage, key)) continue;
-      if (!isAppKey(key)) continue;
-      data[key] = localStorage.getItem(key);
+    try {
+      for (const key in localStorage) {
+        if (!Object.prototype.hasOwnProperty.call(localStorage, key)) continue;
+        if (!isAppKey(key)) continue;
+        data[key] = localStorage.getItem(key);
+      }
+    } catch (err) {
+      logSync(`collectLocalState failed: ${err.message}`);
     }
     return data;
   }
@@ -171,7 +175,11 @@
   }
 
   function hasPendingLocalChanges() {
-    return localStorage.getItem(PENDING_KEY) === "1";
+    try {
+      return localStorage.getItem(PENDING_KEY) === "1";
+    } catch {
+      return false;
+    }
   }
 
   let pushPending = false;

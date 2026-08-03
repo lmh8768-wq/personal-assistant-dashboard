@@ -641,25 +641,88 @@ window.VongoleCollectedRecipeStore = createVongoleRecipeStore("assistant.vongole
   };
 })();
 
-// ---------- Korean public holidays (2026, static) ----------
-window.KoreanHolidays = {
-  "2026-01-01": "신정",
-  "2026-02-16": "설날 연휴",
-  "2026-02-17": "설날",
-  "2026-02-18": "설날 연휴",
-  "2026-03-01": "삼일절",
-  "2026-03-02": "대체공휴일",
-  "2026-05-05": "어린이날",
-  "2026-05-24": "부처님오신날",
-  "2026-05-25": "대체공휴일",
-  "2026-06-06": "현충일",
-  "2026-08-15": "광복절",
-  "2026-08-17": "대체공휴일",
-  "2026-09-24": "추석 연휴",
-  "2026-09-25": "추석",
-  "2026-09-26": "추석 연휴",
-  "2026-10-03": "개천절",
-  "2026-10-05": "대체공휴일",
-  "2026-10-09": "한글날",
-  "2026-12-25": "크리스마스",
-};
+// ---------- Korean public holidays ----------
+// Previously a single static object hardcoded for 2026 only — every other
+// year silently showed no holidays at all. Fixed-date holidays (law hasn't
+// moved these in decades) are now computed for any year; lunar-calendar
+// holidays (설날/추석/부처님오신날) shift every year and can't be computed
+// without a lunar calendar, so they still need a manual entry added below
+// each time a new year's dates are confirmed — years without an entry just
+// fall back to showing the fixed-date holidays only, instead of nothing.
+(function () {
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+
+  // { name, substitute } — substitute: true means Korean law gives this one
+  // a 대체공휴일 the next weekday when it lands on a Sat/Sun (실제 시행:
+  // 설날/추석/어린이날/삼일절/광복절/개천절/한글날). 신정/현충일/크리스마스/
+  // 부처님오신날 never get a substitute.
+  const FIXED_HOLIDAYS = [
+    { month: 1, day: 1, name: "신정", substitute: false },
+    { month: 3, day: 1, name: "삼일절", substitute: true },
+    { month: 5, day: 5, name: "어린이날", substitute: true },
+    { month: 6, day: 6, name: "현충일", substitute: false },
+    { month: 8, day: 15, name: "광복절", substitute: true },
+    { month: 10, day: 3, name: "개천절", substitute: true },
+    { month: 10, day: 9, name: "한글날", substitute: true },
+    { month: 12, day: 25, name: "크리스마스", substitute: false },
+  ];
+
+  // Confirmed lunar-calendar holiday dates by year — add a new entry here
+  // once that year's official dates are published (usually 1-2 years out).
+  const LUNAR_HOLIDAYS_BY_YEAR = {
+    2026: {
+      "02-16": "설날 연휴",
+      "02-17": "설날",
+      "02-18": "설날 연휴",
+      "05-24": "부처님오신날",
+      "09-24": "추석 연휴",
+      "09-25": "추석",
+      "09-26": "추석 연휴",
+    },
+    2027: {
+      "02-06": "설날 연휴",
+      "02-07": "설날",
+      "02-08": "설날 연휴",
+      "02-09": "설날 연휴",
+      "05-13": "부처님오신날",
+      "09-14": "추석 연휴",
+      "09-15": "추석",
+      "09-16": "추석 연휴",
+    },
+  };
+
+  function buildHolidays(startYear, endYear) {
+    const map = {};
+
+    for (let year = startYear; year <= endYear; year++) {
+      FIXED_HOLIDAYS.forEach(({ month, day, name, substitute }) => {
+        const date = new Date(year, month - 1, day);
+        map[`${year}-${pad2(month)}-${pad2(day)}`] = name;
+
+        if (substitute) {
+          const weekday = date.getDay(); // 0 = Sun, 6 = Sat
+          if (weekday === 0 || weekday === 6) {
+            const sub = new Date(year, month - 1, day + (weekday === 0 ? 1 : 2));
+            map[`${sub.getFullYear()}-${pad2(sub.getMonth() + 1)}-${pad2(sub.getDate())}`] = "대체공휴일";
+          }
+        }
+      });
+
+      const lunar = LUNAR_HOLIDAYS_BY_YEAR[year];
+      if (lunar) {
+        Object.entries(lunar).forEach(([md, name]) => {
+          map[`${year}-${md}`] = name;
+        });
+      }
+    }
+
+    return map;
+  }
+
+  // A ~decade-wide fixed-date range is cheap to precompute and means the
+  // calendar never goes back to showing nothing even for years with no
+  // lunar entry yet.
+  window.KoreanHolidays = buildHolidays(2024, 2035);
+})();

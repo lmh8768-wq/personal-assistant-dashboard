@@ -1,13 +1,32 @@
+// A localStorage read/write can throw in rare cases (Safari private mode,
+// storage disabled by policy, quota exceeded) — falling back to null/no-op
+// instead of letting that exception take down the rest of this script.
+function safeGetItem(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // best effort — the preference just won't persist this session
+  }
+}
+
 // ---------- Theme ----------
 const root = document.documentElement;
 const themeToggle = document.getElementById("themeToggle");
 
 function applyTheme(theme) {
   root.setAttribute("data-theme", theme);
-  localStorage.setItem("theme", theme);
+  safeSetItem("theme", theme);
 }
 
-const savedTheme = localStorage.getItem("theme");
+const savedTheme = safeGetItem("theme");
 if (savedTheme) {
   applyTheme(savedTheme);
 } else {
@@ -148,7 +167,7 @@ function setActiveView(viewName) {
   item.classList.add("active");
   pageTitle.textContent = viewTitles[viewName] ?? "";
   showView(viewName);
-  localStorage.setItem(CURRENT_VIEW_KEY, viewName);
+  safeSetItem(CURRENT_VIEW_KEY, viewName);
 }
 
 navItems.forEach((item) => {
@@ -163,7 +182,7 @@ navItems.forEach((item) => {
 // over the last-visited view, so links can deep-link into a specific tab.
 const hashView = location.hash.slice(1);
 const isValidView = [...navItems].some((n) => n.dataset.view === hashView);
-setActiveView(isValidView ? hashView : localStorage.getItem(CURRENT_VIEW_KEY) || "dashboard");
+setActiveView(isValidView ? hashView : safeGetItem(CURRENT_VIEW_KEY) || "dashboard");
 
 document.getElementById("dashboardGoToScheduleBtn")?.addEventListener("click", () => {
   document.querySelector('.nav-item[data-view="schedule"]')?.click();

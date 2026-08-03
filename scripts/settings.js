@@ -245,7 +245,14 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "nav-item";
-        btn.innerHTML = `<span class="nav-icon">🔗</span><span class="nav-label">${item.name}</span>`;
+        const icon = document.createElement("span");
+        icon.className = "nav-icon";
+        icon.textContent = "🔗";
+        const label = document.createElement("span");
+        label.className = "nav-label";
+        label.textContent = item.name;
+        btn.appendChild(icon);
+        btn.appendChild(label);
         btn.addEventListener("click", () => window.open(item.url, "_blank", "noopener"));
         sidebarContainer.appendChild(btn);
       });
@@ -267,12 +274,16 @@
 
   // ---------- Storage usage ----------
   function calculateStorageBytes() {
-    let chars = 0;
-    for (const key in localStorage) {
-      if (!Object.prototype.hasOwnProperty.call(localStorage, key)) continue;
-      chars += key.length + (localStorage.getItem(key) || "").length;
+    try {
+      let chars = 0;
+      for (const key in localStorage) {
+        if (!Object.prototype.hasOwnProperty.call(localStorage, key)) continue;
+        chars += key.length + (localStorage.getItem(key) || "").length;
+      }
+      return chars * 2; // UTF-16 ~2 bytes/char
+    } catch {
+      return 0;
     }
-    return chars * 2; // UTF-16 ~2 bytes/char
   }
 
   function formatBytes(bytes) {

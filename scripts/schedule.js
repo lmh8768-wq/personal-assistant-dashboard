@@ -18,11 +18,23 @@
   const CALENDAR_HIGHLIGHT_CATEGORIES = new Set(["appointment", "event"]);
   const CALENDAR_MAX_EVENT_CHIPS = 3;
 
-  let hideCompleted = localStorage.getItem(HIDE_COMPLETED_KEY) === "true";
+  function loadHideCompleted() {
+    try {
+      return localStorage.getItem(HIDE_COMPLETED_KEY) === "true";
+    } catch {
+      return false;
+    }
+  }
+
+  let hideCompleted = loadHideCompleted();
 
   function loadUpcomingRangeDays() {
-    const saved = Number(localStorage.getItem(UPCOMING_RANGE_KEY));
-    return UPCOMING_RANGE_OPTIONS.includes(saved) ? saved : 7;
+    try {
+      const saved = Number(localStorage.getItem(UPCOMING_RANGE_KEY));
+      return UPCOMING_RANGE_OPTIONS.includes(saved) ? saved : 7;
+    } catch {
+      return 7;
+    }
   }
 
   let upcomingRangeDays = loadUpcomingRangeDays();

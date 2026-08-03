@@ -17,7 +17,11 @@
   }
 
   function isEnabled() {
-    return localStorage.getItem(ENABLED_KEY) === "true";
+    try {
+      return localStorage.getItem(ENABLED_KEY) === "true";
+    } catch {
+      return false;
+    }
   }
 
   async function enableNotifications() {
