@@ -181,7 +181,48 @@
       row.appendChild(labelInput);
       row.appendChild(swatchGroup);
 
+      // Removal is immediate (with undo), unlike label/color which stay
+      // batched behind the "카테고리 저장" submit button below — deleting a
+      // category isn't something you'd want to accidentally leave pending.
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "checklist-item-remove";
+      removeBtn.textContent = "×";
+      removeBtn.setAttribute("aria-label", `${cat.label} 카테고리 삭제`);
+      removeBtn.addEventListener("click", () => {
+        const removed = window.CategoryStore.remove(cat.key);
+        renderCategoryEditor();
+        if (window.ScheduleView) window.ScheduleView.refreshAll();
+        if (removed && window.Toast) {
+          window.Toast.show(`"${cat.label}" 카테고리를 삭제했어요`, {
+            actionLabel: "실행취소",
+            onAction: () => {
+              window.CategoryStore.restore(removed.item, removed.index);
+              renderCategoryEditor();
+              if (window.ScheduleView) window.ScheduleView.refreshAll();
+            },
+          });
+        }
+      });
+      row.appendChild(removeBtn);
+
       container.appendChild(row);
+    });
+  }
+
+  function addScheduleCategory() {
+    const existingCount = window.CategoryStore.getAll().length;
+    const color = CATEGORY_COLOR_PRESETS[existingCount % CATEGORY_COLOR_PRESETS.length];
+    const created = window.CategoryStore.add("새 카테고리", color);
+    renderCategoryEditor();
+    if (window.ScheduleView) window.ScheduleView.refreshAll();
+    requestAnimationFrame(() => {
+      const row = document.querySelector(`#categoryEditRows .category-edit-row[data-key="${created.key}"]`);
+      const input = row?.querySelector('[data-field="label"]');
+      if (input) {
+        input.focus();
+        input.select();
+      }
     });
   }
 
@@ -430,6 +471,7 @@
     document.getElementById("settingsForm").addEventListener("submit", handleSettingsSubmit);
     document.getElementById("profileForm").addEventListener("submit", handleProfileSubmit);
     document.getElementById("categoryForm").addEventListener("submit", handleCategorySubmit);
+    document.getElementById("addScheduleCategoryBtn")?.addEventListener("click", addScheduleCategory);
     document.getElementById("customShortcutForm").addEventListener("submit", handleAddCustomShortcut);
 
     document.getElementById("shortcutBlog").addEventListener("click", () => openShortcut("naverBlogUrl", "네이버 블로그"));

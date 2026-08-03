@@ -60,3 +60,35 @@ test("LedgerCategoryStore: expense and income categories are filtered separately
   assert.equal(store.getByType("income").some((c) => c.key === income.key), true);
   assert.equal(store.getByType("expense").some((c) => c.key === income.key), false);
 });
+
+test("CategoryStore: add/remove/restore round-trip, freely addable like ledger categories", () => {
+  const window = loadStoreModule();
+  const store = window.CategoryStore;
+
+  const before = store.getAll().length;
+  const created = store.add("커스텀", "#123456");
+  assert.equal(store.getAll().length, before + 1);
+
+  const removed = store.remove(created.key);
+  assert.equal(store.getAll().length, before);
+  assert.equal(removed.item.key, created.key);
+
+  store.restore(removed.item, removed.index);
+  assert.equal(store.getAll().length, before + 1);
+});
+
+test("CategoryStore/LedgerCategoryStore: add() on first-ever use doesn't corrupt the DEFAULTS fallback", () => {
+  // Regression test: loadCategories()/load() used to return the literal
+  // DEFAULTS array when localStorage was still empty. add()'s push() then
+  // mutated that same array in place, permanently shifting what
+  // DEFAULTS[DEFAULTS.length - 1] pointed to (CategoryStore's fallback for
+  // an unknown key) for the rest of the page's lifetime.
+  const window = loadStoreModule();
+
+  window.CategoryStore.add("첫 카테고리", "#123456");
+  const fallback = window.CategoryStore.getByKey("does-not-exist");
+  assert.equal(fallback.key, "etc");
+
+  window.LedgerCategoryStore.add("첫 지출", "#654321", "expense");
+  assert.equal(window.LedgerCategoryStore.getByKey("does-not-exist"), null);
+});

@@ -714,6 +714,10 @@
   }
 
   function openModal(mode, data) {
+    if (mode !== "edit" && window.CategoryStore.getAll().length === 0) {
+      window.Toast?.show("먼저 카테고리를 추가해주세요", { type: "warning" });
+      return;
+    }
     editingId = mode === "edit" ? data.id : null;
     editingOccurrenceDate = mode === "edit" ? (data.occurrenceDate || data.date) : null;
     document.getElementById("modalTitle").textContent = mode === "edit" ? "일정 수정" : "일정 추가";

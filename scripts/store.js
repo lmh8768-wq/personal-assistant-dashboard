@@ -257,7 +257,51 @@ window.safeSetLocalStorage = function (key, value) {
 // declaration, so it's hoisted and already callable here).
 window.TemplateStore = createEntityStore("assistant.templates.v1", "tpl");
 
+// ---------- Generic key-based store factory (categories) ----------
+// Both category stores below identify items by a "key" (not "id") and never
+// reorder on remove/restore in a way that differs from createEntityStore's
+// id-based version — same getByKey/update/remove/restore shape either way.
+// Each store keeps its own load()/save() (their migration logic differs:
+// schedule's is a one-time rename of a stale default set, ledger's is
+// backfilling the expense/income split) and its own add() (different
+// constructed shape — ledger's carries budget/type, schedule's doesn't).
+function createKeyedStore(loadFn, saveFn) {
+  return {
+    getAll() {
+      return loadFn();
+    },
+    getByKey(key) {
+      return loadFn().find((c) => c.key === key) || null;
+    },
+    update(key, patch) {
+      const items = loadFn();
+      const idx = items.findIndex((c) => c.key === key);
+      if (idx === -1) return null;
+      items[idx] = { ...items[idx], ...patch };
+      saveFn(items);
+      return items[idx];
+    },
+    remove(key) {
+      const items = loadFn();
+      const idx = items.findIndex((c) => c.key === key);
+      if (idx === -1) return null;
+      const [removed] = items.splice(idx, 1);
+      saveFn(items);
+      return { item: removed, index: idx };
+    },
+    restore(item, index) {
+      const items = loadFn();
+      const at = Math.min(index, items.length);
+      items.splice(at, 0, item);
+      saveFn(items);
+    },
+  };
+}
+
 // ---------- Schedule categories (localStorage) ----------
+// Used to be a fixed 5-item set with no add/remove (only relabel/recolor) —
+// now unified with the ledger categories below to support freely adding and
+// removing categories too.
 (function () {
   const CATEGORIES_KEY = "assistant.categories.v1";
   const OLD_DEFAULT_KEYS = ["work", "personal", "health", "study", "etc"];
@@ -269,21 +313,29 @@ window.TemplateStore = createEntityStore("assistant.templates.v1", "tpl");
     { key: "etc", label: "기타", color: "#94a3b8" },
   ];
 
+  function createKey() {
+    return `cat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
   function loadCategories() {
+    // Always a fresh copy — add()/update()/remove() below mutate whatever
+    // array they get back in place (push/splice), and returning the DEFAULTS
+    // constant itself here would let that first mutation permanently corrupt
+    // it for the rest of the page's lifetime.
     try {
       const raw = localStorage.getItem(CATEGORIES_KEY);
-      if (!raw) return DEFAULTS;
+      if (!raw) return DEFAULTS.map((c) => ({ ...c }));
       const parsed = JSON.parse(raw);
       const isUnmodifiedOldDefaults =
         parsed.length === OLD_DEFAULT_KEYS.length &&
         parsed.every((c, i) => c.key === OLD_DEFAULT_KEYS[i]);
       if (isUnmodifiedOldDefaults) {
         saveCategories(DEFAULTS);
-        return DEFAULTS;
+        return DEFAULTS.map((c) => ({ ...c }));
       }
       return parsed;
     } catch {
-      return DEFAULTS;
+      return DEFAULTS.map((c) => ({ ...c }));
     }
   }
 
@@ -292,29 +344,28 @@ window.TemplateStore = createEntityStore("assistant.templates.v1", "tpl");
   }
 
   window.CategoryStore = {
-    getAll() {
-      return loadCategories();
-    },
+    ...createKeyedStore(loadCategories, saveCategories),
+    // Falls back to the "기타" default rather than null — callers like
+    // schedule.js's getCategoryColor()/getCategoryLabel() always want a
+    // valid category to render, even for a schedule item whose category was
+    // since deleted.
     getByKey(key) {
       return loadCategories().find((c) => c.key === key) || DEFAULTS[DEFAULTS.length - 1];
     },
-    update(key, patch) {
+    add(label, color) {
       const categories = loadCategories();
-      const idx = categories.findIndex((c) => c.key === key);
-      if (idx === -1) return null;
-      categories[idx] = { ...categories[idx], ...patch };
+      const item = { key: createKey(), label, color };
+      categories.push(item);
       saveCategories(categories);
-      return categories[idx];
+      return item;
     },
   };
 })();
 
 // ---------- Ledger (가계부) categories ----------
-// A separate store from the schedule categories above: this one supports
-// freely adding/removing categories (not just relabeling a fixed set), and
-// each expense category carries its own monthly budget goal. Every category
-// is tagged "expense" or "income" — the two use separate category lists in
-// the UI, and only expense categories have a meaningful budget.
+// Each expense category carries its own monthly budget goal, and every
+// category is tagged "expense" or "income" — the two use separate category
+// lists in the UI, and only expense categories have a meaningful budget.
 (function () {
   const KEY = "assistant.ledgerCategories.v1";
   const DEFAULTS = [
@@ -334,11 +385,15 @@ window.TemplateStore = createEntityStore("assistant.templates.v1", "tpl");
   }
 
   function load() {
+    // Always a fresh copy — add()/update()/remove() below mutate whatever
+    // array they get back in place (push/splice), and returning the DEFAULTS
+    // constant itself here would let that first mutation permanently corrupt
+    // it for the rest of the page's lifetime.
     try {
       const raw = localStorage.getItem(KEY);
-      if (!raw) return DEFAULTS;
+      if (!raw) return DEFAULTS.map((c) => ({ ...c }));
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return DEFAULTS;
+      if (!Array.isArray(parsed)) return DEFAULTS.map((c) => ({ ...c }));
 
       // Migrate categories saved before income categories existed — they
       // were all implicitly expense categories, and income defaults get
@@ -350,13 +405,13 @@ window.TemplateStore = createEntityStore("assistant.templates.v1", "tpl");
         return { ...c, type: "expense" };
       });
       if (!migrated.some((c) => c.type === "income")) {
-        migrated.push(...DEFAULTS.filter((c) => c.type === "income"));
+        migrated.push(...DEFAULTS.filter((c) => c.type === "income").map((c) => ({ ...c })));
         changed = true;
       }
       if (changed) save(migrated);
       return migrated;
     } catch {
-      return DEFAULTS;
+      return DEFAULTS.map((c) => ({ ...c }));
     }
   }
 
@@ -365,12 +420,7 @@ window.TemplateStore = createEntityStore("assistant.templates.v1", "tpl");
   }
 
   window.LedgerCategoryStore = {
-    getAll() {
-      return load();
-    },
-    getByKey(key) {
-      return load().find((c) => c.key === key) || null;
-    },
+    ...createKeyedStore(load, save),
     getByType(type) {
       return load().filter((c) => c.type === type);
     },
@@ -380,28 +430,6 @@ window.TemplateStore = createEntityStore("assistant.templates.v1", "tpl");
       categories.push(item);
       save(categories);
       return item;
-    },
-    update(key, patch) {
-      const categories = load();
-      const idx = categories.findIndex((c) => c.key === key);
-      if (idx === -1) return null;
-      categories[idx] = { ...categories[idx], ...patch };
-      save(categories);
-      return categories[idx];
-    },
-    remove(key) {
-      const categories = load();
-      const idx = categories.findIndex((c) => c.key === key);
-      if (idx === -1) return null;
-      const [removed] = categories.splice(idx, 1);
-      save(categories);
-      return { item: removed, index: idx };
-    },
-    restore(item, index) {
-      const categories = load();
-      const at = Math.min(index, categories.length);
-      categories.splice(at, 0, item);
-      save(categories);
     },
   };
 })();
