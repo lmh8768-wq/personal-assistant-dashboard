@@ -89,6 +89,16 @@ function showView(viewName) {
   viewSections.forEach((section) => {
     section.hidden = section.id !== `view-${viewName}`;
   });
+
+  const nextSection = document.getElementById(`view-${viewName}`);
+  if (nextSection) {
+    // Remove-then-re-add so the animation replays even if this same tab
+    // was just clicked again (a bare class add is a no-op the second time).
+    nextSection.classList.remove("view-enter");
+    void nextSection.offsetWidth;
+    nextSection.classList.add("view-enter");
+  }
+
   if (viewName === "dashboard" && window.ScheduleView) {
     window.ScheduleView.refreshDashboard();
   }
