@@ -92,6 +92,14 @@
       });
     }
 
+    // 비서에게 묻기 has no data of its own to search, so it was previously
+    // unreachable from global search entirely — a fixed keyword match at
+    // least surfaces it for the obvious ways someone would look for it.
+    const ASSISTANT_KEYWORDS = ["비서", "질문", "상담", "claude", "클로드", "챗봇", "물어보기"];
+    if (ASSISTANT_KEYWORDS.some((k) => k.includes(q) || q.includes(k))) {
+      results.push({ type: "비서", label: "비서에게 묻기", view: "assistant" });
+    }
+
     return results.slice(0, 10);
   }
 
