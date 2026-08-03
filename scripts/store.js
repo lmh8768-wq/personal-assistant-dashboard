@@ -520,6 +520,127 @@
   };
 })();
 
+// ---------- Vongole pasta (봉골레 파스타) recipes ----------
+// Same shape/logic backs two separate lists — 대성공 레시피 (personally
+// verified) and 수집한 레시피 (gathered from elsewhere, untried/unrated) —
+// so this factory builds each store from its own localStorage key rather
+// than duplicating the CRUD logic twice.
+function createVongoleRecipeStore(key, idPrefix) {
+  function createId() {
+    return `${idPrefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(key);
+      const data = raw ? JSON.parse(raw) : [];
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function save(recipes) {
+    localStorage.setItem(key, JSON.stringify(recipes));
+  }
+
+  return {
+    getAll() {
+      return load();
+    },
+    add(title, content) {
+      const recipes = load();
+      const item = { id: createId(), title, content };
+      recipes.push(item);
+      save(recipes);
+      return item;
+    },
+    update(id, patch) {
+      const recipes = load();
+      const idx = recipes.findIndex((r) => r.id === id);
+      if (idx === -1) return null;
+      recipes[idx] = { ...recipes[idx], ...patch };
+      save(recipes);
+      return recipes[idx];
+    },
+    remove(id) {
+      const recipes = load();
+      const idx = recipes.findIndex((r) => r.id === id);
+      if (idx === -1) return null;
+      const [removed] = recipes.splice(idx, 1);
+      save(recipes);
+      return { item: removed, index: idx };
+    },
+    restore(item, index) {
+      const recipes = load();
+      const at = Math.min(index, recipes.length);
+      recipes.splice(at, 0, item);
+      save(recipes);
+    },
+  };
+}
+
+window.VongoleRecipeStore = createVongoleRecipeStore("assistant.vongoleRecipes.v1", "vr");
+window.VongoleCollectedRecipeStore = createVongoleRecipeStore("assistant.vongoleCollectedRecipes.v1", "vcr");
+
+// ---------- Vongole pasta (봉골레 파스타) attempt log ----------
+(function () {
+  const KEY = "assistant.vongoleLog.v1";
+
+  function createId() {
+    return `vl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      const data = raw ? JSON.parse(raw) : [];
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function save(entries) {
+    localStorage.setItem(KEY, JSON.stringify(entries));
+  }
+
+  window.VongoleLogStore = {
+    getAll() {
+      return load();
+    },
+    add(entry) {
+      const entries = load();
+      const item = { id: createId(), ...entry };
+      entries.push(item);
+      save(entries);
+      return item;
+    },
+    update(id, patch) {
+      const entries = load();
+      const idx = entries.findIndex((e) => e.id === id);
+      if (idx === -1) return null;
+      entries[idx] = { ...entries[idx], ...patch };
+      save(entries);
+      return entries[idx];
+    },
+    remove(id) {
+      const entries = load();
+      const idx = entries.findIndex((e) => e.id === id);
+      if (idx === -1) return null;
+      const [removed] = entries.splice(idx, 1);
+      save(entries);
+      return { item: removed, index: idx };
+    },
+    restore(item, index) {
+      const entries = load();
+      const at = Math.min(index, entries.length);
+      entries.splice(at, 0, item);
+      save(entries);
+    },
+  };
+})();
+
 // ---------- Korean public holidays (2026, static) ----------
 window.KoreanHolidays = {
   "2026-01-01": "신정",

@@ -74,6 +74,9 @@
         <a class="nav-item" href="#ledger" data-view="ledger">
           <span class="nav-icon">💰</span><span class="nav-label">가계부</span>
         </a>
+        <a class="nav-item" href="#vongole" data-view="vongole">
+          <span class="nav-icon">🍝</span><span class="nav-label">봉골레 파스타</span>
+        </a>
         <a class="nav-item" href="#assistant" data-view="assistant">
           <span class="nav-icon">✦</span><span class="nav-label">비서에게 묻기</span>
         </a>
@@ -151,6 +154,17 @@
             </div>
             <div class="completion-rate-track">
               <div class="completion-rate-fill" id="completionRateFill"></div>
+            </div>
+          </section>
+
+          <!-- 목표 소비 -->
+          <section class="completion-rate-section">
+            <div class="completion-rate-header">
+              <span class="completion-rate-title" id="budgetRateTitle">이번 달 목표 소비</span>
+              <span class="completion-rate-value" id="budgetRateValue">—</span>
+            </div>
+            <div class="completion-rate-track">
+              <div class="completion-rate-fill" id="budgetRateFill"></div>
             </div>
           </section>
 
@@ -432,6 +446,26 @@
               <ul class="schedule-list" id="ledgerDayEntryList"></ul>
             </div>
           </div>
+        </div>
+
+        <div class="view" id="view-vongole" hidden>
+          <div class="diary-header">
+            <h2>🏆 대성공 레시피</h2>
+            <button type="button" class="vongole-add-btn" id="addVongoleRecipeBtn" aria-label="레시피 추가">+</button>
+          </div>
+          <div id="vongoleRecipeList" class="vongole-recipe-list"></div>
+
+          <div class="diary-header vongole-log-header">
+            <h2>📎 수집한 레시피</h2>
+            <button type="button" class="vongole-add-btn" id="addVongoleCollectedRecipeBtn" aria-label="레시피 추가">+</button>
+          </div>
+          <div id="vongoleCollectedRecipeList" class="vongole-recipe-list"></div>
+
+          <div class="diary-header vongole-log-header">
+            <h2>🍝 시도 기록</h2>
+            <button class="primary-btn" id="addVongoleLogBtn">+ 기록 추가</button>
+          </div>
+          <div class="diary-feed" id="vongoleLogFeed"></div>
         </div>
 
         <div class="view" id="view-assistant" hidden>
@@ -755,6 +789,34 @@
     </div>
   </div>
 
+  <!-- 봉골레 파스타: 시도 기록 추가/수정 모달 -->
+  <div class="modal-overlay" id="vongoleLogModalOverlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vongoleLogModalTitle">
+      <h3 id="vongoleLogModalTitle">시도 기록 추가</h3>
+      <form id="vongoleLogForm">
+        <label>
+          날짜
+          <input type="date" id="vongoleLogDateInput" required />
+        </label>
+        <label>
+          그 날의 레시피
+          <textarea id="vongoleLogRecipeInput" rows="6" placeholder="그 날 어떤 재료 · 비율 · 방법으로 만들었는지 적어보세요"></textarea>
+        </label>
+        <label>
+          코멘트
+          <textarea id="vongoleLogCommentInput" rows="4" placeholder="맛이 어땠는지, 다음엔 뭘 바꿀지 적어보세요"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn danger" id="deleteVongoleLogBtn" hidden>삭제</button>
+          <div class="modal-actions-right">
+            <button type="button" class="ghost-btn" id="cancelVongoleLogBtn">취소</button>
+            <button type="submit" class="primary-btn">저장</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="scripts/toast.js"></script>
   <script src="scripts/store.js"></script>
   <script src="scripts/schedule.js"></script>
@@ -765,6 +827,7 @@
   <script src="scripts/study.js"></script>
   <script src="scripts/exercise.js"></script>
   <script src="scripts/ledger.js"></script>
+  <script src="scripts/vongole.js"></script>
   <script src="scripts/routine.js"></script>
   <script src="scripts/search.js"></script>
   <script src="scripts/main.js"></script>

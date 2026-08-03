@@ -491,9 +491,20 @@ button.nav-item {
   transition: width 0.3s ease;
 }
 
+.completion-rate-fill.warning {
+  background: #f5a524;
+}
+
+.completion-rate-fill.over {
+  background: #f31260;
+}
+
+/* 오늘의 날씨/오늘의 일정/다가오는 일정 share this row at equal widths.
+   Everything after it (베이스 연습, 운동 기록) still just spans the full
+   width via 1 / -1, which adapts to however many columns the grid has. */
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 14px;
 }
 
@@ -503,7 +514,6 @@ button.nav-item {
 }
 
 .panel-weather {
-  grid-column: 1 / -1;
   min-height: auto;
 }
 
@@ -694,6 +704,103 @@ button.nav-item {
 
 .assistant-panel-full {
   min-height: 320px;
+}
+
+/* ---------- Vongole pasta (봉골레 파스타) ---------- */
+.vongole-recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.vongole-recipe-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+.vongole-recipe-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.vongole-recipe-title {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Expanding a card puts it straight into edit mode — no separate 수정
+   button — so the body is just the two live-saving inputs below. */
+.vongole-recipe-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.vongole-recipe-title-input {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  outline: none;
+}
+
+.vongole-recipe-title-input:focus {
+  border-color: var(--accent);
+}
+
+.vongole-recipe-content-input {
+  min-height: 160px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.vongole-recipe-content-input:focus {
+  border-color: var(--accent);
+}
+
+.vongole-log-header {
+  margin-top: 8px;
+}
+
+.vongole-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.vongole-add-btn:hover {
+  color: var(--accent);
 }
 
 /* ---------- Schedule list (shared: dashboard panel + day panel) ---------- */

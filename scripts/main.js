@@ -82,6 +82,7 @@ const viewTitles = {
   study: "학업",
   exercise: "운동",
   ledger: "가계부",
+  vongole: "봉골레 파스타",
   assistant: "비서에게 묻기",
   settings: "설정",
 };
@@ -111,6 +112,9 @@ function showView(viewName) {
   }
   if (viewName === "dashboard" && window.WeatherView) {
     window.WeatherView.refreshDashboard();
+  }
+  if (viewName === "dashboard" && window.LedgerView) {
+    window.LedgerView.refreshDashboard();
   }
   if (viewName === "routine" && window.RoutineView) {
     // The routine layout was hidden (width 0) for any resize that happened
@@ -186,6 +190,7 @@ window.initFeatures = function initFeatures() {
   if (window.StudyView) window.StudyView.init();
   if (window.ExerciseView) window.ExerciseView.init();
   if (window.LedgerView) window.LedgerView.init();
+  if (window.VongoleView) window.VongoleView.init();
   if (window.RoutineView) window.RoutineView.init();
   if (window.GlobalSearch) window.GlobalSearch.init();
 };

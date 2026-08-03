@@ -901,12 +901,41 @@
     }
   }
 
+  // ---------- Dashboard (이번 달 목표 소비) ----------
+  // Always the real current month, unlike renderCategoryProgress()'s bar
+  // (tied to whichever month calendarViewDate happens to be showing).
+  function refreshDashboard() {
+    const fillEl = document.getElementById("budgetRateFill");
+    const valueEl = document.getElementById("budgetRateValue");
+    if (!fillEl || !valueEl) return;
+
+    const totalBudget = window.LedgerCategoryStore.getByType("expense").reduce((sum, c) => sum + (c.budget || 0), 0);
+    const mKey = toDateStr(new Date()).slice(0, 7);
+    const totalSpent = window.LedgerEntryStore.getAll()
+      .filter((e) => e.date.slice(0, 7) === mKey && entryType(e) === "expense")
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    fillEl.classList.remove("warning", "over");
+    if (totalBudget === 0) {
+      fillEl.style.width = "0%";
+      valueEl.textContent = "목표 미설정";
+      return;
+    }
+
+    const pct = Math.round((totalSpent / totalBudget) * 100);
+    fillEl.style.width = `${Math.min(100, pct)}%`;
+    if (pct >= 100) fillEl.classList.add("over");
+    else if (pct >= 80) fillEl.classList.add("warning");
+    valueEl.textContent = `${formatWon(totalSpent)} / ${formatWon(totalBudget)} · ${pct}%`;
+  }
+
   function renderAll() {
     renderCalendar();
     renderDayPanel();
     renderCategoryProgress();
     renderCategoryManager();
     renderAnalysis();
+    refreshDashboard();
   }
 
   function init() {
@@ -967,5 +996,5 @@
     });
   }
 
-  window.LedgerView = { init, onShow: applyLedgerCalendarFit };
+  window.LedgerView = { init, onShow: applyLedgerCalendarFit, refreshDashboard };
 })();
