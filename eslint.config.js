@@ -86,6 +86,20 @@ module.exports = [
     },
   },
   {
+    // schedule-recurrence.js is a UMD module (see its own header comment) —
+    // consumed as a browser global via window.ScheduleRecurrence *and* as a
+    // Node CommonJS require() from api/send-daily-notifications.js, so its
+    // wrapper references both `module` and `self` on top of the usual
+    // browser globals. Scoped to just this file rather than added to
+    // browserGlobals, since no other script under scripts/** needs either.
+    files: ["scripts/schedule-recurrence.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "script",
+      globals: { ...browserGlobals, module: "readonly", self: "readonly" },
+    },
+  },
+  {
     files: ["sw.js"],
     languageOptions: {
       ecmaVersion: 2022,

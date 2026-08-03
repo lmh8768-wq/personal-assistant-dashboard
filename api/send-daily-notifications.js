@@ -1,5 +1,6 @@
 const admin = require("firebase-admin");
 const webpush = require("web-push");
+const { pad2, getOccurrences } = require("../scripts/schedule-recurrence.js");
 
 if (!admin.apps.length) {
   admin.initializeApp({
@@ -13,56 +14,6 @@ webpush.setVapidDetails(
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
-
-// ---------- Schedule logic (ported from scripts/store.js) ----------
-function pad2(n) {
-  return String(n).padStart(2, "0");
-}
-
-function parseDateStr(s) {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function matchesDate(item, dateStr) {
-  if (dateStr < item.date) return false;
-  const repeat = item.repeat || { type: "none" };
-  if (repeat.until && dateStr > repeat.until) return false;
-  if ((item.excludedDates || []).includes(dateStr)) return false;
-
-  switch (repeat.type) {
-    case "daily":
-      return true;
-    case "weekdays": {
-      const day = parseDateStr(dateStr).getDay();
-      return day >= 1 && day <= 5;
-    }
-    case "every10days": {
-      const diffDays = Math.round((parseDateStr(dateStr) - parseDateStr(item.date)) / 86400000);
-      return diffDays % 10 === 0;
-    }
-    case "weekly":
-      return parseDateStr(item.date).getDay() === parseDateStr(dateStr).getDay();
-    case "monthly":
-      return parseDateStr(item.date).getDate() === parseDateStr(dateStr).getDate();
-    case "yearly": {
-      const anchor = parseDateStr(item.date);
-      const target = parseDateStr(dateStr);
-      return anchor.getMonth() === target.getMonth() && anchor.getDate() === target.getDate();
-    }
-    default:
-      return dateStr === item.date;
-  }
-}
-
-function getOccurrences(schedules, dateStr) {
-  return schedules
-    .filter((item) => matchesDate(item, dateStr))
-    .map((item) => {
-      const override = (item.overrides || {})[dateStr];
-      return { ...item, ...(override || {}), occurrenceDate: dateStr };
-    });
-}
 
 module.exports = async (req, res) => {
   const authHeader = req.headers.authorization || "";

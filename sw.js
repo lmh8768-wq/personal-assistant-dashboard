@@ -13,7 +13,7 @@
 // (offline). That trade deliberately favors "never see stale content while
 // online" over "instant load from cache", since staleness is the specific
 // failure mode this needs to avoid.
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const CACHE_NAME = `assistant-shell-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -23,6 +23,7 @@ const PRECACHE_URLS = [
   "/styles/main.css",
   "/scripts/toast.js",
   "/scripts/modal-focus-trap.js",
+  "/scripts/schedule-recurrence.js",
   "/scripts/store.js",
   "/scripts/schedule.js",
   "/scripts/settings.js",

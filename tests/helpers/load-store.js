@@ -34,14 +34,30 @@ function createMemoryStorage() {
 }
 
 function loadStoreModule() {
+  // store.js reads window.ScheduleRecurrence at top-level (as soon as its
+  // schedule IIFE runs), so that script has to execute in the sandbox first
+  // — same load order index.html uses for the real app.
+  const recurrenceCode = fs.readFileSync(
+    path.join(__dirname, "..", "..", "scripts", "schedule-recurrence.js"),
+    "utf8"
+  );
   const code = fs.readFileSync(path.join(__dirname, "..", "..", "scripts", "store.js"), "utf8");
   const localStorage = createMemoryStorage();
+  const windowObj = {};
   const sandbox = {
     localStorage,
     console,
-    window: {},
+    window: windowObj,
+    // schedule-recurrence.js's UMD wrapper does
+    // `typeof self !== "undefined" ? self : this` to decide where to attach
+    // itself when there's no `module.exports` (real browsers always have
+    // `self`, aliased to `window` in the main thread) — aliasing the same
+    // object here means it lands on this sandbox's `window` too, instead of
+    // wherever bare `this` would resolve to inside a vm context.
+    self: windowObj,
   };
   vm.createContext(sandbox);
+  vm.runInContext(recurrenceCode, sandbox, { filename: "scripts/schedule-recurrence.js" });
   vm.runInContext(code, sandbox, { filename: "scripts/store.js" });
   return sandbox.window;
 }

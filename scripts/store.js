@@ -36,14 +36,13 @@ window.safeSetLocalStorage = function (key, value) {
     return `sc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  function parseDateStr(s) {
-    const [y, m, d] = s.split("-").map(Number);
-    return new Date(y, m - 1, d);
-  }
-
-  function pad2(n) {
-    return String(n).padStart(2, "0");
-  }
+  // The actual recurrence-matching logic (matchesDate/getOccurrences) lives
+  // in scripts/schedule-recurrence.js now — shared with
+  // api/send-daily-notifications.js, which used to hand-maintain its own
+  // separate copy (see that file's history). parseDateStr/pad2 are reused
+  // from there too rather than re-declared, so there's exactly one
+  // definition of each.
+  const { matchesDate, getOccurrences, parseDateStr, pad2 } = window.ScheduleRecurrence;
 
   function addDaysToDateStr(dateStr, delta) {
     const d = parseDateStr(dateStr);
@@ -51,51 +50,12 @@ window.safeSetLocalStorage = function (key, value) {
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
   }
 
-  // A schedule item is a "series": one anchor date + an optional repeat rule.
-  // Occurrences are derived on demand instead of being stored individually,
-  // so editing/deleting a series affects every occurrence at once.
-  function matchesDate(item, dateStr) {
-    if (dateStr < item.date) return false;
-    const repeat = item.repeat || { type: "none" };
-    if (repeat.until && dateStr > repeat.until) return false;
-    if ((item.excludedDates || []).includes(dateStr)) return false;
-
-    switch (repeat.type) {
-      case "daily":
-        return true;
-      case "weekdays": {
-        const day = parseDateStr(dateStr).getDay();
-        return day >= 1 && day <= 5;
-      }
-      case "every10days": {
-        const diffDays = Math.round((parseDateStr(dateStr) - parseDateStr(item.date)) / 86400000);
-        return diffDays % 10 === 0;
-      }
-      case "weekly":
-        return parseDateStr(item.date).getDay() === parseDateStr(dateStr).getDay();
-      case "monthly":
-        return parseDateStr(item.date).getDate() === parseDateStr(dateStr).getDate();
-      case "yearly": {
-        const anchor = parseDateStr(item.date);
-        const target = parseDateStr(dateStr);
-        return anchor.getMonth() === target.getMonth() && anchor.getDate() === target.getDate();
-      }
-      default:
-        return dateStr === item.date;
-    }
-  }
-
   window.ScheduleStore = {
     getAll() {
       return loadSchedules();
     },
     getOccurrences(dateStr) {
-      return loadSchedules()
-        .filter((item) => matchesDate(item, dateStr))
-        .map((item) => {
-          const override = (item.overrides || {})[dateStr];
-          return { ...item, ...(override || {}), occurrenceDate: dateStr };
-        });
+      return getOccurrences(loadSchedules(), dateStr);
     },
     countOccurrences(dateStr) {
       return loadSchedules().filter((item) => matchesDate(item, dateStr)).length;
