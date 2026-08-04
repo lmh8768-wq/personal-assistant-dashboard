@@ -945,6 +945,7 @@
     document.getElementById("addLedgerEntryBtn")?.addEventListener("click", () => openModal("add"));
     document.getElementById("ledgerAddRowBtn")?.addEventListener("click", addEntryRow);
     document.getElementById("cancelLedgerBtn")?.addEventListener("click", closeModal);
+    document.getElementById("closeLedgerModalBtn")?.addEventListener("click", closeModal);
     document.getElementById("ledgerForm")?.addEventListener("submit", handleSubmit);
     document.getElementById("deleteLedgerEntryBtn")?.addEventListener("click", handleDeleteFromModal);
     document.getElementById("ledgerModalOverlay")?.addEventListener("click", (e) => {
@@ -954,6 +955,7 @@
       if (e.target.id === "ledgerCategoryModalOverlay") closeCategoryManager();
     });
     document.getElementById("closeLedgerCategoryModalBtn")?.addEventListener("click", closeCategoryManager);
+    document.getElementById("closeLedgerCategoryModalTopBtn")?.addEventListener("click", closeCategoryManager);
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       if (!document.getElementById("ledgerModalOverlay").hidden) closeModal();

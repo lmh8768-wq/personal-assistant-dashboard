@@ -1013,6 +1013,7 @@
     document.getElementById("addPracticeBtn").addEventListener("click", () => openModal("add"));
     document.getElementById("practiceForm").addEventListener("submit", handleSubmit);
     document.getElementById("cancelPracticeBtn").addEventListener("click", closeModal);
+    document.getElementById("closePracticeModalBtn").addEventListener("click", closeModal);
     document.getElementById("deletePracticeBtn").addEventListener("click", handleDelete);
 
     document.getElementById("practiceChecklistAddBtn").addEventListener("click", handleAddChecklistItem);

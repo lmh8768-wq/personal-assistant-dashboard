@@ -1083,6 +1083,7 @@
 
     document.getElementById("scheduleForm").addEventListener("submit", handleSubmit);
     document.getElementById("cancelScheduleBtn").addEventListener("click", closeModal);
+    document.getElementById("closeScheduleModalBtn").addEventListener("click", closeModal);
     document.getElementById("deleteScheduleBtn").addEventListener("click", handleDelete);
     document.getElementById("scheduleRepeatInput").addEventListener("change", updateRepeatFieldsVisibility);
     document.getElementById("scheduleCategoryInput").addEventListener("change", updateCategorySelectDot);
@@ -1109,6 +1110,7 @@
       closeDeleteScopeModal();
     });
     document.getElementById("deleteScopeCancelBtn").addEventListener("click", closeDeleteScopeModal);
+    document.getElementById("closeDeleteScopeModalBtn").addEventListener("click", closeDeleteScopeModal);
     document.getElementById("deleteScopeModalOverlay").addEventListener("click", (e) => {
       if (e.target.id === "deleteScopeModalOverlay") closeDeleteScopeModal();
     });
@@ -1116,6 +1118,7 @@
     document.getElementById("editScopeOccurrenceBtn").addEventListener("click", applyOccurrenceOnlyEdit);
     document.getElementById("editScopeFollowingBtn").addEventListener("click", applyFollowingEdit);
     document.getElementById("editScopeCancelBtn").addEventListener("click", closeEditScopeModal);
+    document.getElementById("closeEditScopeModalBtn").addEventListener("click", closeEditScopeModal);
     document.getElementById("editScopeModalOverlay").addEventListener("click", (e) => {
       if (e.target.id === "editScopeModalOverlay") closeEditScopeModal();
     });

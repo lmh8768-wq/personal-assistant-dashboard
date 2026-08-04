@@ -676,6 +676,7 @@
   <!-- 일정 추가/수정 모달 -->
   <div class="modal-overlay" id="scheduleModalOverlay" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button type="button" class="modal-close-btn" id="closeScheduleModalBtn" aria-label="닫기">×</button>
       <h3 id="modalTitle">일정 추가</h3>
       <form id="scheduleForm">
         <label>
@@ -755,6 +756,7 @@
   <!-- 가계부: 지출 추가/수정 모달 -->
   <div class="modal-overlay" id="ledgerModalOverlay" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ledgerModalTitle">
+      <button type="button" class="modal-close-btn" id="closeLedgerModalBtn" aria-label="닫기">×</button>
       <h3 id="ledgerModalTitle">지출 추가</h3>
       <form id="ledgerForm">
         <div class="ledger-type-tabs" id="ledgerTypeTabs">
@@ -777,6 +779,7 @@
 
   <div class="modal-overlay" id="ledgerCategoryModalOverlay" hidden>
     <div class="modal ledger-category-modal" role="dialog" aria-modal="true" aria-labelledby="ledgerCategoryModalTitle">
+      <button type="button" class="modal-close-btn" id="closeLedgerCategoryModalTopBtn" aria-label="닫기">×</button>
       <h3 id="ledgerCategoryModalTitle">설정</h3>
 
       <div class="ledger-settings-tabs" id="ledgerSettingsTabs">
@@ -817,6 +820,7 @@
   <!-- 반복 일정 삭제 범위 선택 모달 -->
   <div class="modal-overlay" id="deleteScopeModalOverlay" hidden>
     <div class="modal delete-scope-modal" role="dialog" aria-modal="true" aria-labelledby="deleteScopeTitle">
+      <button type="button" class="modal-close-btn" id="closeDeleteScopeModalBtn" aria-label="닫기">×</button>
       <h3 id="deleteScopeTitle">반복 일정 삭제</h3>
       <p class="modal-note">이 일정은 반복 설정되어 있어요. 어떻게 삭제할까요?</p>
       <div class="delete-scope-actions">
@@ -832,6 +836,7 @@
   <!-- 반복 일정 수정 범위 선택 모달 -->
   <div class="modal-overlay" id="editScopeModalOverlay" hidden>
     <div class="modal delete-scope-modal" role="dialog" aria-modal="true" aria-labelledby="editScopeTitle">
+      <button type="button" class="modal-close-btn" id="closeEditScopeModalBtn" aria-label="닫기">×</button>
       <h3 id="editScopeTitle">반복 일정 수정</h3>
       <p class="modal-note">이 일정은 반복 설정되어 있어요. 수정 내용을 어떻게 적용할까요?</p>
       <div class="delete-scope-actions">
@@ -847,6 +852,7 @@
   <!-- 베이스 연습 기록 추가/수정 모달 -->
   <div class="modal-overlay" id="practiceModalOverlay" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="practiceModalTitle">
+      <button type="button" class="modal-close-btn" id="closePracticeModalBtn" aria-label="닫기">×</button>
       <h3 id="practiceModalTitle">연습 기록</h3>
       <form id="practiceForm">
         <label>
@@ -879,6 +885,7 @@
   <!-- 봉골레 파스타: 시도 기록 추가/수정 모달 -->
   <div class="modal-overlay" id="vongoleLogModalOverlay" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vongoleLogModalTitle">
+      <button type="button" class="modal-close-btn" id="closeVongoleLogModalBtn" aria-label="닫기">×</button>
       <h3 id="vongoleLogModalTitle">시도 기록 추가</h3>
       <form id="vongoleLogForm">
         <label>

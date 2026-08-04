@@ -667,3 +667,48 @@ test("schedule modal: the category color dot tracks the selected category", { sk
     await close();
   }
 });
+
+test("modals: every add/edit modal has a working top-right close button", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(150);
+    await page.evaluate(() => window.ScheduleView.openAddModal());
+    await page.waitForTimeout(150);
+    await page.click("#closeScheduleModalBtn");
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => document.getElementById("scheduleModalOverlay").hidden), true);
+
+    await page.evaluate(() => document.querySelector('[data-view="practice"]')?.click());
+    await page.waitForTimeout(150);
+    await page.click("#addPracticeBtn");
+    await page.waitForTimeout(150);
+    await page.click("#closePracticeModalBtn");
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => document.getElementById("practiceModalOverlay").hidden), true);
+
+    await page.evaluate(() => document.querySelector('[data-view="vongole"]')?.click());
+    await page.waitForTimeout(150);
+    await page.click("#addVongoleLogBtn");
+    await page.waitForTimeout(150);
+    await page.click("#closeVongoleLogModalBtn");
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => document.getElementById("vongoleLogModalOverlay").hidden), true);
+
+    await page.evaluate(() => document.querySelector('[data-view="ledger"]')?.click());
+    await page.waitForTimeout(150);
+    await page.click("#addLedgerEntryBtn");
+    await page.waitForTimeout(150);
+    await page.click("#closeLedgerModalBtn");
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => document.getElementById("ledgerModalOverlay").hidden), true);
+
+    await page.evaluate(() => { document.getElementById("ledgerCategoryModalOverlay").hidden = false; });
+    await page.waitForTimeout(150);
+    await page.click("#closeLedgerCategoryModalTopBtn");
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => document.getElementById("ledgerCategoryModalOverlay").hidden), true);
+  } finally {
+    await close();
+  }
+});

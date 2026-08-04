@@ -472,6 +472,7 @@
 
     document.getElementById("addVongoleLogBtn")?.addEventListener("click", () => openLogModal("add"));
     document.getElementById("cancelVongoleLogBtn")?.addEventListener("click", closeLogModal);
+    document.getElementById("closeVongoleLogModalBtn")?.addEventListener("click", closeLogModal);
     document.getElementById("vongoleLogForm")?.addEventListener("submit", handleLogSubmit);
     document.getElementById("deleteVongoleLogBtn")?.addEventListener("click", handleDeleteLog);
     document.getElementById("vongoleLogModalOverlay")?.addEventListener("click", (e) => {

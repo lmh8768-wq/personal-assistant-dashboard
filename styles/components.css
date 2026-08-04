@@ -13,6 +13,7 @@
 }
 
 .modal {
+  position: relative;
   width: 380px;
   max-width: 100%;
   max-height: 90vh;
@@ -26,8 +27,37 @@
 
 .modal h3 {
   margin: 0 0 16px;
+  padding-right: 28px; /* room for .modal-close-btn so long titles don't run under it */
   font-size: 16px;
   font-weight: 700;
+}
+
+/* Every modal previously relied on its own "취소"/"완료" button at the
+   bottom to close — a top-right × is the more common convention and means
+   closing doesn't require reading the whole form first. Each one is wired
+   to that modal's own close function (not a generic hide), since several
+   of those functions also reset form state / clear in-progress edit ids. */
+.modal-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-close-btn:hover {
+  background: var(--bg-elevated-2);
+  color: var(--text);
 }
 
 .modal-note {
