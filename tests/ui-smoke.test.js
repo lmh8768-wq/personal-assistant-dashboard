@@ -361,7 +361,10 @@ test("practice: toggling a leaf goal's checkbox patches its row + ancestors in p
     assert.equal(after.parentSurvived, true, "the parent row's DOM element should be patched in place, not replaced");
     assert.equal(after.parentDone, true);
     assert.equal(after.childDone, true);
-    assert.equal(after.childProgressText, "2/2");
+    // "child" has exactly one real leaf task (grandchild) — 1/1, not 2/2.
+    // countGoalProgress only counts leaves as tasks now (see its own
+    // comment for why counting the "child" node itself was wrong).
+    assert.equal(after.childProgressText, "1/1");
 
     // Rejected toggle (checking a parent whose children aren't all done)
     // should revert the checkbox and leave the store untouched.
@@ -1012,6 +1015,88 @@ test("toast: duration: 0 means never auto-dismiss instead of falling back to the
       [...document.querySelectorAll(".toast-text")].some((el) => el.textContent === "계속 떠 있어야 함")
     );
     assert.equal(stillThere, true);
+  } finally {
+    await close();
+  }
+});
+
+test("practice: the progress percentage only counts leaf goals, not derived-done parents — the actual bug fix", { skip: !RUN }, async () => {
+  // root has children A (2 leaves, both done -> A itself reads done) and B
+  // (2 leaves, 1 done). Real leaf completion is 3/4 = 75%. Counting the
+  // intermediate A/B/root nodes as extra tasks used to compute 4/7 ≈ 57%.
+  const { page, close } = await launchApp();
+  try {
+    const rootId = await page.evaluate(() => {
+      const store = window.PracticeCurriculumStore;
+      const root = store.addGoal(null, "루트");
+      const a = store.addGoal(root.id, "A");
+      const a1 = store.addGoal(a.id, "a1");
+      const a2 = store.addGoal(a.id, "a2");
+      const b = store.addGoal(root.id, "B");
+      const b1 = store.addGoal(b.id, "b1");
+      store.addGoal(b.id, "b2"); // left undone
+      store.toggleDone(a1.id);
+      store.toggleDone(a2.id);
+      store.toggleDone(b1.id);
+      return root.id;
+    });
+    await page.evaluate(() => document.querySelector('[data-view="practice"]')?.click());
+    await page.waitForTimeout(200);
+
+    const text = await page.evaluate(
+      (id) => document.querySelector(`.goal-item-row[data-goal-id="${id}"] .goal-item-progress`)?.textContent,
+      rootId
+    );
+    assert.equal(text, "3/4 (75%)");
+  } finally {
+    await close();
+  }
+});
+
+test("exercise: a learned exercise saved with weight 0 (bodyweight) still shows its weight — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() =>
+      window.LearnedExerciseStore.add({ bodyPart: "가슴", name: "맨몸 푸시업", weight: 0, sets: 3 })
+    );
+    await page.evaluate(() => document.querySelector('[data-view="exercise"]')?.click());
+    await page.waitForTimeout(200);
+
+    const detailText = await page.evaluate(() => {
+      const items = [...document.querySelectorAll(".learned-exercise-item")];
+      const item = items.find((el) => el.querySelector(".learned-exercise-name")?.textContent === "맨몸 푸시업");
+      return item?.querySelector(".learned-exercise-detail")?.textContent || "";
+    });
+    assert.ok(detailText.includes("0kg"), `expected "0kg" in the detail text, got "${detailText}"`);
+    assert.ok(detailText.includes("3세트"));
+  } finally {
+    await close();
+  }
+});
+
+test("routine: undoing a deleted checklist item restores its completion history too, not just the item itself — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const itemId = await page.evaluate(() => {
+      const item = window.RoutineStore.addItem("routine", "물 마시기");
+      window.RoutineStore.toggleDone("routine", item.id); // marks it done today
+      return item.id;
+    });
+
+    const removed = await page.evaluate((id) => {
+      const r = window.RoutineStore.removeItem("routine", id);
+      return r;
+    }, itemId);
+    assert.ok(removed.dates.length > 0, "removeItem should report which dates it was done on");
+
+    const restoredHistory = await page.evaluate(
+      ({ removed, itemId }) => {
+        window.RoutineStore.restoreItem("routine", removed.item, removed.index, removed.dates);
+        return window.RoutineStore.isDone("routine", itemId);
+      },
+      { removed, itemId }
+    );
+    assert.equal(restoredHistory, true, "the restored item should still show as done today");
   } finally {
     await close();
   }

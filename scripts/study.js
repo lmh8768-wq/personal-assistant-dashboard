@@ -135,10 +135,19 @@
     }
   }
 
+  // Same fix as practice.js's countGoalProgress — counts only LEAF goals as
+  // actual tasks. A parent's own `done` is always fully derived from its
+  // children (never independently set), not a real extra unit of work; see
+  // that function's comment for a worked example of the percentage this
+  // used to distort.
   function countProgress(node) {
-    let total = 1;
-    let done = node.done ? 1 : 0;
-    (node.children || []).forEach((child) => {
+    const kids = node.children || [];
+    if (kids.length === 0) {
+      return { total: 1, done: node.done ? 1 : 0 };
+    }
+    let total = 0;
+    let done = 0;
+    kids.forEach((child) => {
       const c = countProgress(child);
       total += c.total;
       done += c.done;

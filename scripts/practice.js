@@ -443,10 +443,24 @@
     }
   }
 
+  // Counts only LEAF goals as actual tasks — a parent's own `done` is
+  // always fully derived from its children (see recomputeGoalNodeAndAncestors,
+  // never independently set), not a real extra unit of work, but this used
+  // to add +1 to total (and +1 to done when the parent happened to be
+  // fully done) for every ancestor level on top of its leaves. That biased
+  // the displayed percentage toward "not yet fully done" the deeper a tree
+  // went: e.g. root with children A (both of A's 2 leaves done, so A itself
+  // reads done) and B (1 of 2 leaves done) is 3/4 = 75% real leaf
+  // completion, but used to compute 4/7 ≈ 57% by also counting A, B, and
+  // the root as extra not-really-tasks.
   function countGoalProgress(node) {
-    let total = 1;
-    let done = node.done ? 1 : 0;
-    (node.children || []).forEach((child) => {
+    const kids = node.children || [];
+    if (kids.length === 0) {
+      return { total: 1, done: node.done ? 1 : 0 };
+    }
+    let total = 0;
+    let done = 0;
+    kids.forEach((child) => {
       const c = countGoalProgress(child);
       total += c.total;
       done += c.done;

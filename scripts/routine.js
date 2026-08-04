@@ -193,18 +193,31 @@
       const idx = data[type].items.findIndex((i) => i.id === id);
       if (idx === -1) return null;
       const [removed] = data[type].items.splice(idx, 1);
+      // Capture which dates this item was marked done on before stripping
+      // it out of history below — restoreItem needs these to actually undo
+      // the deletion. Without this, clicking "실행취소" brought the item
+      // back with no completion history at all: it displayed unchecked for
+      // every past day, and the week/month completion rate permanently
+      // read lower than it did before the "undo" — a real, silent loss of
+      // data hiding behind what looked like a safe undo action.
+      const removedDates = [];
       Object.keys(data[type].history).forEach((date) => {
+        if (data[type].history[date].includes(id)) removedDates.push(date);
         data[type].history[date] = data[type].history[date].filter((did) => did !== id);
       });
       saveAll(data);
-      return { item: removed, index: idx };
+      return { item: removed, index: idx, dates: removedDates };
     },
-    restoreItem(type, item, index) {
+    restoreItem(type, item, index, dates) {
       const data = loadAll();
       // Only the upper bound was clamped — see store.js's createKeyedStore/
       // createEntityStore.restore for the same fix and why it matters.
       const at = Math.min(Math.max(0, index), data[type].items.length);
       data[type].items.splice(at, 0, item);
+      (dates || []).forEach((date) => {
+        if (!data[type].history[date]) data[type].history[date] = [];
+        if (!data[type].history[date].includes(item.id)) data[type].history[date].push(item.id);
+      });
       saveAll(data);
     },
     isDone(type, id) {
@@ -282,7 +295,7 @@
           window.Toast.show("루틴 항목을 삭제했어요", {
             actionLabel: "실행취소",
             onAction: () => {
-              RoutineStore.restoreItem(type, removed.item, removed.index);
+              RoutineStore.restoreItem(type, removed.item, removed.index, removed.dates);
               renderAll();
             },
           });

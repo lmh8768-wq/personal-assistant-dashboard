@@ -240,9 +240,14 @@
           name.textContent = item.name;
           li.appendChild(name);
 
+          // `!= null` (not truthy) — weight/sets are stored as `null` when
+          // never entered, but a real 0 (e.g. "0kg" for a bodyweight
+          // exercise) is a legitimate value the user explicitly typed in.
+          // A plain truthy check treated that 0 exactly like "never
+          // entered", silently dropping it from the display.
           const detailParts = [];
-          if (item.weight) detailParts.push(`${item.weight}kg`);
-          if (item.sets) detailParts.push(`${item.sets}세트`);
+          if (item.weight != null) detailParts.push(`${item.weight}kg`);
+          if (item.sets != null) detailParts.push(`${item.sets}세트`);
           const detail = document.createElement("span");
           detail.className = "learned-exercise-detail";
           detail.textContent = detailParts.join(" · ");
