@@ -14,9 +14,10 @@ test("sw.js: a successful response gets cached", async () => {
   const response = await event.getResponsePromise();
 
   assert.equal(response.body, "fresh content");
-  // put() is fired-and-forgotten inside the handler (not awaited before
-  // respondWith resolves) — give the microtask queue a turn.
-  await new Promise((r) => setImmediate(r));
+  // The cache write is handed to event.waitUntil() rather than awaited
+  // before respondWith() resolves — await it explicitly instead of the
+  // microtask queue happening to settle in time.
+  await Promise.all(event.getWaitUntilPromises());
   assert.equal(store.get(request.url).body, "fresh content");
 });
 
@@ -31,7 +32,7 @@ test("sw.js: an error response (404/500) is NOT cached — this is the actual bu
   const response = await event.getResponsePromise();
 
   assert.equal(response.status, 500); // still returned to the page this one time
-  await new Promise((r) => setImmediate(r));
+  await Promise.all(event.getWaitUntilPromises());
   assert.equal(store.has(request.url), false, "a 500 response must not be written to the cache");
 });
 

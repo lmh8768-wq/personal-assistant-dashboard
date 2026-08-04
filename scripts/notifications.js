@@ -100,5 +100,28 @@
     window.Toast?.show("알림을 껐어요");
   }
 
+  // sw.js's pushsubscriptionchange handler resubscribes on its own when the
+  // browser rotates/expires a subscription, but has no Firebase Auth
+  // session to push the new one to the server with — only this page-side
+  // code does, so it relays the fresh subscription via the same
+  // /api/save-subscription call enableNotifications() uses.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", async (event) => {
+      if (event.data?.type !== "push-subscription-changed") return;
+      const user = window.firebase?.auth && window.firebase.auth().currentUser;
+      if (!user || !isEnabled()) return;
+      try {
+        const idToken = await user.getIdToken();
+        await fetch("/api/save-subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, subscription: event.data.subscription }),
+        });
+      } catch (err) {
+        console.error("failed to relay rotated push subscription", err);
+      }
+    });
+  }
+
   window.PushNotifications = { isSupported, isEnabled, enableNotifications, disableNotifications };
 })();

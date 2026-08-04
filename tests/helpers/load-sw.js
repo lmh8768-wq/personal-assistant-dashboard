@@ -8,7 +8,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { URL } = require("node:url");
 
-function loadSwModule({ fetchImpl, seedCache } = {}) {
+function loadSwModule({ fetchImpl, seedCache, clientList, subscribeImpl } = {}) {
   const code = fs.readFileSync(path.join(__dirname, "..", "..", "sw.js"), "utf8");
   const listeners = {};
   const store = new Map();
@@ -39,7 +39,17 @@ function loadSwModule({ fetchImpl, seedCache } = {}) {
     },
     location: { origin: "http://localhost" },
     skipWaiting: () => {},
-    clients: { claim: async () => {} },
+    clients: {
+      claim: async () => {},
+      matchAll: async () => clientList || [],
+      openWindow: async (url) => ({ url }),
+    },
+    registration: {
+      showNotification: async () => {},
+      pushManager: {
+        subscribe: subscribeImpl || (async () => ({ toJSON: () => ({ endpoint: "https://push.example/new" }) })),
+      },
+    },
   };
 
   const sandbox = {
@@ -49,6 +59,7 @@ function loadSwModule({ fetchImpl, seedCache } = {}) {
     console,
     URL,
     Promise,
+    atob,
   };
   vm.createContext(sandbox);
   vm.runInContext(code, sandbox, { filename: "sw.js" });
@@ -64,15 +75,26 @@ function makeResponse({ ok, status, body }) {
   return response;
 }
 
-// A minimal FetchEvent stand-in.
+// A minimal FetchEvent stand-in. Needs a real waitUntil() (even if it's
+// just a no-op collector) — without one, sw.js's `event.waitUntil(...)`
+// call throws (not a function), and that throw was, by sheer microtask-
+// ordering luck, getting silently absorbed by the handler's own offline-
+// fallback .catch() in a way that happened to still resolve to the right
+// response — passing the test for the wrong reason instead of actually
+// exercising the real waitUntil code path.
 function makeFetchEvent(request) {
   let responded = null;
+  const waitUntilPromises = [];
   return {
     request,
     respondWith(promise) {
       responded = promise;
     },
+    waitUntil(promise) {
+      waitUntilPromises.push(promise);
+    },
     getResponsePromise: () => responded,
+    getWaitUntilPromises: () => waitUntilPromises,
   };
 }
 

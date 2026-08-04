@@ -1,4 +1,5 @@
 {
+  "id": "/index.html",
   "name": "비서 | 개인 대시보드",
   "short_name": "비서",
   "description": "일정, 가계부, 학업/연습 커리큘럼, 운동 기록, 루틴을 한곳에서 관리하는 개인 대시보드",
@@ -17,5 +18,9 @@
     { "name": "일정 · 할 일", "url": "./index.html#schedule" },
     { "name": "가계부", "url": "./index.html#ledger" },
     { "name": "베이스 연습 일지", "url": "./index.html#practice" }
+  ],
+  "screenshots": [
+    { "src": "screenshots/screenshot-wide.png", "sizes": "1280x800", "type": "image/png", "form_factor": "wide" },
+    { "src": "screenshots/screenshot-narrow.png", "sizes": "750x1334", "type": "image/png", "form_factor": "narrow" }
   ]
 }

@@ -91,7 +91,18 @@ self.addEventListener("fetch", (event) => {
         // the next time this exact request happens while offline.
         if (response.ok) {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          // Was fire-and-forget with no rejection handling — a cache.put
+          // failure (quota exceeded, or an opaque-response edge case)
+          // became an unhandled promise rejection inside the worker on
+          // every affected request, easy to miss in production. waitUntil
+          // also keeps the worker alive long enough for the write to
+          // actually finish instead of racing termination.
+          event.waitUntil(
+            caches
+              .open(CACHE_NAME)
+              .then((cache) => cache.put(request, copy))
+              .catch((err) => console.warn("sw: cache.put failed", request.url, err))
+          );
         }
         return response;
       })
@@ -115,6 +126,21 @@ self.addEventListener("fetch", (event) => {
 });
 
 // ---------- Push notifications ----------
+// Same public key as scripts/notifications.js's VAPID_PUBLIC_KEY —
+// duplicated rather than shared, since this worker has no access to that
+// file's window-scoped code (no import mechanism between the two
+// contexts worth building just for one constant + one small helper).
+const VAPID_PUBLIC_KEY = "BFq2EH0eo-ALUr1izN9_P35NgAxsQl8OssBUudjbS583zzSm12c_Ojdo-nmhJjqtEdRD7yfQ5dKmTXorTigxKvA";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -137,14 +163,61 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = (event.notification.data && event.notification.data.url) || "/index.html#schedule";
+  const targetUrl = new URL(url, self.location.origin).href;
 
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clientList) => {
       for (const client of clientList) {
-        if ("focus" in client) return client.focus();
+        if (!("focus" in client)) continue;
+        await client.focus();
+        // focus() alone leaves an already-open tab on whatever route it
+        // was already showing — tapping a schedule reminder while sitting
+        // on #ledger just refocused the #ledger tab instead of taking the
+        // user to #schedule. navigate() moves it to the notification's
+        // actual target (a full reload, since this is a hash-only route on
+        // one static index.html, but main.js's own startup hash-routing
+        // already lands on the right tab from that).
+        if ("navigate" in client) {
+          try {
+            await client.navigate(targetUrl);
+          } catch (err) {
+            // Some browsers throw if the client isn't navigable at this
+            // moment — focusing it is still a real improvement even if the
+            // route doesn't change.
+            console.warn("sw: notificationclick navigate failed", err);
+          }
+        }
+        return;
       }
       if (self.clients.openWindow) return self.clients.openWindow(url);
       return undefined;
     })
+  );
+});
+
+// Browsers can rotate/expire a push subscription at any time and fire this
+// instead of just silently dropping it — without handling it, the stale
+// subscription stored server-side (via /api/save-subscription) just stops
+// working with no client-side recovery, so notifications quietly stop and
+// the only fix would be manually disabling/re-enabling them in Settings.
+// This worker can resubscribe on its own, but has no Firebase Auth session
+// to authenticate the /api/save-subscription call with — only the page
+// does — so the new subscription is handed off via postMessage for
+// scripts/notifications.js to relay using a live idToken.
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    self.registration.pushManager
+      .subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      })
+      .then((subscription) =>
+        self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+          clientList.forEach((client) =>
+            client.postMessage({ type: "push-subscription-changed", subscription: subscription.toJSON() })
+          );
+        })
+      )
+      .catch((err) => console.warn("sw: pushsubscriptionchange resubscribe failed", err))
   );
 });
