@@ -33,6 +33,26 @@
     return typeof key === "string" && key.startsWith("assistant.");
   }
 
+  // weather.js used to write its cache under "assistant.weatherCache.v1"/
+  // "assistant.weatherLocation.v1" (fixed in the commit that also added the
+  // initialSyncDone guard above) — that bug let a fast per-device weather
+  // write race ahead of the first pull and get pushed as if it were the
+  // whole account, wiping schedules/practice/etc. The rename stopped new
+  // damage, but never deleted the two now-dead keys it left behind: nothing
+  // reads or writes them anymore, yet collectLocalState() still picks them
+  // up (they still start with "assistant.") and re-uploads them on every
+  // push, quietly wasting both local storage and sync payload — one
+  // real-world case grew to ~1MB, right at Firestore's per-document limit,
+  // and broke sync outright ("데이터가 너무 커서 동기화가 계속 실패"). One-time
+  // cleanup so existing installs shed the dead weight instead of carrying it
+  // forever; a fresh install never has these keys, so this is a no-op there.
+  const LEGACY_ORPHANED_KEYS = ["assistant.weatherCache.v1", "assistant.weatherLocation.v1"];
+  function cleanupLegacyKeys() {
+    LEGACY_ORPHANED_KEYS.forEach((key) => {
+      if (localStorage.getItem(key) !== null) localStorage.removeItem(key);
+    });
+  }
+
   // ---------- Debug log (visible in Settings, for remote troubleshooting) ----------
   const LOG_KEY = "__cloudSync.log";
   const MAX_LOG_ENTRIES = 60;
@@ -471,6 +491,13 @@
             pushPending = true;
             pushToCloud();
           }
+          // Runs after the branch above so a still-lingering legacy key
+          // pulled back in via applyRemoteData gets swept up too, not just
+          // one that was already gone locally — then, since removeItem is
+          // patched and initialSyncDone/auth/db are already set at this
+          // point, the removal schedules a real push that overwrites the
+          // server copy without it, instead of just cleaning this device.
+          cleanupLegacyKeys();
           showApp();
           window.initFeatures && window.initFeatures();
           return;
@@ -542,6 +569,7 @@
   function handleOfflineContinue() {
     logSync("user clicked offline-continue");
     setSyncStatus("offline", "오프라인");
+    cleanupLegacyKeys();
     showApp();
     window.initFeatures && window.initFeatures();
   }
@@ -552,6 +580,7 @@
       // Firebase SDK failed to load: boot the app with whatever's local.
       logSync("firebase SDK not loaded, booting offline");
       setSyncStatus("offline", "오프라인");
+      cleanupLegacyKeys();
       document.getElementById("appRoot").hidden = false;
       document.getElementById("authGate").hidden = true;
       window.initFeatures && window.initFeatures();

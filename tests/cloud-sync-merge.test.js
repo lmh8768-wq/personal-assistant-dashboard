@@ -244,3 +244,31 @@ test("startListening: a real (non-empty) remote payload still applies normally, 
   assert.equal(JSON.parse(localStorage.getItem("assistant.schedules.v1"))[0].id, "sc_remote");
   assert.equal(setCalls.length, 0, "a normal pull with real remote data shouldn't trigger a re-push");
 });
+
+test("startListening: sweeps the orphaned assistant.weatherCache.v1/weatherLocation.v1 keys and re-pushes without them — the actual bug fix", () => {
+  // weather.js used to write its cache under these assistant.*-prefixed
+  // names (fixed by renaming them out of the synced namespace), but never
+  // deleted the old keys — they just sit there forever, still picked up by
+  // collectLocalState() and re-uploaded on every push. Simulates the worst
+  // case: this device has none of the legacy keys locally, but the SERVER
+  // still has one from a stale push, so the first pull re-imports it before
+  // the cleanup has a chance to remove it again.
+  const remotePayload = {
+    "assistant.schedules.v1": JSON.stringify([{ id: "sc_remote", title: "서버 일정" }]),
+    "assistant.weatherCache.v1": JSON.stringify({ weather: { temp: 20 }, fetchedAt: 1234 }),
+  };
+  const { localStorage, setCalls } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify(remotePayload),
+    seedLocalStorage: {},
+  });
+
+  assert.equal(localStorage.getItem("assistant.weatherCache.v1"), null, "the legacy key must not survive locally");
+  assert.equal(setCalls.length, 1, "the cleanup removal must trigger exactly one re-push");
+  const pushedPayload = JSON.parse(setCalls[0].payload);
+  assert.ok(
+    !("assistant.weatherCache.v1" in pushedPayload),
+    "the re-push must not carry the legacy key back up to the server"
+  );
+  assert.equal(JSON.parse(pushedPayload["assistant.schedules.v1"])[0].id, "sc_remote", "real data survives the cleanup");
+});
