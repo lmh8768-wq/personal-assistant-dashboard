@@ -987,3 +987,32 @@ test("vongole: adding a recipe while a filter is active also refreshes the other
     await close();
   }
 });
+
+test("toast: repeated identical messages replace the previous one instead of stacking up — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const count = await page.evaluate(() => {
+      window.Toast.show("같은 메시지");
+      window.Toast.show("같은 메시지");
+      window.Toast.show("같은 메시지");
+      return document.querySelectorAll(".toast").length;
+    });
+    assert.equal(count, 1);
+  } finally {
+    await close();
+  }
+});
+
+test("toast: duration: 0 means never auto-dismiss instead of falling back to the default — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => window.Toast.show("계속 떠 있어야 함", { duration: 0 }));
+    await page.waitForTimeout(4500); // past the normal 4s default
+    const stillThere = await page.evaluate(() =>
+      [...document.querySelectorAll(".toast-text")].some((el) => el.textContent === "계속 떠 있어야 함")
+    );
+    assert.equal(stillThere, true);
+  } finally {
+    await close();
+  }
+});

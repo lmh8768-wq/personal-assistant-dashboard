@@ -21,8 +21,24 @@
     opts = opts || {};
     const container = ensureContainer();
 
+    // Rapid repeated identical actions (e.g. deleting several list items in
+    // a row, each firing their own toast) used to stack up an unbounded
+    // number of toasts with the same text, each independently timered and
+    // separately re-announced via aria-live. An existing one for the exact
+    // same message is replaced instead — the newest call's timer/action are
+    // what stick around. Floating (opts.position-anchored) toasts are
+    // excluded: each is tied to a specific spot the user just interacted
+    // with, not the shared corner, so piling up is a lot less likely and
+    // context (which one goes where) matters more than deduping them.
+    if (!opts.position) {
+      [...container.querySelectorAll(".toast")]
+        .filter((el) => el.dataset.toastMessage === message)
+        .forEach((el) => el.remove());
+    }
+
     const toast = document.createElement("div");
     toast.className = "toast" + (opts.type ? ` toast-${opts.type}` : "");
+    toast.dataset.toastMessage = message;
     // Set here too, not just on the shared container — a position-anchored
     // toast (below) is appended straight to document.body instead, outside
     // the container's aria-live region entirely.
@@ -44,7 +60,10 @@
     // An actionable toast (almost always "실행취소" after a delete) needs
     // longer than a plain status message — 4s barely gives time to read it,
     // let alone notice and tap the button before the delete becomes final.
-    const duration = opts.duration || (actions.length > 0 ? 8000 : 4000);
+    // `?? ` (not `||`) so an explicit duration: 0 — "don't auto-dismiss at
+    // all" — isn't treated the same as "no duration given"; `||` silently
+    // fell through to the default any time a caller asked for exactly that.
+    const duration = opts.duration ?? (actions.length > 0 ? 8000 : 4000);
 
     actions.forEach((action) => {
       const btn = document.createElement("button");
@@ -77,7 +96,9 @@
     } else {
       container.appendChild(toast);
     }
-    timer = setTimeout(() => toast.remove(), duration);
+    if (duration > 0) {
+      timer = setTimeout(() => toast.remove(), duration);
+    }
   }
 
   window.Toast = { show };
