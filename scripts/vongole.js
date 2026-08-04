@@ -84,10 +84,18 @@
     return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS[d.getDay()]})`;
   }
 
+  // A once-only flag, not just "is the list currently empty" — otherwise
+  // deleting every 성공 레시피 (including this seeded one) on purpose would
+  // bring it right back on the very next reload, with no way to actually
+  // end up with zero.
+  const DEFAULT_RECIPE_SEEDED_KEY = "assistant.vongoleDefaultRecipeSeeded.v1";
+
   function seedDefaultRecipeIfEmpty() {
+    if (localStorage.getItem(DEFAULT_RECIPE_SEEDED_KEY)) return;
     if (window.VongoleRecipeStore.getAll().length === 0) {
       window.VongoleRecipeStore.add({ title: "기본 레시피", content: DEFAULT_RECIPE_CONTENT });
     }
+    window.safeSetLocalStorage(DEFAULT_RECIPE_SEEDED_KEY, "true");
   }
 
   // ---------- Dashboard summary ----------

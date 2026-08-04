@@ -807,9 +807,15 @@
 
     if (curriculumSelectMode) {
       // Click-and-drag across rows paints them all to the same new
-      // selected state as the row the gesture started on.
+      // selected state as the row the gesture started on. The checkbox
+      // itself is excluded here and handled by its own "change" listener
+      // below instead — this handler's preventDefault() stops the
+      // checkbox's default focus behavior but NOT its native click-driven
+      // checked toggle, so a click landing on the checkbox used to flip
+      // selectedGoalIds here AND get toggled again natively, leaving the
+      // checkbox's visible state inverted from the actual selection.
       row.addEventListener("mousedown", (e) => {
-        if (e.target.closest("button, .goal-item-label-input, .checklist-item-remove")) return;
+        if (e.target.closest("button, .goal-item-label-input, .checklist-item-remove, .goal-select-checkbox")) return;
         e.preventDefault();
         const newVal = !selectedGoalIds.has(node.id);
         dragSelectValue = newVal;
@@ -824,6 +830,8 @@
       selectCheckbox.type = "checkbox";
       selectCheckbox.className = "goal-select-checkbox";
       selectCheckbox.checked = selectedGoalIds.has(node.id);
+      selectCheckbox.addEventListener("click", (e) => e.stopPropagation());
+      selectCheckbox.addEventListener("change", () => setGoalSelected(node.id, selectCheckbox.checked));
       row.appendChild(selectCheckbox);
     } else {
       const checkbox = document.createElement("input");
