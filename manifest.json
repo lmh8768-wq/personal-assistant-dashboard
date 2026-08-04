@@ -1,6 +1,7 @@
 {
   "name": "비서 | 개인 대시보드",
   "short_name": "비서",
+  "description": "일정, 가계부, 학업/연습 커리큘럼, 운동 기록, 루틴을 한곳에서 관리하는 개인 대시보드",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -11,5 +12,10 @@
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "일정 · 할 일", "url": "./index.html#schedule" },
+    { "name": "가계부", "url": "./index.html#ledger" },
+    { "name": "베이스 연습 일지", "url": "./index.html#practice" }
   ]
 }

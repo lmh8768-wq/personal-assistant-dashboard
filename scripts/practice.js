@@ -21,6 +21,8 @@
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
   }
 
+  // Local-time-only date convention (why not `new Date(s)`) — see
+  // scripts/schedule-recurrence.js's parseDateStr.
   function parseDateStr(s) {
     const [y, m, d] = s.split("-").map(Number);
     return new Date(y, m - 1, d);

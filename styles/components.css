@@ -53,6 +53,17 @@
   color: var(--text-muted);
 }
 
+/* .checkbox-row (schedule.css) wants a row layout, not this rule's column
+   one — ".modal label"'s extra class+element specificity would otherwise
+   beat plain ".checkbox-row" and force schedule.css to reach for
+   !important on every property just to win inside a modal. */
+.modal .checkbox-row {
+  display: flex;
+  flex-direction: row;
+  font-size: 13px;
+  color: var(--text);
+}
+
 .modal .ledger-category-budget-row {
   flex-direction: row;
   align-items: center;

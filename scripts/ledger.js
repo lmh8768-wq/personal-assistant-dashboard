@@ -16,6 +16,9 @@
     return String(n).padStart(2, "0");
   }
 
+  // getFullYear/getMonth/getDate (local time), never toISOString (UTC) —
+  // local-time-only date convention, see scripts/schedule-recurrence.js's
+  // parseDateStr for why.
   function toDateStr(d) {
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
   }
@@ -38,21 +41,27 @@
   // aren't valid there — so these amount fields are type="text" instead,
   // reformatted with commas on every keystroke, with the digits-only value
   // parsed back out via parseAmountInput() wherever it's read for saving.
+  // Digits-only text had no upper bound at all — one extra zero fat-fingered
+  // in would silently go through as-is. 999,999,999,999원 is far past any
+  // real entry but still catches typos.
+  const MAX_LEDGER_AMOUNT = 999999999999;
+
   function formatAmountForInput(value) {
     const digits = String(value ?? "").replace(/[^\d]/g, "");
-    return digits ? Number(digits).toLocaleString("ko-KR") : "";
+    if (!digits) return "";
+    return Math.min(Number(digits), MAX_LEDGER_AMOUNT).toLocaleString("ko-KR");
   }
 
   function parseAmountInput(el) {
-    return Number((el.value || "").replace(/[^\d]/g, "")) || 0;
+    const amount = Number((el.value || "").replace(/[^\d]/g, "")) || 0;
+    return Math.min(amount, MAX_LEDGER_AMOUNT);
   }
 
   function bindLiveAmountFormatting(input) {
     input.type = "text";
     input.inputMode = "numeric";
     input.addEventListener("input", () => {
-      const digits = input.value.replace(/[^\d]/g, "");
-      input.value = digits ? Number(digits).toLocaleString("ko-KR") : "";
+      input.value = formatAmountForInput(input.value);
     });
   }
 

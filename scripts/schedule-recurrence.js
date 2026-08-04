@@ -18,6 +18,19 @@
     return String(n).padStart(2, "0");
   }
 
+  // Deliberately NOT `new Date(s)` — passing a bare "YYYY-MM-DD" string to
+  // the Date constructor parses it as UTC midnight, which then renders as
+  // the *previous* day in any timezone behind UTC (most of the US, for
+  // instance). The (year, monthIndex, day) constructor form used here
+  // builds the date in the local timezone instead, matching how every
+  // "YYYY-MM-DD" string in this app is produced (toDateStr-style: from
+  // getFullYear/getMonth/getDate, never toISOString). Every parseDateStr /
+  // toDateStr pair across scripts/*.js (schedule.js, practice.js,
+  // vongole.js, routine.js, ledger.js) follows this same local-time-only
+  // convention — duplicated per file rather than centralized here, since
+  // this is the one module of the bunch also loaded server-side by
+  // api/send-daily-notifications.js, and the others are small enough that
+  // sharing them isn't worth the extra indirection.
   function parseDateStr(s) {
     const [y, m, d] = s.split("-").map(Number);
     return new Date(y, m - 1, d);

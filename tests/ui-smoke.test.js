@@ -545,3 +545,19 @@ test("practice: dragging a goal onto a row under a different parent shows no dro
     await close();
   }
 });
+
+test("ledger: an amount typed past the upper bound clamps instead of saving an unbounded number — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="ledger"]')?.click());
+    await page.waitForTimeout(150);
+    await page.click("#addLedgerEntryBtn");
+    await page.waitForTimeout(150);
+
+    await page.fill(".ledger-row-amount", "9999999999999"); // 13 digits, past the 999,999,999,999 cap
+    await page.waitForTimeout(100);
+    assert.equal(await page.inputValue(".ledger-row-amount"), "999,999,999,999");
+  } finally {
+    await close();
+  }
+});

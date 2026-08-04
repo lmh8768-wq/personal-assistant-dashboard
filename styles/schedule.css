@@ -23,12 +23,12 @@
 }
 
 .checkbox-row {
-  display: flex !important;
-  flex-direction: row !important;
+  display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 8px;
-  font-size: 13px !important;
-  color: var(--text) !important;
+  font-size: 13px;
+  color: var(--text);
 }
 
 .checkbox-row input {
