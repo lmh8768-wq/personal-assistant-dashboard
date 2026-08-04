@@ -191,6 +191,34 @@ input[type="checkbox"]:checked {
   color: var(--text-faint);
 }
 
+/* The core in-app nav (.nav above) and these external shortcuts used to
+   share the exact same .nav-item look, with only the small label above
+   telling them apart — easy to mistake a shortcut for another in-app tab.
+   Slightly smaller, dimmer, and marked with an external-link glyph so
+   "this leaves the app" reads at a glance. */
+.shortcut-group .nav-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.shortcut-group .nav-item:hover {
+  color: var(--text-muted);
+}
+
+.shortcut-group .nav-icon {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.shortcut-group .nav-item::after {
+  content: "↗";
+  margin-left: auto;
+  padding-left: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
 .sidebar-footer {
   border-top: 1px solid var(--border);
   padding-top: 10px;
