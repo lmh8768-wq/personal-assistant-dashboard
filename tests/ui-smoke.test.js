@@ -447,3 +447,101 @@ test("practice/study/vongole/exercise tabs reflect data changed while the tab wa
     await close();
   }
 });
+
+test("exercise: an invalid running-pace format is rejected without blocking the other fields — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="exercise"]')?.click());
+    await page.waitForTimeout(150);
+
+    await page.fill("#exerciseRecordRunPaceInput", "notapace");
+    await page.locator("#exerciseRecordRunPaceInput").blur();
+    await page.waitForTimeout(150);
+    assert.notEqual(await page.inputValue("#exerciseRecordRunPaceInput"), "notapace");
+
+    // A bad value left sitting in the pace field must not block saving a
+    // completely unrelated field that shares the same "change" handler.
+    await page.fill("#exerciseRecordRunDistanceInput", "5");
+    await page.locator("#exerciseRecordRunDistanceInput").blur();
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(() => window.ExerciseRecordStore.get().runDistance), "5");
+
+    await page.fill("#exerciseRecordRunPaceInput", "5'30\"");
+    await page.locator("#exerciseRecordRunPaceInput").blur();
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(() => window.ExerciseRecordStore.get().runPace), "5'30\"");
+  } finally {
+    await close();
+  }
+});
+
+test("ledger/schedule: repeated '+' clicks on new-category number the placeholder instead of duplicating it — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="settings"]')?.click());
+    await page.waitForTimeout(150);
+    await page.click("#addScheduleCategoryBtn");
+    await page.waitForTimeout(100);
+    await page.click("#addScheduleCategoryBtn");
+    await page.waitForTimeout(100);
+    const scheduleLabels = await page.evaluate(() => window.CategoryStore.getAll().map((c) => c.label));
+    assert.ok(scheduleLabels.includes("새 카테고리"));
+    assert.ok(scheduleLabels.includes("새 카테고리 2"));
+
+    await page.evaluate(() => document.querySelector('[data-view="ledger"]')?.click());
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { document.getElementById("ledgerCategoryModalOverlay").hidden = false; });
+    await page.click("#addLedgerExpenseCategoryBtn");
+    await page.waitForTimeout(100);
+    await page.click("#addLedgerExpenseCategoryBtn");
+    await page.waitForTimeout(100);
+    const ledgerLabels = await page.evaluate(() => window.LedgerCategoryStore.getByType("expense").map((c) => c.label));
+    assert.ok(ledgerLabels.includes("새 카테고리"));
+    assert.ok(ledgerLabels.includes("새 카테고리 2"));
+  } finally {
+    await close();
+  }
+});
+
+test("practice: dragging a goal onto a row under a different parent shows no drop indicator — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="practice"]')?.click());
+    await page.waitForTimeout(150);
+
+    const result = await page.evaluate(async () => {
+      localStorage.setItem("assistant.practiceCurriculum.v1", JSON.stringify([
+        { id: "gA", label: "A", done: false, children: [{ id: "gA1", label: "A1", done: false, children: [] }] },
+        { id: "gB", label: "B", done: false, children: [] },
+      ]));
+      window.PracticeView.onShow();
+      await new Promise((r) => setTimeout(r, 50));
+
+      const rowFor = (id) => document.querySelector(`.goal-item-row[data-goal-id="${id}"]`);
+      const a1 = rowFor("gA1");
+      const b = rowFor("gB");
+
+      function simulateDragOver(draggedRow, draggedId, targetRow) {
+        const start = new Event("dragstart", { bubbles: true, cancelable: true });
+        start.dataTransfer = { setData: () => {}, effectAllowed: "" };
+        draggedRow.dispatchEvent(start);
+
+        const rect = targetRow.getBoundingClientRect();
+        const over = new Event("dragover", { bubbles: true, cancelable: true });
+        over.dataTransfer = { setData: () => {}, getData: () => draggedId };
+        Object.defineProperty(over, "clientY", { value: rect.top + rect.height / 2 });
+        targetRow.dispatchEvent(over);
+        return targetRow.classList.contains("drag-over-before") || targetRow.classList.contains("drag-over-after");
+      }
+
+      const crossParent = simulateDragOver(a1, "gA1", b); // gA1's parent is gA, gB's parent is null
+      const sameParent = simulateDragOver(rowFor("gA"), "gA", b); // both top-level siblings
+      return { crossParent, sameParent };
+    });
+
+    assert.equal(result.crossParent, false);
+    assert.equal(result.sameParent, true);
+  } finally {
+    await close();
+  }
+});

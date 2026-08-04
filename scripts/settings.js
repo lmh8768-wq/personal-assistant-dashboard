@@ -212,10 +212,22 @@
     });
   }
 
+  // Same gap as ledger.js's addCategory: repeated "+" clicks without
+  // renaming used to pile up several identically-named categories with no
+  // way to tell them apart — number the placeholder ("새 카테고리 2", ...)
+  // when the base name's already taken.
+  function uniqueCategoryLabel(base, existingLabels) {
+    if (!existingLabels.includes(base)) return base;
+    let n = 2;
+    while (existingLabels.includes(`${base} ${n}`)) n += 1;
+    return `${base} ${n}`;
+  }
+
   function addScheduleCategory() {
-    const existingCount = window.CategoryStore.getAll().length;
-    const color = CATEGORY_COLOR_PRESETS[existingCount % CATEGORY_COLOR_PRESETS.length];
-    const created = window.CategoryStore.add("새 카테고리", color);
+    const existing = window.CategoryStore.getAll();
+    const color = CATEGORY_COLOR_PRESETS[existing.length % CATEGORY_COLOR_PRESETS.length];
+    const label = uniqueCategoryLabel("새 카테고리", existing.map((c) => c.label));
+    const created = window.CategoryStore.add(label, color);
     renderCategoryEditor();
     if (window.ScheduleView) window.ScheduleView.refreshAll();
     requestAnimationFrame(() => {

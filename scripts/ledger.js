@@ -738,10 +738,23 @@
     window.LedgerCategoryStore.getByType("income").forEach((cat) => incomeContainer.appendChild(buildCategoryEditRow(cat)));
   }
 
+  // Repeated "+" clicks without renaming used to pile up several
+  // identically-named categories with no way to tell them apart — number
+  // the placeholder ("새 카테고리 2", "새 카테고리 3", ...) when the base
+  // name's already taken.
+  function uniqueCategoryLabel(base, existingLabels) {
+    if (!existingLabels.includes(base)) return base;
+    let n = 2;
+    while (existingLabels.includes(`${base} ${n}`)) n += 1;
+    return `${base} ${n}`;
+  }
+
   function addCategory(type) {
-    const existingCount = window.LedgerCategoryStore.getByType(type).length;
-    const color = CATEGORY_COLOR_PRESETS[existingCount % CATEGORY_COLOR_PRESETS.length];
-    const created = window.LedgerCategoryStore.add(type === "income" ? "새 수입 카테고리" : "새 카테고리", color, type);
+    const existing = window.LedgerCategoryStore.getByType(type);
+    const color = CATEGORY_COLOR_PRESETS[existing.length % CATEGORY_COLOR_PRESETS.length];
+    const baseLabel = type === "income" ? "새 수입 카테고리" : "새 카테고리";
+    const label = uniqueCategoryLabel(baseLabel, existing.map((c) => c.label));
+    const created = window.LedgerCategoryStore.add(label, color, type);
     renderAll();
     requestAnimationFrame(() => {
       const row = document.querySelector(`.category-edit-row[data-key="${created.key}"]`);

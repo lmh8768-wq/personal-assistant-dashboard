@@ -130,12 +130,14 @@
       const weightInput = document.createElement("input");
       weightInput.type = "number";
       weightInput.min = "0";
+      weightInput.max = "500";
       weightInput.step = "0.5";
       weightInput.placeholder = "중량 (kg)";
 
       const setsInput = document.createElement("input");
       setsInput.type = "number";
       setsInput.min = "1";
+      setsInput.max = "50";
       setsInput.step = "1";
       setsInput.placeholder = "세트 수";
 
@@ -282,10 +284,27 @@
     }
   }
 
+  // "5'30\"" (분'초"/km) — minutes 1-2 digits, seconds 00-59.
+  const RUN_PACE_PATTERN = /^\d{1,2}'[0-5]\d"$/;
+
+  // Kept separate from handleRecordFieldChange (below) so an invalid pace
+  // being typed doesn't block saving the other 4 fields, which all share
+  // that one "change" handler.
+  function handlePaceFieldChange() {
+    const paceInput = document.getElementById("exerciseRecordRunPaceInput");
+    const paceValue = paceInput.value.trim();
+    if (paceValue && !RUN_PACE_PATTERN.test(paceValue)) {
+      if (window.Toast) window.Toast.show("페이스는 분'초\" 형식으로 입력해주세요 (예: 5'30\")", { type: "warning" });
+      paceInput.value = ExerciseRecordStore.get().runPace ?? "";
+      return;
+    }
+    ExerciseRecordStore.update({ runPace: paceValue });
+    renderDashboardExercise();
+  }
+
   function handleRecordFieldChange() {
     ExerciseRecordStore.update({
       runDistance: document.getElementById("exerciseRecordRunDistanceInput").value,
-      runPace: document.getElementById("exerciseRecordRunPaceInput").value.trim(),
       squat: document.getElementById("exerciseRecordSquatInput").value,
       bench: document.getElementById("exerciseRecordBenchInput").value,
       deadlift: document.getElementById("exerciseRecordDeadliftInput").value,
@@ -327,13 +346,13 @@
 
     [
       "exerciseRecordRunDistanceInput",
-      "exerciseRecordRunPaceInput",
       "exerciseRecordSquatInput",
       "exerciseRecordBenchInput",
       "exerciseRecordDeadliftInput",
     ].forEach((id) => {
       document.getElementById(id).addEventListener("change", handleRecordFieldChange);
     });
+    document.getElementById("exerciseRecordRunPaceInput").addEventListener("change", handlePaceFieldChange);
 
     renderRecordsPanel();
     renderLearnedExercises();

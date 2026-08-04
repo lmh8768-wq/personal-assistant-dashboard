@@ -598,6 +598,14 @@
   let dragSelectValue = null; // true/false while a paint-select drag is in progress, else null
   let clipboardGoals = []; // deep-cloned snapshot of the goals copied last
 
+  // ---------- Row reordering (drag-and-drop within a shared parent) ----------
+  // dataTransfer.getData() isn't readable during "dragover" in most browsers
+  // (only during "drop"), so the id being dragged is tracked here instead —
+  // lets dragover know up front whether this drop would actually be a no-op
+  // (see reorderGoal's "no-op if they don't share a parent" comment) instead
+  // of showing a before/after indicator for a drop that silently does nothing.
+  let draggedGoalId = null;
+
   function setGoalSelected(id, val) {
     if (val) selectedGoalIds.add(id);
     else selectedGoalIds.delete(id);
@@ -816,11 +824,21 @@
 
     row.draggable = !curriculumSelectMode;
     row.addEventListener("dragstart", (e) => {
+      draggedGoalId = node.id;
       e.dataTransfer.setData("text/plain", node.id);
       e.dataTransfer.effectAllowed = "move";
     });
+    row.addEventListener("dragend", () => {
+      draggedGoalId = null;
+    });
     row.addEventListener("dragover", (e) => {
       e.preventDefault();
+      if (draggedGoalId === null || draggedGoalId === node.id) return;
+      const goals = CurriculumStore.getGoals();
+      if (findGoalParentId(goals, draggedGoalId) !== findGoalParentId(goals, node.id)) {
+        row.classList.remove("drag-over-before", "drag-over-after");
+        return;
+      }
       const rect = row.getBoundingClientRect();
       const before = e.clientY - rect.top < rect.height / 2;
       row.classList.toggle("drag-over-before", before);
