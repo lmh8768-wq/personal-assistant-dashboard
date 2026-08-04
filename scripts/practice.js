@@ -821,6 +821,35 @@
       renderCurriculum();
     });
 
+    // Drag-and-drop had no keyboard equivalent at all — Alt+↑/↓ reorders
+    // the focused row among its own siblings (never re-parents, same
+    // restriction reorderGoal already enforces for a mouse drag). This is
+    // the same pattern used elsewhere for reorderable lists; aria-grabbed/
+    // aria-dropeffect (the "proper" drag-and-drop ARIA attributes) were
+    // actually dropped from the ARIA spec for being unreliable across
+    // screen readers, so a documented keyboard shortcut is the more
+    // practical accessible alternative.
+    if (!curriculumSelectMode) {
+      row.tabIndex = 0;
+      row.title = "Alt+↑/↓ 키로 순서를 바꿀 수 있어요";
+      row.addEventListener("keydown", (e) => {
+        if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+        if (e.target !== row) return; // let a nested input/button handle its own keys
+        e.preventDefault();
+        const goals = CurriculumStore.getGoals();
+        const parentId = findGoalParentId(goals, node.id);
+        const siblings = parentId ? (findGoalNode(goals, parentId)?.children || []) : goals;
+        const idx = siblings.findIndex((n) => n.id === node.id);
+        const targetIdx = e.key === "ArrowUp" ? idx - 1 : idx + 1;
+        if (idx === -1 || targetIdx < 0 || targetIdx >= siblings.length) return;
+        CurriculumStore.reorderGoal(node.id, siblings[targetIdx].id, e.key === "ArrowUp");
+        renderCurriculum();
+        requestAnimationFrame(() => {
+          document.querySelector(`.goal-item-row[data-goal-id="${node.id}"]`)?.focus();
+        });
+      });
+    }
+
     if (curriculumSelectMode) {
       // Click-and-drag across rows paints them all to the same new
       // selected state as the row the gesture started on. The checkbox

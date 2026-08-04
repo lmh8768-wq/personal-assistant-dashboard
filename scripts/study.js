@@ -763,6 +763,34 @@
       onChange();
     });
 
+    // Drag-and-drop had no keyboard equivalent at all — Alt+↑/↓ reorders
+    // the focused row among its own siblings (never re-parents, same
+    // restriction reorderGoal already enforces for a mouse drag). Same
+    // fix as practice.js's curriculum tree — see its comment for why this
+    // (a documented shortcut) is the practical accessible alternative,
+    // rather than the aria-grabbed/aria-dropeffect attributes ARIA itself
+    // dropped for being unreliable.
+    if (!studySelectMode) {
+      row.tabIndex = 0;
+      row.title = "Alt+↑/↓ 키로 순서를 바꿀 수 있어요";
+      row.addEventListener("keydown", (e) => {
+        if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+        if (e.target !== row) return;
+        e.preventDefault();
+        const list = GoalStore.getGoals(yearId, periodId);
+        const parentId = findParentIdIn(list, node.id);
+        const siblings = parentId ? findNode(list, parentId)?.children || [] : list;
+        const idx = siblings.findIndex((n) => n.id === node.id);
+        const targetIdx = e.key === "ArrowUp" ? idx - 1 : idx + 1;
+        if (idx === -1 || targetIdx < 0 || targetIdx >= siblings.length) return;
+        GoalStore.reorderGoal(yearId, periodId, node.id, siblings[targetIdx].id, e.key === "ArrowUp");
+        onChange();
+        requestAnimationFrame(() => {
+          document.querySelector(`.goal-item-row[data-goal-id="${node.id}"]`)?.focus();
+        });
+      });
+    }
+
     if (studySelectMode) {
       // Click-and-drag across rows paints them all to the same new selected
       // state as the row the gesture started on — same pattern as

@@ -786,3 +786,130 @@ test("settings: importing a backup file whose top-level JSON isn't an object sho
     await close();
   }
 });
+
+test("practice: Alt+ArrowDown reorders a goal among its siblings via the keyboard — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => {
+      const store = window.PracticeCurriculumStore;
+      store.addGoal(null, "첫째");
+      store.addGoal(null, "둘째");
+    });
+    await page.evaluate(() => document.querySelector('[data-view="practice"]')?.click());
+    await page.waitForTimeout(200);
+
+    const firstRow = page.locator('.goal-item-row', { hasText: "첫째" }).first();
+    await firstRow.focus();
+    await page.keyboard.down("Alt");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.up("Alt");
+    await page.waitForTimeout(150);
+
+    const order = await page.evaluate(() => window.PracticeCurriculumStore.getGoals().map((g) => g.label));
+    assert.deepEqual(order, ["둘째", "첫째"]);
+  } finally {
+    await close();
+  }
+});
+
+test("study: Alt+ArrowDown reorders a goal among its siblings via the keyboard — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const { yearId, periodId } = await page.evaluate(() => {
+      const store = window.AcademicGoalStore;
+      const year = store.addYear("2026");
+      const periodId = store.getPeriods(year.id)[0].id;
+      store.addGoal(year.id, periodId, null, "첫째");
+      store.addGoal(year.id, periodId, null, "둘째");
+      return { yearId: year.id, periodId };
+    });
+    await page.evaluate(() => document.querySelector('[data-view="study"]')?.click());
+    await page.waitForTimeout(200);
+
+    const firstRow = page.locator('.goal-item-row', { hasText: "첫째" }).first();
+    await firstRow.focus();
+    await page.keyboard.down("Alt");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.up("Alt");
+    await page.waitForTimeout(150);
+
+    const order = await page.evaluate(
+      ({ yearId, periodId }) => window.AcademicGoalStore.getGoals(yearId, periodId).map((g) => g.label),
+      { yearId, periodId }
+    );
+    assert.deepEqual(order, ["둘째", "첫째"]);
+  } finally {
+    await close();
+  }
+});
+
+test("vongole: a recipe card's header expands/collapses via the keyboard — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => window.VongoleRecipeStore.add({ title: "키보드 테스트 레시피", content: "" }));
+    await page.evaluate(() => document.querySelector('[data-view="vongole"]')?.click());
+    await page.waitForTimeout(200);
+
+    const header = page.locator(".vongole-recipe-header", { hasText: "키보드 테스트 레시피" });
+    await header.focus();
+    assert.equal(await header.getAttribute("aria-expanded"), "false");
+
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(100);
+    assert.equal(await header.getAttribute("aria-expanded"), "true");
+  } finally {
+    await close();
+  }
+});
+
+test("modals: Tab is trapped even when the open modal has zero focusable descendants — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(150);
+    await page.evaluate(() => window.ScheduleView.openAddModal());
+    await page.waitForTimeout(150);
+
+    // Strip every focusable descendant to simulate a modal caught in a
+    // moment with nothing focusable in it (e.g. #authGate's loading state).
+    await page.evaluate(() => {
+      document.querySelectorAll("#scheduleModalOverlay input, #scheduleModalOverlay button, #scheduleModalOverlay select, #scheduleModalOverlay textarea")
+        .forEach((el) => el.remove());
+    });
+    await page.evaluate(() => document.getElementById("scheduleModalOverlay").focus());
+    await page.keyboard.press("Tab");
+    await page.waitForTimeout(50);
+
+    const trapped = await page.evaluate(() => document.activeElement === document.getElementById("scheduleModalOverlay"));
+    assert.equal(trapped, true);
+  } finally {
+    await close();
+  }
+});
+
+test("modals: Tab traps within the most-recently-opened modal, not whichever is first in DOM order — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    // scheduleModalOverlay comes before practiceModalOverlay in DOM order —
+    // force both "open" and confirm Tab traps in the one opened LAST.
+    await page.evaluate(() => {
+      document.getElementById("scheduleModalOverlay").hidden = false;
+    });
+    await page.waitForTimeout(30);
+    await page.evaluate(() => {
+      document.getElementById("practiceModalOverlay").hidden = false;
+    });
+    await page.waitForTimeout(30);
+
+    await page.evaluate(() => document.getElementById("practiceDateInput")?.focus());
+    await page.keyboard.press("Tab");
+    await page.waitForTimeout(50);
+
+    const stillInPracticeModal = await page.evaluate(() =>
+      !!document.activeElement?.closest("#practiceModalOverlay")
+    );
+    assert.equal(stillInPracticeModal, true);
+  } finally {
+    await close();
+  }
+});

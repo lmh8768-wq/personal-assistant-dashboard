@@ -211,10 +211,16 @@
 
     card.appendChild(body);
 
+    // Was click-only — a real interactive control (toggles the recipe body
+    // open/closed) with no keyboard path at all, unlike removeBtn right
+    // next to it which already got makeKeyboardActivatable.
+    header.setAttribute("aria-expanded", String(!body.hidden));
+    window.makeKeyboardActivatable(header, recipe.title || "레시피");
     header.addEventListener("click", () => {
       if (expandedRecipeIds.has(recipe.id)) expandedRecipeIds.delete(recipe.id);
       else expandedRecipeIds.add(recipe.id);
       body.hidden = !expandedRecipeIds.has(recipe.id);
+      header.setAttribute("aria-expanded", String(!body.hidden));
     });
 
     return card;

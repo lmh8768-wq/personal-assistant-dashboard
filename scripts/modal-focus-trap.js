@@ -13,14 +13,42 @@
     );
   }
 
+  // DOM order (a plain querySelector) has nothing to do with "which modal
+  // opened most recently" — every .modal-overlay is a static element
+  // already sitting in index.html, just toggled [hidden]; none are
+  // reordered on open. Re-synced against live DOM state on every call
+  // (rather than only reacting to a separate MutationObserver) so it never
+  // depends on event-ordering — a newly-opened modal already-open when
+  // this runs is appended to the end of the stack, keeping it topmost.
+  let openModalStack = [];
+  function getTopmostOpenModal() {
+    document.querySelectorAll(".modal-overlay").forEach((el) => {
+      const isOpen = !el.hidden;
+      const idx = openModalStack.indexOf(el);
+      if (isOpen && idx === -1) openModalStack.push(el);
+      else if (!isOpen && idx !== -1) openModalStack.splice(idx, 1);
+    });
+    return openModalStack[openModalStack.length - 1] || null;
+  }
+
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Tab") return;
 
-    const openModal = document.querySelector(".modal-overlay:not([hidden])");
+    const openModal = getTopmostOpenModal();
     if (!openModal) return;
 
     const focusable = getFocusable(openModal);
-    if (focusable.length === 0) return;
+    if (focusable.length === 0) {
+      // No focusable descendant at all (e.g. #authGate's loading state —
+      // just a message with its "이대로 오프라인으로 계속하기" fallback
+      // button still hidden) used to leave Tab completely untrapped here,
+      // letting it escape into the page behind the modal for as long as
+      // this state lasts. Trap it on the modal container itself instead.
+      e.preventDefault();
+      if (!openModal.hasAttribute("tabindex")) openModal.setAttribute("tabindex", "-1");
+      openModal.focus();
+      return;
+    }
 
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
@@ -62,7 +90,7 @@
   );
 
   const restoreObserver = new MutationObserver(() => {
-    if (document.querySelector(".modal-overlay:not([hidden])")) return; // another modal is still open
+    if (getTopmostOpenModal()) return; // another modal is still open
     if (!lastFocusedOutsideModal || !document.body.contains(lastFocusedOutsideModal)) return;
     if (typeof lastFocusedOutsideModal.focus !== "function" || lastFocusedOutsideModal.disabled) return;
     lastFocusedOutsideModal.focus();
