@@ -14,7 +14,23 @@ module.exports = async (req, res) => {
   }
 
   const { idToken, subscription } = req.body || {};
-  if (!idToken || !subscription || !subscription.endpoint) {
+  // typeof checks, not just truthiness — a non-string endpoint (number,
+  // object, ...) used to pass this check and then crash Buffer.from()
+  // below uncaught, outside any try/catch, giving the client a generic
+  // platform 500 instead of this endpoint's normal {error} shape. Same for
+  // keys: web-push's sendNotification (in send-daily-notifications.js)
+  // throws a non-statusCode error when keys.p256dh/keys.auth are missing,
+  // which that endpoint's 404/410-only cleanup doesn't recognize — so a
+  // subscription saved without them became permanently stuck, failing and
+  // re-logging on every future daily cron run with no way to clean itself up.
+  if (
+    !idToken ||
+    !subscription ||
+    typeof subscription.endpoint !== "string" ||
+    !subscription.keys ||
+    typeof subscription.keys.p256dh !== "string" ||
+    typeof subscription.keys.auth !== "string"
+  ) {
     res.status(400).json({ error: "missing idToken or subscription" });
     return;
   }

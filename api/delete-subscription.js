@@ -14,7 +14,11 @@ module.exports = async (req, res) => {
   }
 
   const { idToken, endpoint } = req.body || {};
-  if (!idToken || !endpoint) {
+  // typeof check, not just truthiness — a non-string endpoint (number,
+  // object, ...) used to pass this check and then crash Buffer.from()
+  // below uncaught, outside any try/catch, giving the client a generic
+  // platform 500 instead of this endpoint's normal {error} shape.
+  if (!idToken || typeof endpoint !== "string") {
     res.status(400).json({ error: "missing idToken or endpoint" });
     return;
   }

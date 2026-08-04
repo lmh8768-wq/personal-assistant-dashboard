@@ -36,52 +36,71 @@ module.exports = async (req, res) => {
   const todayStr = `${kst.getUTCFullYear()}-${pad2(kst.getUTCMonth() + 1)}-${pad2(kst.getUTCDate())}`;
 
   const usersSnap = await db.collection("users").get();
-  let sent = 0;
-  let removed = 0;
-  let failed = 0;
 
-  for (const userDoc of usersSnap.docs) {
-    // Everything derived from this one user's stored data — including
-    // getOccurrences(), which used to run outside this try/catch — is
-    // guarded here now. Previously an unexpected shape (schedules parsing
-    // to something other than an array) threw uncaught, aborting the whole
-    // handler before res.status() was ever called and silently skipping
-    // every user still left in usersSnap.docs after this one.
-    try {
-      const payload = JSON.parse(userDoc.data().payload || "{}");
-      const schedules = JSON.parse(payload["assistant.schedules.v1"] || "[]");
-      const items = getOccurrences(schedules, todayStr);
-      const title = "오늘의 할 일";
-      const body =
-        items.length === 0
-          ? "오늘 등록된 일정이 없어요"
-          : items
-              .slice(0, 5)
-              .map((item) => `• ${item.title}`)
-              .join("\n") + (items.length > 5 ? `\n외 ${items.length - 5}개` : "");
-      const payloadStr = JSON.stringify({ title, body, url: "/index.html#schedule" });
+  // Fully sequential (one user, then one subscription, at a time) meant
+  // wall-clock time grew linearly with total users × subscriptions — with
+  // vercel.json now giving this function up to 60s (was the platform
+  // default, as low as 10s on Hobby without an explicit maxDuration), a
+  // large enough user base could still exceed it and get killed mid-run,
+  // silently skipping everyone left in usersSnap.docs. Push notifications
+  // are pure network I/O with no shared mutable state between
+  // users/subscriptions, so running them concurrently is safe and turns
+  // total time into roughly the slowest single send instead of the sum of
+  // all of them.
+  const perUserResults = await Promise.all(
+    usersSnap.docs.map(async (userDoc) => {
+      // Everything derived from this one user's stored data — including
+      // getOccurrences() — is guarded here so an unexpected shape
+      // (schedules parsing to something other than an array) can't throw
+      // uncaught and abort the whole Promise.all, silently skipping every
+      // other user.
+      try {
+        const payload = JSON.parse(userDoc.data().payload || "{}");
+        const schedules = JSON.parse(payload["assistant.schedules.v1"] || "[]");
+        const items = getOccurrences(schedules, todayStr);
+        const title = "오늘의 할 일";
+        const body =
+          items.length === 0
+            ? "오늘 등록된 일정이 없어요"
+            : items
+                .slice(0, 5)
+                .map((item) => `• ${item.title}`)
+                .join("\n") + (items.length > 5 ? `\n외 ${items.length - 5}개` : "");
+        const payloadStr = JSON.stringify({ title, body, url: "/index.html#schedule" });
 
-      const subsSnap = await userDoc.ref.collection("pushSubscriptions").get();
-      for (const subDoc of subsSnap.docs) {
-        const { subscription } = subDoc.data();
-        try {
-          await webpush.sendNotification(subscription, payloadStr);
-          sent += 1;
-        } catch (err) {
-          if (err.statusCode === 404 || err.statusCode === 410) {
-            // Subscription is gone (uninstalled/expired) — stop trying it.
-            await subDoc.ref.delete();
-            removed += 1;
-          } else {
-            console.error("push send failed", userDoc.id, err.message);
-          }
-        }
+        const subsSnap = await userDoc.ref.collection("pushSubscriptions").get();
+        const perSubResults = await Promise.all(
+          subsSnap.docs.map(async (subDoc) => {
+            const { subscription } = subDoc.data();
+            try {
+              await webpush.sendNotification(subscription, payloadStr);
+              return { sent: 1, removed: 0 };
+            } catch (err) {
+              if (err.statusCode === 404 || err.statusCode === 410) {
+                // Subscription is gone (uninstalled/expired) — stop trying it.
+                await subDoc.ref.delete();
+                return { sent: 0, removed: 1 };
+              }
+              console.error("push send failed", userDoc.id, err.message);
+              return { sent: 0, removed: 0 };
+            }
+          })
+        );
+        return {
+          sent: perSubResults.reduce((sum, r) => sum + r.sent, 0),
+          removed: perSubResults.reduce((sum, r) => sum + r.removed, 0),
+          failed: 0,
+        };
+      } catch (err) {
+        console.error("skipping user due to unexpected data", userDoc.id, err.message);
+        return { sent: 0, removed: 0, failed: 1 };
       }
-    } catch (err) {
-      console.error("skipping user due to unexpected data", userDoc.id, err.message);
-      failed += 1;
-    }
-  }
+    })
+  );
+
+  const sent = perUserResults.reduce((sum, r) => sum + r.sent, 0);
+  const removed = perUserResults.reduce((sum, r) => sum + r.removed, 0);
+  const failed = perUserResults.reduce((sum, r) => sum + r.failed, 0);
 
   res.status(200).json({ ok: true, sent, removed, failed });
 };

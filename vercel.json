@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/send-daily-notifications.js": {
+      "maxDuration": 60
+    }
+  },
   "crons": [
     { "path": "/api/send-daily-notifications", "schedule": "0 23 * * *" }
   ]
