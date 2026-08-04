@@ -124,3 +124,54 @@ test("primitive-valued arrays (e.g. a day's list of completed item ids) union in
   const merged = merge(existing, incoming);
   assert.deepEqual([...merged["2026-08-01"]].sort(), ["a", "b", "c"]);
 });
+
+test("array merge: key-identified items (CategoryStore's {key,label,color} shape) dedupe by key, not by reference — the actual bug fix", () => {
+  // Regression test: identity used to be "has an .id field" only. Category
+  // objects have no .id (only .key), so a category array fell through to
+  // the primitive-array union path, which dedupes by object *reference* —
+  // two category objects representing the same key (one from each side)
+  // are different references, so nothing deduped and a merge-mode import
+  // just concatenated both, producing visible duplicate categories.
+  const existing = [{ key: "food", label: "식비", color: "#f97316" }];
+  const incoming = [{ key: "food", label: "식비", color: "#f97316" }];
+
+  const merged = merge(existing, incoming);
+  assert.equal(merged.length, 1);
+});
+
+test("array merge: a same-key conflict merges per field, same as same-id conflicts do", () => {
+  const existing = [{ key: "food", label: "식비 (수정됨)", color: "#f97316" }];
+  const incoming = [{ key: "food", label: "식비", color: "#22c55e" }];
+
+  const merged = merge(existing, incoming);
+  assert.equal(merged.length, 1);
+  // incoming wins per shared key, same semantics as the id-keyed case.
+  assert.equal(merged[0].color, "#22c55e");
+});
+
+test("array merge: items with no id/key on either side are kept as-is, not dropped", () => {
+  // Regression test: a mixed array (some items identified, some not) used
+  // to silently drop every item without an id — this covers a category
+  // array containing a malformed entry with no key.
+  const existing = [{ key: "food", label: "식비" }, { label: "이름 없는 항목" }];
+  const incoming = [{ key: "food", label: "식비" }];
+
+  const merged = merge(existing, incoming);
+  assert.equal(merged.length, 2);
+  assert.ok(merged.some((item) => item.label === "이름 없는 항목"));
+});
+
+test("mergeValues: a nested field synced as null doesn't wipe the existing nested object/array — the actual bug fix", () => {
+  // A nested field explicitly synced as null used to fall through to
+  // "incoming wins" and replace real nested data with null outright — the
+  // top-level values here are both plain objects (so the merge wrapper
+  // actually calls into DeepMerge.mergeValues, unlike a bare top-level
+  // null/undefined, which the wrapper short-circuits before ever reaching
+  // DeepMerge at all).
+  const existing = { profile: { a: 1, b: 2 }, tags: [{ id: 1, title: "keep me" }] };
+  const incoming = { profile: null, tags: null };
+
+  const merged = merge(existing, incoming);
+  assert.deepEqual(merged.profile, existing.profile);
+  assert.deepEqual(merged.tags, existing.tags);
+});

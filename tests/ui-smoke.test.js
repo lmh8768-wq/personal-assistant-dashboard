@@ -712,3 +712,77 @@ test("modals: every add/edit modal has a working top-right close button", { skip
     await close();
   }
 });
+
+test("practice: deleting a parent goal's last child resets its stale derived done state — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const result = await page.evaluate(() => {
+      const store = window.PracticeCurriculumStore;
+      const parent = store.addGoal(null, "부모 목표");
+      const child = store.addGoal(parent.id, "자식 목표");
+      store.toggleDone(child.id); // cascades parent.done = true (all children done)
+      const beforeRemove = store.getGoals().find((g) => g.id === parent.id);
+      store.removeGoal(child.id); // parent loses its only (and now derived-done) child
+      const afterRemove = store.getGoals().find((g) => g.id === parent.id);
+      return { beforeDone: beforeRemove.done, afterChildCount: afterRemove.children.length, afterDone: afterRemove.done };
+    });
+    assert.equal(result.beforeDone, true);
+    assert.equal(result.afterChildCount, 0);
+    assert.equal(result.afterDone, false);
+  } finally {
+    await close();
+  }
+});
+
+test("study: deleting a goal's last child resets its stale derived done state — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const result = await page.evaluate(() => {
+      const store = window.AcademicGoalStore;
+      const year = store.addYear("2026");
+      const periodId = store.getPeriods(year.id)[0].id;
+      const parent = store.addGoal(year.id, periodId, null, "부모 목표");
+      const child = store.addGoal(year.id, periodId, parent.id, "자식 목표");
+      store.toggleDone(year.id, periodId, child.id);
+      const beforeRemove = store.getGoals(year.id, periodId).find((g) => g.id === parent.id);
+      store.removeGoal(year.id, periodId, child.id);
+      const afterRemove = store.getGoals(year.id, periodId).find((g) => g.id === parent.id);
+      return { beforeDone: beforeRemove.done, afterChildCount: afterRemove.children.length, afterDone: afterRemove.done };
+    });
+    assert.equal(result.beforeDone, true);
+    assert.equal(result.afterChildCount, 0);
+    assert.equal(result.afterDone, false);
+  } finally {
+    await close();
+  }
+});
+
+test("settings: importing a backup file whose top-level JSON isn't an object shows an error instead of crashing — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="settings"]')?.click());
+    await page.waitForTimeout(150);
+
+    const errorShown = await page.evaluate(async () => {
+      const file = new File([JSON.stringify(null)], "backup.json", { type: "application/json" });
+      let shown = false;
+      const originalShow = window.Toast.show;
+      window.Toast.show = (msg, opts) => {
+        if (msg.includes("올바른 백업 파일이 아니에요")) shown = true;
+        return originalShow(msg, opts);
+      };
+      document.getElementById("importDataInput").files = (() => {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        return dt.files;
+      })();
+      document.getElementById("importDataInput").dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 200));
+      window.Toast.show = originalShow;
+      return shown;
+    });
+    assert.equal(errorShown, true);
+  } finally {
+    await close();
+  }
+});

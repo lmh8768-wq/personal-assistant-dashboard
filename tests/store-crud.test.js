@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { loadStoreModule } = require("./helpers/load-store");
+const { loadStoreModule, loadStoreModuleWithStorage } = require("./helpers/load-store");
 
 test("LedgerEntryStore: add/update/remove/restore round-trip", () => {
   const window = loadStoreModule();
@@ -91,4 +91,50 @@ test("CategoryStore/LedgerCategoryStore: add() on first-ever use doesn't corrupt
 
   window.LedgerCategoryStore.add("첫 지출", "#654321", "expense");
   assert.equal(window.LedgerCategoryStore.getByKey("does-not-exist"), null);
+});
+
+test("CategoryStore: only migrates the old 5-category scheme when truly unmodified — the actual bug fix", () => {
+  const { window, localStorage } = loadStoreModuleWithStorage();
+
+  // A user under the old scheme could only relabel/recolor one of the 5
+  // fixed categories (add/remove didn't exist yet) — here "personal" was
+  // relabeled. The old (key-only) check would still treat this as
+  // "unmodified" and silently overwrite it with the new DEFAULTS.
+  const customized = [
+    { key: "work", label: "업무", color: "#60a5fa" },
+    { key: "personal", label: "나만의 시간", color: "#60a5fa" },
+    { key: "health", label: "건강", color: "#f87171" },
+    { key: "study", label: "공부", color: "#4ade80" },
+    { key: "etc", label: "기타", color: "#94a3b8" },
+  ];
+  localStorage.setItem("assistant.categories.v1", JSON.stringify(customized));
+
+  const categories = window.CategoryStore.getAll();
+  assert.equal(categories.find((c) => c.key === "personal")?.label, "나만의 시간");
+});
+
+test("CategoryStore: a truly-untouched old-scheme set still migrates to the new defaults", () => {
+  const { window, localStorage } = loadStoreModuleWithStorage();
+
+  const untouched = [
+    { key: "work", label: "업무", color: "#60a5fa" },
+    { key: "personal", label: "개인", color: "#a78bfa" },
+    { key: "health", label: "건강", color: "#f87171" },
+    { key: "study", label: "공부", color: "#4ade80" },
+    { key: "etc", label: "기타", color: "#94a3b8" },
+  ];
+  localStorage.setItem("assistant.categories.v1", JSON.stringify(untouched));
+
+  const categories = window.CategoryStore.getAll();
+  assert.ok(categories.some((c) => c.key === "appointment"));
+  assert.ok(!categories.some((c) => c.key === "work"));
+});
+
+test("CategoryStore: a corrupted non-array value falls back to defaults instead of throwing later — the actual bug fix", () => {
+  const { window, localStorage } = loadStoreModuleWithStorage();
+  localStorage.setItem("assistant.categories.v1", JSON.stringify({ oops: true }));
+
+  const categories = window.CategoryStore.getAll();
+  assert.ok(Array.isArray(categories));
+  assert.doesNotThrow(() => window.CategoryStore.add("새 카테고리", "#111111"));
 });

@@ -343,11 +343,20 @@
   }
 
   // ---------- Storage usage ----------
+  // Counts only "assistant."-prefixed keys — the same scope
+  // exportData()/handleResetData() operate on below. This used to count
+  // every localStorage key (including the device-local weather cache,
+  // theme, and Firebase SDK's own auth-persistence keys), so the
+  // percentage shown here didn't actually match "how much of this can I
+  // back up or reset" — it's a slight undercount against the *literal*
+  // browser quota, but assistant.* data is what dominates that quota as it
+  // grows, and it's what the gauge is actually meant to help reason about.
   function calculateStorageBytes() {
     try {
       let chars = 0;
       for (const key in localStorage) {
         if (!Object.prototype.hasOwnProperty.call(localStorage, key)) continue;
+        if (!key.startsWith("assistant.")) continue;
         chars += key.length + (localStorage.getItem(key) || "").length;
       }
       return chars * 2; // UTF-16 ~2 bytes/char
@@ -416,6 +425,14 @@
       try {
         data = JSON.parse(e.target.result);
       } catch {
+        window.Toast.show("올바른 백업 파일이 아니에요", { type: "error" });
+        return;
+      }
+      // A file whose top-level JSON is valid but not an object (bare
+      // "null", a number, an array, ...) used to reach Object.keys(data)
+      // below uncaught — Object.keys(null) throws, silently failing the
+      // whole import with no toast at all instead of this same message.
+      if (data === null || typeof data !== "object" || Array.isArray(data)) {
         window.Toast.show("올바른 백업 파일이 아니에요", { type: "error" });
         return;
       }

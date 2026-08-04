@@ -428,7 +428,17 @@
       const node = findGoalNode(list, currentId);
       if (!node) break;
       const kids = node.children || [];
-      if (kids.length > 0) node.done = kids.every((c) => c.done);
+      if (kids.length > 0) {
+        node.done = kids.every((c) => c.done);
+      } else if (node.done) {
+        // This node just lost its last child (this function is only ever
+        // entered from a structural change — see callers). Its `done` was
+        // a derived aggregate of children that no longer exist, not
+        // something the user actually checked off as a standalone item —
+        // leaving it `true` here would render it as a directly-togglable,
+        // already-checked leaf despite nobody having completed anything.
+        node.done = false;
+      }
       currentId = findGoalParentId(list, currentId);
     }
   }

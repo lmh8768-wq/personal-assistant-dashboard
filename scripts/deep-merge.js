@@ -12,6 +12,14 @@
 // before).
 window.DeepMerge = {
   mergeValues(existing, incoming) {
+    // A field explicitly synced as null/undefined shouldn't be able to
+    // wipe out real nested data — incoming being "absent" isn't the same
+    // signal as incoming genuinely replacing existing with nothing (which
+    // is what "incoming wins" below is for, when incoming is an actual
+    // leaf value like a string/number/boolean).
+    if ((incoming === null || incoming === undefined) && (Array.isArray(existing) || isPlainObject(existing))) {
+      return existing;
+    }
     if (Array.isArray(existing) && Array.isArray(incoming)) {
       return mergeArrays(existing, incoming);
     }
@@ -35,22 +43,52 @@ function isPlainObject(v) {
   return !!v && typeof v === "object" && !Array.isArray(v);
 }
 
+// The identity field varies by store — most use "id" (schedules, ledger
+// entries, ...), but CategoryStore/LedgerCategoryStore items are
+// {key,label,color} with no "id" at all. Without recognizing "key" too,
+// a category array fell through to the primitive-array union path below,
+// which dedupes by *reference* — two category objects representing the
+// same key (one from each side of a merge) are different object
+// references, so nothing deduped and merging just concatenated both,
+// producing visible duplicate categories after every merge-mode import.
+function identityField(item) {
+  if (!item || typeof item !== "object") return null;
+  if (item.id != null) return "id";
+  if (item.key != null) return "key";
+  return null;
+}
+
 function mergeArrays(existing, incoming) {
-  const isIdKeyed = (arr) => arr.some((item) => item && typeof item === "object" && item.id != null);
-  if (isIdKeyed(existing) || isIdKeyed(incoming)) {
-    const byId = new Map(existing.filter((item) => item && item.id != null).map((item) => [item.id, item]));
-    incoming.filter((item) => item && item.id != null).forEach((item) => {
-      const existingItem = byId.get(item.id);
-      // A same-id item on both sides is merged field-by-field (recursing
-      // through mergeValues) rather than incoming replacing existing
-      // wholesale — otherwise two devices editing DIFFERENT fields of the
-      // SAME item (e.g. one fixes a ledger entry's amount, the other
-      // changes its category) within the sync window would have whichever
-      // side lands second silently discard the other's unrelated field
-      // too, not just genuinely conflicting ones.
-      byId.set(item.id, existingItem ? window.DeepMerge.mergeValues(existingItem, item) : item);
+  const isKeyed = (arr) => arr.some((item) => identityField(item) !== null);
+  if (isKeyed(existing) || isKeyed(incoming)) {
+    // Preserves insertion order and any items with no identity field on
+    // either side (a mixed array used to silently drop those — every item
+    // without an id/key just vanished from the merged result instead of
+    // being kept as-is).
+    const byIdentity = new Map();
+    const unidentified = [];
+    existing.forEach((item) => {
+      const field = identityField(item);
+      if (field) byIdentity.set(item[field], item);
+      else unidentified.push(item);
     });
-    return [...byId.values()];
+    incoming.forEach((item) => {
+      const field = identityField(item);
+      if (!field) {
+        unidentified.push(item);
+        return;
+      }
+      const existingItem = byIdentity.get(item[field]);
+      // A same-identity item on both sides is merged field-by-field
+      // (recursing through mergeValues) rather than incoming replacing
+      // existing wholesale — otherwise two devices editing DIFFERENT
+      // fields of the SAME item (e.g. one fixes a ledger entry's amount,
+      // the other changes its category) within the sync window would have
+      // whichever side lands second silently discard the other's
+      // unrelated field too, not just genuinely conflicting ones.
+      byIdentity.set(item[field], existingItem ? window.DeepMerge.mergeValues(existingItem, item) : item);
+    });
+    return [...unidentified, ...byIdentity.values()];
   }
   // A primitive-valued array (e.g. RoutineStore's per-day list of completed
   // item ids) — union rather than id-merge, so a completion recorded on one

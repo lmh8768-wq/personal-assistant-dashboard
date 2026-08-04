@@ -310,7 +310,21 @@ function createKeyedStore(loadFn, saveFn) {
 // removing categories too.
 (function () {
   const CATEGORIES_KEY = "assistant.categories.v1";
-  const OLD_DEFAULT_KEYS = ["work", "personal", "health", "study", "etc"];
+  // The actual pre-customization hardcoded set (see git history prior to
+  // "category customization" — these were plain <option> values with no
+  // label/color editing possible yet). Migrating below only fires when the
+  // stored set is byte-identical to THIS — key alone used to be the check,
+  // which meant a user who'd only ever relabeled/recolored one of these 5
+  // old fixed categories (all key-preserving edits, since add/remove
+  // didn't exist yet either) still got silently overwritten by the new
+  // DEFAULTS, losing that customization for good.
+  const TRUE_OLD_DEFAULTS = [
+    { key: "work", label: "업무", color: "#60a5fa" },
+    { key: "personal", label: "개인", color: "#a78bfa" },
+    { key: "health", label: "건강", color: "#f87171" },
+    { key: "study", label: "공부", color: "#4ade80" },
+    { key: "etc", label: "기타", color: "#94a3b8" },
+  ];
   const DEFAULTS = [
     { key: "appointment", label: "약속", color: "#60a5fa" },
     { key: "event", label: "행사", color: "#a78bfa" },
@@ -332,9 +346,19 @@ function createKeyedStore(loadFn, saveFn) {
       const raw = localStorage.getItem(CATEGORIES_KEY);
       if (!raw) return DEFAULTS.map((c) => ({ ...c }));
       const parsed = JSON.parse(raw);
+      // A corrupted/unexpected shape (e.g. a bad cloud-sync merge) used to
+      // fall through to `return parsed` as-is here, unlike every sibling
+      // store in this file — later callers like add() would then throw
+      // trying to .push() onto whatever non-array value that was.
+      if (!Array.isArray(parsed)) return DEFAULTS.map((c) => ({ ...c }));
       const isUnmodifiedOldDefaults =
-        parsed.length === OLD_DEFAULT_KEYS.length &&
-        parsed.every((c, i) => c.key === OLD_DEFAULT_KEYS[i]);
+        parsed.length === TRUE_OLD_DEFAULTS.length &&
+        parsed.every(
+          (c, i) =>
+            c.key === TRUE_OLD_DEFAULTS[i].key &&
+            c.label === TRUE_OLD_DEFAULTS[i].label &&
+            c.color === TRUE_OLD_DEFAULTS[i].color
+        );
       if (isUnmodifiedOldDefaults) {
         saveCategories(DEFAULTS);
         return DEFAULTS.map((c) => ({ ...c }));

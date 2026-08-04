@@ -11,6 +11,7 @@
   const DEVICE_ID = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const OFFLINE_TIMEOUT_MS = 8000;
   const PUSH_DEBOUNCE_MS = 800;
+  const LISTEN_RETRY_DELAY_MS = 10000;
 
   let auth;
   let db;
@@ -18,6 +19,7 @@
   let pushTimer = null;
   let unsubscribeSnapshot = null;
   let offlineTimer = null;
+  let listenRetryTimer = null;
   let sizeWarningShown = false; // nag about a near-limit payload once per session, not every push attempt
   // Guards against the exact class of bug that once wiped a user's data: a
   // local write (e.g. a widget seeding its own cache key) racing ahead of
@@ -470,6 +472,20 @@
         setSyncStatus("error", "동기화 연결 끊김");
         showApp();
         window.initFeatures && window.initFeatures();
+        // A listen error used to leave initialSyncDone permanently false —
+        // pushToCloud() (which checks it) and the local-change poller both
+        // refuse to run until it's true, so every edit made for the rest of
+        // the session queued as "pending" and silently never reached the
+        // server, with no ongoing indication beyond this one-time status
+        // text. Firestore's onSnapshot listener is dead after erroring (it
+        // doesn't retry itself), so also schedule reattaching it — pushes
+        // recover immediately via the flag below, and incoming updates
+        // from other devices recover once the new listener attaches.
+        initialSyncDone = true;
+        clearTimeout(listenRetryTimer);
+        listenRetryTimer = setTimeout(() => {
+          if (auth && auth.currentUser) startListening(auth.currentUser.uid);
+        }, LISTEN_RETRY_DELAY_MS);
       }
     );
   }

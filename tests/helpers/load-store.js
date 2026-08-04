@@ -33,7 +33,7 @@ function createMemoryStorage() {
   };
 }
 
-function loadStoreModule() {
+function buildSandbox() {
   // store.js reads window.ScheduleRecurrence at top-level (as soon as its
   // schedule IIFE runs), so that script has to execute in the sandbox first
   // — same load order index.html uses for the real app.
@@ -59,7 +59,21 @@ function loadStoreModule() {
   vm.createContext(sandbox);
   vm.runInContext(recurrenceCode, sandbox, { filename: "scripts/schedule-recurrence.js" });
   vm.runInContext(code, sandbox, { filename: "scripts/store.js" });
-  return sandbox.window;
+  return sandbox;
 }
 
-module.exports = { loadStoreModule, createMemoryStorage };
+function loadStoreModule() {
+  return buildSandbox().window;
+}
+
+// Same as loadStoreModule(), but also hands back the sandbox's localStorage
+// so a test can seed a raw (possibly legacy/malformed) value BEFORE the
+// store's first read — needed for cases loadStoreModule() alone can't
+// reach, like CategoryStore's old-scheme migration or a corrupted
+// non-array value in storage.
+function loadStoreModuleWithStorage() {
+  const sandbox = buildSandbox();
+  return { window: sandbox.window, localStorage: sandbox.localStorage };
+}
+
+module.exports = { loadStoreModule, loadStoreModuleWithStorage, createMemoryStorage };
