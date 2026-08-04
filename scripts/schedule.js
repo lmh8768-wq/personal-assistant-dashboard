@@ -101,8 +101,15 @@
   // added since the order was last saved) falls back to importance order.
   // Pinned items then float above everything else regardless, in whatever
   // relative order they came out of the step above.
-  function applyCustomOrder(dateStr, items) {
-    const savedOrder = window.ScheduleOrderStore.get(dateStr);
+  //
+  // `preloaded`, when given, is { orderMap, pinnedOrder } already read from
+  // ScheduleOrderStore.getAll()/SchedulePinnedOrderStore.get() once by the
+  // caller — the month calendar calls this once per cell (42×/render) and
+  // would otherwise re-read+re-parse both stores from localStorage on every
+  // one of those instead of once for the whole grid. Callers with just one
+  // date to look up (moveWithinDay) can skip it and let this fetch fresh.
+  function applyCustomOrder(dateStr, items, preloaded) {
+    const savedOrder = preloaded ? preloaded.orderMap[dateStr] || [] : window.ScheduleOrderStore.get(dateStr);
     let ordered;
     if (savedOrder.length === 0) {
       ordered = [...items].sort((a, b) => (b.importance || 0) - (a.importance || 0));
@@ -123,7 +130,7 @@
     // the day-specific step above, but a saved global order (see
     // SchedulePinnedOrderStore) — established once the user confirms a
     // reorder should apply everywhere — takes precedence when present.
-    const pinnedOrder = window.SchedulePinnedOrderStore.get();
+    const pinnedOrder = preloaded ? preloaded.pinnedOrder : window.SchedulePinnedOrderStore.get();
     const pinnedOrderIndex = new Map(pinnedOrder.map((id, i) => [id, i]));
     const sortedPinned = [...pinned].sort((a, b) => {
       const ai = pinnedOrderIndex.has(a.id) ? pinnedOrderIndex.get(a.id) : Infinity;
@@ -296,7 +303,7 @@
 
   let scheduleResizeTimer = null;
 
-  function buildCalendarCell(d, isOutside) {
+  function buildCalendarCell(d, isOutside, preloaded) {
     const dStr = toDateStr(d);
     const todayStr = toDateStr(new Date());
     const selectedStr = toDateStr(selectedDate);
@@ -329,7 +336,10 @@
 
     // 약속/행사 schedules show their own title right on the calendar; any
     // other category just gets folded into the plain "something's on today" dot.
-    const dayItems = applyCustomOrder(dStr, window.ScheduleStore.getOccurrences(dStr));
+    const occurrences = preloaded
+      ? window.ScheduleRecurrence.getOccurrences(preloaded.schedules, dStr)
+      : window.ScheduleStore.getOccurrences(dStr);
+    const dayItems = applyCustomOrder(dStr, occurrences, preloaded);
     const highlighted = dayItems.filter((item) => CALENDAR_HIGHLIGHT_CATEGORIES.has(item.category || "etc"));
     const hasOtherCategory = dayItems.some((item) => !CALENDAR_HIGHLIGHT_CATEGORIES.has(item.category || "etc"));
 
@@ -417,8 +427,15 @@
     }
 
     grid.innerHTML = "";
+    // Loaded once for all 42 cells instead of each cell independently
+    // re-reading+re-parsing the same three localStorage-backed stores.
+    const preloaded = {
+      schedules: window.ScheduleStore.getAll(),
+      orderMap: window.ScheduleOrderStore.getAll(),
+      pinnedOrder: window.SchedulePinnedOrderStore.get(),
+    };
     buildMonthGrid(year, month).forEach((d) => {
-      grid.appendChild(buildCalendarCell(d, d.getMonth() !== month));
+      grid.appendChild(buildCalendarCell(d, d.getMonth() !== month, preloaded));
     });
 
     if (ghost) {

@@ -324,3 +324,94 @@ test("study: deleting a year needs two clicks (arm, then confirm) — the actual
     await close();
   }
 });
+
+test("practice: toggling a leaf goal's checkbox patches its row + ancestors in place, without rebuilding the tree", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const ids = await page.evaluate(() => {
+      const parent = window.PracticeCurriculumStore.addGoal(null, "부모");
+      const child = window.PracticeCurriculumStore.addGoal(parent.id, "자식");
+      const grandchild = window.PracticeCurriculumStore.addGoal(child.id, "손자");
+      return { parent: parent.id, child: child.id, grandchild: grandchild.id };
+    });
+    await page.reload();
+    await bypassAuthGate(page);
+    await page.evaluate(() => document.querySelector('[data-view="practice"]')?.click());
+    await page.waitForTimeout(200);
+
+    // Tag the parent row so we can tell if it got torn down and rebuilt —
+    // a fresh element from renderCurriculum() wouldn't carry this marker.
+    await page.evaluate((ids) => {
+      document.querySelector(`.goal-item-row[data-goal-id="${ids.parent}"]`).dataset.notRebuilt = "true";
+    }, ids);
+
+    await page.locator(`.goal-item-row[data-goal-id="${ids.grandchild}"]`).locator('input[type="checkbox"]').click();
+    await page.waitForTimeout(150);
+
+    const after = await page.evaluate((ids) => {
+      const parentRow = document.querySelector(`.goal-item-row[data-goal-id="${ids.parent}"]`);
+      const childRow = document.querySelector(`.goal-item-row[data-goal-id="${ids.child}"]`);
+      return {
+        parentSurvived: parentRow?.dataset.notRebuilt === "true",
+        parentDone: parentRow?.classList.contains("done"),
+        childDone: childRow?.classList.contains("done"),
+        childProgressText: childRow?.querySelector(".goal-item-progress")?.textContent,
+      };
+    }, ids);
+    assert.equal(after.parentSurvived, true, "the parent row's DOM element should be patched in place, not replaced");
+    assert.equal(after.parentDone, true);
+    assert.equal(after.childDone, true);
+    assert.equal(after.childProgressText, "2/2");
+
+    // Rejected toggle (checking a parent whose children aren't all done)
+    // should revert the checkbox and leave the store untouched.
+    const otherParent = await page.evaluate(() => window.PracticeCurriculumStore.addGoal(null, "미완료부모"));
+    await page.evaluate((id) => window.PracticeCurriculumStore.addGoal(id, "미완료자식"), otherParent.id);
+    await page.reload();
+    await bypassAuthGate(page);
+    await page.evaluate(() => document.querySelector('[data-view="practice"]')?.click());
+    await page.waitForTimeout(200);
+    await page.locator(`.goal-item-row[data-goal-id="${otherParent.id}"]`).locator('input[type="checkbox"]').click();
+    await page.waitForTimeout(150);
+    const rejected = await page.evaluate(
+      (id) => document.querySelector(`.goal-item-row[data-goal-id="${id}"] input[type="checkbox"]`).checked,
+      otherParent.id
+    );
+    assert.equal(rejected, false, "a rejected toggle must revert the checkbox's native flip");
+  } finally {
+    await close();
+  }
+});
+
+test("study: unchecking a done parent cascades to its children via the full-rebuild fallback path", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const ids = await page.evaluate(() => {
+      const year = window.AcademicGoalStore.addYear("패치테스트");
+      const period = window.AcademicGoalStore.addPeriod(year.id, "구간");
+      const parent = window.AcademicGoalStore.addGoal(year.id, period.id, null, "부모");
+      const child = window.AcademicGoalStore.addGoal(year.id, period.id, parent.id, "자식");
+      window.AcademicGoalStore.toggleDone(year.id, period.id, child.id); // also marks parent done via recompute
+      return { yearId: year.id, periodId: period.id, parent: parent.id, child: child.id };
+    });
+    await page.reload();
+    await bypassAuthGate(page);
+    await page.evaluate(() => document.querySelector('[data-view="study"]')?.click());
+    await page.waitForTimeout(200);
+
+    await page.locator(`.goal-item-row[data-goal-id="${ids.parent}"]`).locator('input[type="checkbox"]').click();
+    await page.waitForTimeout(200);
+
+    const after = await page.evaluate((ids) => {
+      const parentDone = document.querySelector(`.goal-item-row[data-goal-id="${ids.parent}"]`)?.classList.contains("done");
+      const childDone = document.querySelector(`.goal-item-row[data-goal-id="${ids.child}"]`)?.classList.contains("done");
+      const storeChild = window.AcademicGoalStore.getGoals(ids.yearId, ids.periodId).find((g) => g.id === ids.parent)?.children[0];
+      return { parentDone, childDone, storeChildDone: storeChild?.done };
+    }, ids);
+    assert.equal(after.parentDone, false);
+    assert.equal(after.childDone, false, "unchecking a done parent must cascade to un-check its children too");
+    assert.equal(after.storeChildDone, false);
+  } finally {
+    await close();
+  }
+});

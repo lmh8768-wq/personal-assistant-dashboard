@@ -208,6 +208,12 @@ window.safeSetLocalStorage = function (key, value) {
       const data = loadOrder();
       return Array.isArray(data[dateStr]) ? data[dateStr] : [];
     },
+    // For callers about to look up many dates in a row (a month grid's 42
+    // cells) — one read instead of 42 separate localStorage reads/JSON.parses
+    // of the same data.
+    getAll() {
+      return loadOrder();
+    },
     set(dateStr, orderedIds) {
       const data = loadOrder();
       data[dateStr] = orderedIds;

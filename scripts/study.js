@@ -732,6 +732,40 @@
   // Shared with practice.js's goal tree — see scripts/goal-label-editor.js.
   const makeDblClickEditableGoalLabel = window.GoalLabelEditor.makeDblClickEditable;
 
+  // Patches just the toggled leaf's row plus its ancestors' progress badges
+  // in place, instead of onChange() (renderAll()) tearing down and
+  // rebuilding the entire years/periods/goals tree for what's otherwise a
+  // single checkbox flip. Only valid for a leaf toggle — see the caller's
+  // comment for why a node with children still falls back to a full
+  // re-render. Mirrors practice.js's curriculum tree's version, scoped to
+  // one (yearId, periodId) since this tree nests one level deeper.
+  function patchGoalDoneAncestors(yearId, periodId, id) {
+    const goals = GoalStore.getGoals(yearId, periodId);
+    const chain = [];
+    let currentId = id;
+    while (currentId) {
+      chain.push(currentId);
+      currentId = GoalStore.findParentId(yearId, periodId, currentId);
+    }
+    chain.forEach((nodeId, indexFromToggled) => {
+      const node = findNode(goals, nodeId);
+      const row = document.querySelector(`.goal-item-row[data-goal-id="${nodeId}"]`);
+      if (!node || !row) return;
+      const depth = chain.length - 1 - indexFromToggled;
+      row.classList.toggle("done", !!node.done);
+      const cb = row.querySelector('input[type="checkbox"]');
+      if (cb) cb.checked = !!node.done;
+      if ((node.children || []).length > 0) {
+        const progress = row.querySelector(".goal-item-progress");
+        if (progress) {
+          const { total, done } = countProgress(node);
+          const percent = Math.round((done / total) * 100);
+          progress.textContent = depth === 0 ? `${done}/${total} (${percent}%)` : `${done}/${total}`;
+        }
+      }
+    });
+  }
+
   function renderGoalItem(yearId, periodId, node, depth, onChange) {
     const li = document.createElement("li");
     li.className = "goal-item";
@@ -800,10 +834,19 @@
       checkbox.checked = !!node.done;
       checkbox.addEventListener("change", () => {
         const applied = GoalStore.toggleDone(yearId, periodId, node.id);
-        if (!applied && window.Toast) {
-          window.Toast.show("하위 목표를 모두 완료해야 체크할 수 있어요", { type: "warning" });
+        if (!applied) {
+          checkbox.checked = !!node.done; // revert the native toggle — the store didn't change
+          if (window.Toast) window.Toast.show("하위 목표를 모두 완료해야 체크할 수 있어요", { type: "warning" });
+          return;
         }
-        onChange();
+        // Same reasoning as practice.js's curriculum tree: a node-with-
+        // children toggle only ever succeeds when un-checking an
+        // already-done one, which cascades to every descendant — patching
+        // just the ancestor chain wouldn't touch those, so that (rarer)
+        // case still gets a full rebuild. A plain leaf toggle only affects
+        // itself and its ancestors' progress counts.
+        if ((node.children || []).length > 0) onChange();
+        else patchGoalDoneAncestors(yearId, periodId, node.id);
       });
       row.appendChild(checkbox);
     }

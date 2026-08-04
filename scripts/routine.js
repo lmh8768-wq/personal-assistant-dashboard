@@ -172,6 +172,12 @@
     getItems(type) {
       return loadAll()[type].items;
     },
+    // For a render pass that needs items + done-state for every item (or
+    // every day in a month) — one load instead of loadAll() being re-run,
+    // re-parsing the whole store from localStorage, once per item/cell.
+    getSnapshot() {
+      return loadAll();
+    },
     addItem(type, label) {
       const data = loadAll();
       const item = { id: createId("rt"), label };
@@ -215,8 +221,12 @@
     // item lists — there's no historical snapshot of what the checklist
     // used to contain, so a past day's rate is "how much of today's list
     // would have been done," which is the simplest reading of the data.
-    getRateForDate(dateStr) {
-      const data = loadAll();
+    // `snapshot`, when given (a prior RoutineStore.getSnapshot() call), is
+    // used instead of loading fresh — callers computing this for many dates
+    // in a row (a week strip, a month grid) would otherwise re-read+re-parse
+    // the whole store from localStorage once per date instead of once total.
+    getRateForDate(dateStr, snapshot) {
+      const data = snapshot || loadAll();
       let done = 0;
       let total = 0;
       TYPES.forEach((t) => {
@@ -236,8 +246,11 @@
     if (!list) return;
     list.innerHTML = "";
 
-    RoutineStore.getItems(type).forEach((item) => {
-      const done = RoutineStore.isDone(type, item.id);
+    const snapshot = RoutineStore.getSnapshot()[type];
+    const doneToday = new Set(snapshot.history[todayStr()] || []);
+
+    snapshot.items.forEach((item) => {
+      const done = doneToday.has(item.id);
       const li = document.createElement("li");
       li.className = "checklist-item" + (done ? " done" : "");
 
@@ -361,12 +374,13 @@
 
     let sumRate = 0;
     let countedDays = 0;
+    const snapshot = RoutineStore.getSnapshot();
 
     for (let i = 0; i < 7; i++) {
       const d = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i);
       const dStr = toDateStr(d);
       const isFuture = dStr > todayDateStr;
-      const { done, total, rate } = RoutineStore.getRateForDate(dStr);
+      const { done, total, rate } = RoutineStore.getRateForDate(dStr, snapshot);
 
       const cell = document.createElement("div");
       cell.className = "routine-week-cell" + (dStr === todayDateStr ? " today" : "") + (isFuture ? " future" : "");
@@ -424,6 +438,7 @@
     title.textContent = `${year}년 ${month + 1}월`;
 
     const todayDateStr = todayStr();
+    const snapshot = RoutineStore.getSnapshot();
     grid.innerHTML = "";
     buildMonthGrid(year, month).forEach((d) => {
       const dStr = toDateStr(d);
@@ -440,7 +455,7 @@
       cell.appendChild(num);
 
       if (!isFuture) {
-        const { done, total, rate } = RoutineStore.getRateForDate(dStr);
+        const { done, total, rate } = RoutineStore.getRateForDate(dStr, snapshot);
         if (rate !== null) {
           const pct = document.createElement("span");
           pct.className = "routine-calendar-day-pct";

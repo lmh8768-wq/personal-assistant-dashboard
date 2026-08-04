@@ -122,15 +122,24 @@
   // Expanding a card puts it straight into edit mode — no modal, no
   // separate 수정 button. The title/content inputs save on every
   // keystroke; the header itself (anywhere except the × ) toggles collapse.
-  // How many attempt-log entries are linked to this exact recipe — the
-  // whole reason a log entry can point at a recipe by id (recipeId +
-  // recipeKind, since the two recipe stores share nothing but shape) instead
-  // of just free text is so this count can exist at all.
-  function countAttempts(recipeId, kind) {
-    return window.VongoleLogStore.getAll().filter((e) => e.recipeId === recipeId && e.recipeKind === kind).length;
+  // How many attempt-log entries are linked to each recipe — the whole
+  // reason a log entry can point at a recipe by id (recipeId + recipeKind,
+  // since the two recipe stores share nothing but shape) instead of just
+  // free text is so this count can exist at all. Computed once per render
+  // pass (not per card) — VongoleLogStore.getAll() reloads and JSON.parses
+  // the whole log from localStorage, which doesn't need repeating once per
+  // recipe on screen.
+  function countAttemptsByRecipe() {
+    const counts = new Map();
+    window.VongoleLogStore.getAll().forEach((e) => {
+      if (!e.recipeId || !e.recipeKind) return;
+      const key = `${e.recipeKind}:${e.recipeId}`;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
   }
 
-  function buildRecipeCard(recipe, kind) {
+  function buildRecipeCard(recipe, kind, attemptCounts) {
     const store = RECIPE_SECTIONS[kind].store();
     const card = document.createElement("div");
     card.className = "vongole-recipe-card";
@@ -143,7 +152,7 @@
     title.textContent = recipe.title || "(제목 없음)";
     header.appendChild(title);
 
-    const attemptCount = countAttempts(recipe.id, kind);
+    const attemptCount = attemptCounts.get(`${kind}:${recipe.id}`) || 0;
     if (attemptCount > 0) {
       const badge = document.createElement("span");
       badge.className = "vongole-recipe-attempt-badge";
@@ -224,7 +233,8 @@
       refreshDashboard();
       return;
     }
-    recipes.forEach((r) => list.appendChild(buildRecipeCard(r, kind)));
+    const attemptCounts = countAttemptsByRecipe();
+    recipes.forEach((r) => list.appendChild(buildRecipeCard(r, kind, attemptCounts)));
     refreshDashboard();
   }
 
