@@ -165,6 +165,12 @@ function showView(viewName) {
   }
   if (viewName === "settings" && window.SettingsView) {
     window.SettingsView.refreshStorage();
+    // Categories can change from outside this tab now (cloud sync pulling
+    // in another device's edits, or just staying open in a background tab
+    // while categories change elsewhere) — refreshCategories existed but
+    // was never actually wired to anything, so this editor only ever
+    // reflected whatever categories existed at app startup.
+    window.SettingsView.refreshCategories();
   }
   if (viewName === "settings" && window.CloudSync) {
     window.CloudSync.renderDebugLog();

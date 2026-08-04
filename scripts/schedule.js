@@ -668,7 +668,18 @@
     renderUpcoming();
   }
 
+  // Categories are freely deletable now — if the one currently filtered on
+  // was just deleted (e.g. from 설정), drop the filter back to "전체" rather
+  // than leaving the day list filtered on a key nothing can ever match
+  // again, with no visible indication a filter is even still active.
+  function validateCategoryFilter() {
+    if (categoryFilter && !window.CategoryStore.getAll().some((c) => c.key === categoryFilter)) {
+      categoryFilter = null;
+    }
+  }
+
   function refreshAll() {
+    validateCategoryFilter();
     renderCalendarArea();
     renderDayList();
     renderTemplateChips();
@@ -700,17 +711,24 @@
     document.getElementById("scheduleImportanceInput").value = String(value);
   }
 
-  function syncCategorySelectOptions() {
+  // desiredValue is the category to select — either the item's own
+  // (already-saved) category, or undefined for a brand-new item. Either way,
+  // that category may no longer exist (categories are freely deletable now)
+  // — setting select.value to a key with no matching <option> just leaves
+  // nothing selected rather than falling back to anything, so that case is
+  // handled explicitly here instead of relying on the browser to do it.
+  function syncCategorySelectOptions(desiredValue) {
     const select = document.getElementById("scheduleCategoryInput");
-    const current = select.value;
+    const categories = window.CategoryStore.getAll();
     select.innerHTML = "";
-    window.CategoryStore.getAll().forEach((cat) => {
+    categories.forEach((cat) => {
       const opt = document.createElement("option");
       opt.value = cat.key;
       opt.textContent = cat.label;
       select.appendChild(opt);
     });
-    if (current) select.value = current;
+    const hasDesired = categories.some((c) => c.key === desiredValue);
+    select.value = hasDesired ? desiredValue : categories[0]?.key || "";
   }
 
   function openModal(mode, data) {
@@ -730,8 +748,7 @@
     document.getElementById("scheduleRepeatUntilInput").value = repeatUntilValue;
     document.getElementById("schedulePinnedInput").checked = !!data?.pinned;
 
-    syncCategorySelectOptions();
-    document.getElementById("scheduleCategoryInput").value = data?.category || "etc";
+    syncCategorySelectOptions(data?.category);
     paintImportanceStars(data?.importance || DEFAULT_IMPORTANCE);
 
     updateRepeatFieldsVisibility();

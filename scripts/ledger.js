@@ -298,13 +298,19 @@
     const select = document.createElement("select");
     select.className = "ledger-row-category";
     select.setAttribute("aria-label", "카테고리");
-    window.LedgerCategoryStore.getByType(modalType).forEach((cat) => {
+    const categories = window.LedgerCategoryStore.getByType(modalType);
+    categories.forEach((cat) => {
       const opt = document.createElement("option");
       opt.value = cat.key;
       opt.textContent = cat.label;
       select.appendChild(opt);
     });
-    if (data?.categoryKey) select.value = data.categoryKey;
+    // The entry's saved category may since have been deleted — setting
+    // select.value to a key with no matching <option> just leaves nothing
+    // selected, so fall back to whatever's first rather than silently
+    // discarding the category on the next save.
+    const hasMatch = data?.categoryKey && categories.some((c) => c.key === data.categoryKey);
+    select.value = hasMatch ? data.categoryKey : categories[0]?.key || "";
     row.appendChild(select);
 
     const amount = document.createElement("input");
