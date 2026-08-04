@@ -150,6 +150,15 @@
   // changed while away, e.g. a remote push applied on reconnect).
   let pollTimer = setInterval(pollTick, POLL_INTERVAL_MS);
 
+  function payloadKeyCount(payloadStr) {
+    try {
+      const parsed = JSON.parse(payloadStr || "{}");
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? Object.keys(parsed).length : 0;
+    } catch {
+      return 0;
+    }
+  }
+
   function applyRemoteData(payloadStr) {
     let data;
     try {
@@ -428,9 +437,35 @@
             pushPending = true;
             pushToCloud();
           } else if (doc.exists) {
-            logSync("no pending change -> applying remote data");
-            applyRemoteData(doc.data().payload);
-            setSyncStatus("synced", "동기화됨");
+            // A remote payload that's empty/unparseable while THIS device
+            // still has real local data is far more likely to be a
+            // corrupted or incomplete write than a genuinely empty
+            // account — this is exactly the failure mode that once wiped
+            // a user's data: some earlier bug (e.g. a push racing ahead of
+            // the very first pull, since fixed by initialSyncDone above)
+            // could have left the server holding an empty payload, and
+            // every device that ever logs in afterward would otherwise
+            // blindly apply that emptiness and lose everything. Refuse the
+            // pull in that specific case and re-push the local copy
+            // instead, so a bad server state can't cascade to every device.
+            const remoteKeyCount = payloadKeyCount(doc.data().payload);
+            const localKeyCount = payloadKeyCount(currentSnapshotStr());
+            if (remoteKeyCount === 0 && localKeyCount > 0) {
+              logSync(
+                `REFUSED to apply remote data: server payload has 0 keys but this device has ${localKeyCount} — keeping local, re-pushing it`
+              );
+              console.error("cloud sync: refused an anomalous empty remote pull; local data preserved");
+              window.Toast?.show(
+                "서버의 동기화 데이터가 비어있어서 적용하지 않았어요. 이 기기의 데이터를 그대로 유지하고 다시 서버로 올려요.",
+                { type: "warning", duration: 10000 }
+              );
+              pushPending = true;
+              pushToCloud();
+            } else {
+              logSync("no pending change -> applying remote data");
+              applyRemoteData(doc.data().payload);
+              setSyncStatus("synced", "동기화됨");
+            }
           } else {
             logSync("no remote doc yet -> pushing local as initial state");
             pushPending = true;

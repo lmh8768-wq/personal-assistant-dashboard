@@ -11,7 +11,7 @@ const vm = require("node:vm");
 
 function createMemoryStorage() {
   const data = new Map();
-  return {
+  const base = {
     getItem(key) {
       return data.has(key) ? data.get(key) : null;
     },
@@ -31,6 +31,30 @@ function createMemoryStorage() {
       return [...data.keys()][i] ?? null;
     },
   };
+  // Real browser localStorage exposes every stored key as an enumerable
+  // own property (`for...in localStorage`, `Object.keys(localStorage)`) —
+  // both cloud-sync.js (collectLocalState) and settings.js (backup/export)
+  // rely on that to walk all "assistant.*" keys. A plain object backed by
+  // a private Map has none of that: for...in only sees getItem/setItem/etc,
+  // so any test seeding this mock would silently make those code paths see
+  // zero keys. The proxy makes stored entries show up as real own keys.
+  return new Proxy(base, {
+    ownKeys(target) {
+      return [...new Set([...data.keys(), ...Reflect.ownKeys(target)])];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (data.has(prop)) {
+        return { enumerable: true, configurable: true, writable: false, value: data.get(prop) };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop, receiver) {
+      if (typeof prop === "string" && data.has(prop) && !(prop in target)) {
+        return data.get(prop);
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
 }
 
 function buildSandbox() {

@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { loadCloudSyncModule } = require("./helpers/load-cloud-sync");
+const { loadCloudSyncModule, loadCloudSyncModuleWithFakeFirebase } = require("./helpers/load-cloud-sync");
 
 function merge(existing, incoming) {
   const window = loadCloudSyncModule();
@@ -174,4 +174,73 @@ test("mergeValues: a nested field synced as null doesn't wipe the existing neste
   const merged = merge(existing, incoming);
   assert.deepEqual(merged.profile, existing.profile);
   assert.deepEqual(merged.tags, existing.tags);
+});
+
+test("startListening: refuses an anomalously-empty first-pull payload instead of wiping real local data — the actual bug fix", () => {
+  // The exact class of bug that once wiped a user's data: some earlier
+  // issue (e.g. a push racing ahead of the very first pull) could leave
+  // the server holding an empty payload ("{}"), and every device that
+  // logs in afterward used to blindly apply that emptiness via
+  // applyRemoteData's full-replace, losing everything — even though the
+  // device itself still had real, untouched local data the whole time.
+  const seedLocalStorage = {
+    "assistant.schedules.v1": JSON.stringify([{ id: "sc_1", title: "중요한 일정", date: "2026-08-01", repeat: { type: "none" } }]),
+    "assistant.categories.v1": JSON.stringify([{ key: "appointment", label: "약속", color: "#60a5fa" }]),
+  };
+
+  const { localStorage, setCalls, toastMessages } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: "{}", // the anomalous empty server state
+    seedLocalStorage,
+  });
+
+  // Local data must survive untouched.
+  assert.equal(localStorage.getItem("assistant.schedules.v1"), seedLocalStorage["assistant.schedules.v1"]);
+  assert.equal(localStorage.getItem("assistant.categories.v1"), seedLocalStorage["assistant.categories.v1"]);
+
+  // The local (real) copy must have been re-pushed to the server instead
+  // of silently accepting the empty one.
+  assert.equal(setCalls.length, 1);
+  const pushedPayload = JSON.parse(setCalls[0].payload);
+  assert.deepEqual(
+    JSON.parse(pushedPayload["assistant.schedules.v1"]),
+    JSON.parse(seedLocalStorage["assistant.schedules.v1"])
+  );
+
+  // The user should be told something unusual happened, not left to
+  // silently lose data with no explanation.
+  assert.ok(toastMessages.some((m) => m.includes("비어있어서")), "expected a warning toast about the empty server payload");
+});
+
+test("startListening: a genuinely empty local device still accepts an empty-looking remote payload (no false alarm)", () => {
+  // The guard must only fire when LOCAL has real data to protect — a
+  // brand-new device with nothing local yet should still be able to pull
+  // down whatever's on the server (including a legitimately near-empty
+  // account) without the guard getting in the way.
+  const { localStorage, setCalls } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({ "assistant.schedules.v1": JSON.stringify([{ id: "sc_1", title: "서버 일정" }]) }),
+    seedLocalStorage: {},
+  });
+
+  assert.equal(JSON.parse(localStorage.getItem("assistant.schedules.v1"))[0].title, "서버 일정");
+  assert.equal(setCalls.length, 0, "a normal pull shouldn't trigger a re-push");
+});
+
+test("startListening: a real (non-empty) remote payload still applies normally, unaffected by the guard", () => {
+  const remotePayload = {
+    "assistant.schedules.v1": JSON.stringify([{ id: "sc_remote", title: "서버에서 온 일정" }]),
+  };
+  const { localStorage, setCalls } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify(remotePayload),
+    seedLocalStorage: {
+      "assistant.schedules.v1": JSON.stringify([{ id: "sc_local", title: "로컬에 있던 일정" }]),
+    },
+  });
+
+  // Normal first-pull behavior (full replace) is unchanged when the
+  // remote payload is real.
+  assert.equal(JSON.parse(localStorage.getItem("assistant.schedules.v1"))[0].id, "sc_remote");
+  assert.equal(setCalls.length, 0, "a normal pull with real remote data shouldn't trigger a re-push");
 });
