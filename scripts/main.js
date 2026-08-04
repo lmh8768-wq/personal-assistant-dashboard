@@ -34,10 +34,18 @@ if ("serviceWorker" in navigator) {
 // ---------- Theme ----------
 const root = document.documentElement;
 const themeToggle = document.getElementById("themeToggle");
+// Mirrors styles/base.css's --bg tokens for each theme — the meta tag can't
+// read a CSS custom property, so these have to be kept in sync by hand.
+const THEME_COLORS = { dark: "#0f1115", light: "#f5f6f8" };
 
 function applyTheme(theme) {
   root.setAttribute("data-theme", theme);
   safeSetItem("theme", theme);
+  // Was hardcoded to the dark value in index.html's <meta> and never
+  // updated again — a light-theme user's browser chrome/status bar stayed
+  // dark-colored regardless of which theme the app itself was showing.
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeColorMeta) themeColorMeta.setAttribute("content", THEME_COLORS[theme] || THEME_COLORS.dark);
 }
 
 const savedTheme = safeGetItem("theme");

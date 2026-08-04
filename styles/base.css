@@ -373,7 +373,8 @@ button.nav-item {
   border-bottom: none;
 }
 
-.search-result-item:hover {
+.search-result-item:hover,
+.search-result-item.highlighted {
   background: var(--accent-soft);
 }
 

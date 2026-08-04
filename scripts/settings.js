@@ -100,7 +100,9 @@
     document.documentElement.style.setProperty("--accent", color);
     document.documentElement.style.setProperty("--accent-soft", hexToRgba(color, 0.14));
     document.querySelectorAll(".accent-swatch").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.accent === color);
+      const isActive = btn.dataset.accent === color;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-pressed", String(isActive));
     });
   }
 

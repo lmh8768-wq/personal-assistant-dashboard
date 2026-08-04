@@ -103,17 +103,54 @@
     return results.slice(0, 10);
   }
 
+  // -1 means nothing is highlighted yet (just opened / results just
+  // changed) — arrow keys start from either end depending on direction.
+  let highlightedIndex = -1;
+  let currentResults = [];
+
+  function activateResult(r) {
+    const container = document.getElementById("searchResults");
+    const input = document.getElementById("globalSearchInput");
+    document.querySelector(`.nav-item[data-view="${r.view}"]`)?.click();
+    if (input) {
+      input.value = "";
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+    }
+    if (container) container.hidden = true;
+    highlightedIndex = -1;
+  }
+
+  function setHighlighted(index) {
+    const container = document.getElementById("searchResults");
+    const input = document.getElementById("globalSearchInput");
+    if (!container) return;
+    const items = [...container.children];
+    if (items.length === 0) return;
+    highlightedIndex = ((index % items.length) + items.length) % items.length; // wraps both directions
+    items.forEach((el, i) => el.classList.toggle("highlighted", i === highlightedIndex));
+    const current = items[highlightedIndex];
+    current.scrollIntoView({ block: "nearest" });
+    if (input) input.setAttribute("aria-activedescendant", current.id);
+  }
+
   function renderResults(results) {
     const container = document.getElementById("searchResults");
+    const input = document.getElementById("globalSearchInput");
     if (!container) return;
     container.innerHTML = "";
+    highlightedIndex = -1;
+    currentResults = results;
     if (results.length === 0) {
       container.hidden = true;
+      if (input) input.setAttribute("aria-expanded", "false");
       return;
     }
-    results.forEach((r) => {
+    results.forEach((r, i) => {
       const item = document.createElement("div");
       item.className = "search-result-item";
+      item.id = `search-result-${i}`;
+      item.setAttribute("role", "option");
 
       const badge = document.createElement("span");
       badge.className = "search-result-badge";
@@ -125,16 +162,13 @@
       label.textContent = r.label;
       item.appendChild(label);
 
-      item.addEventListener("click", () => {
-        document.querySelector(`.nav-item[data-view="${r.view}"]`)?.click();
-        const input = document.getElementById("globalSearchInput");
-        if (input) input.value = "";
-        container.hidden = true;
-      });
+      item.addEventListener("click", () => activateResult(r));
+      item.addEventListener("mouseenter", () => setHighlighted(i));
 
       container.appendChild(item);
     });
     container.hidden = false;
+    if (input) input.setAttribute("aria-expanded", "true");
   }
 
   // getResults() re-flattens every goal tree in the app from scratch — fine
@@ -167,7 +201,29 @@
     });
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") container.hidden = true;
+      if (e.key === "Escape") {
+        container.hidden = true;
+        input.setAttribute("aria-expanded", "false");
+      }
+    });
+
+    // Arrow-key/Enter navigation through results — the search box otherwise
+    // had no keyboard path at all: results were plain non-focusable <div>s
+    // with only a click listener, so a keyboard-only user who typed a query
+    // could see results appear but had no way to actually choose one.
+    input.addEventListener("keydown", (e) => {
+      if (container.hidden || currentResults.length === 0) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlighted(highlightedIndex + 1);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlighted(highlightedIndex - 1);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const target = currentResults[highlightedIndex] ?? currentResults[0];
+        if (target) activateResult(target);
+      }
     });
   }
 
