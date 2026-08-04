@@ -102,12 +102,20 @@
    Grid instead of a single centered flex row: the middle column (0일째)
    sizes to its own content and stays exactly centered no matter what's in
    the flanking columns, so adding 연속 연습 to the left column doesn't
-   drag the number off the center point it originally had. */
+   drag the number off the center point it originally had.
+
+   Not flex:1 anymore — this panel sits in a 3-column dashboard row next to
+   운동 기록/봉골레 파스타, whose content starts right under their own
+   headers. flex:1 stretched this one's content to vertically center in
+   whatever leftover height the row's taller siblings created, so the
+   number ended up floating in a lot of empty space instead of reading
+   like the same kind of card as its neighbors. Fixed padding instead
+   keeps it anchored under the header like they are. */
 .practice-streak-display {
-  flex: 1;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
+  padding: 20px 0;
 }
 
 .practice-streak-caption-col {

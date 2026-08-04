@@ -48,6 +48,18 @@
   .content {
     padding: 16px;
   }
+  /* .panel's 220px min-height keeps desktop's 3-column dashboard grid even,
+     but on a single mobile column it just means every short-content card
+     (settings sections especially) drags in a lot of dead space, and the
+     scroll it takes to get through several of them back to back adds up
+     fast. Letting height follow content on mobile fixes both at once. */
+  .panel {
+    min-height: auto;
+    padding: 14px 16px;
+  }
+  .panel-header {
+    margin-bottom: 8px;
+  }
 }
 
 /* ---------- iOS standalone (Add to Home Screen) safe areas ---------- */
