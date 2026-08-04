@@ -85,11 +85,31 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        // Only cache successful responses — caching a transient 404/500
+        // would mean that error page gets served as if it were real content
+        // the next time this exact request happens while offline.
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        }
         return response;
       })
-      .catch(() => caches.match(request).then((cached) => cached || Promise.reject(new Error("offline, not cached"))))
+      .catch(() =>
+        caches.match(request).then((cached) => {
+          if (cached) return cached;
+          // Nothing cached for this exact request, and the network's down.
+          // For a page navigation, index.html (the app shell — every route
+          // here is a hash on that one HTML file) can still render, which
+          // beats the browser's bare connection-error page. Anything else
+          // (a JS/CSS/image request with nothing to substitute) just fails.
+          if (request.mode === "navigate") {
+            return caches
+              .match("/index.html")
+              .then((shell) => shell || Promise.reject(new Error("offline, no app shell cached")));
+          }
+          return Promise.reject(new Error("offline, not cached"));
+        })
+      )
   );
 });
 
