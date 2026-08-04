@@ -343,6 +343,38 @@
   }
 
   // ---------- Storage usage ----------
+  // Human labels for the fixed, known set of "assistant."-prefixed keys this
+  // app ever writes (verified against every localStorage.setItem/getItem
+  // call across scripts/*.js — there are no dynamically-templated key names
+  // here). Used only for the breakdown list below; a key not in this map
+  // (e.g. one added later and not yet labeled) still shows up under its raw
+  // key rather than silently vanishing from the breakdown.
+  const STORAGE_KEY_LABELS = {
+    "assistant.ledgerEntries.v1": "가계부 내역",
+    "assistant.ledgerCategories.v1": "가계부 카테고리",
+    "assistant.schedules.v1": "일정",
+    "assistant.scheduleOrder.v1": "일정 순서",
+    "assistant.pinnedScheduleOrder.v1": "고정 일정 순서",
+    "assistant.templates.v1": "반복 일정 템플릿",
+    "assistant.categories.v1": "일정 카테고리",
+    "assistant.routines.v1": "루틴",
+    "assistant.practice.v1": "연습 일지",
+    "assistant.practiceChecklist.v1": "연습 체크리스트",
+    "assistant.practiceCurriculum.v1": "연습 커리큘럼",
+    "assistant.academicGoals.v1": "학업 목표",
+    "assistant.exerciseRecords.v1": "운동 개인 기록",
+    "assistant.learnedExercises.v1": "배운 운동 목록",
+    "assistant.vongoleRecipes.v1": "봉골레 레시피",
+    "assistant.vongoleCollectedRecipes.v1": "봉골레 수집 레시피",
+    "assistant.vongoleDefaultRecipeSeeded.v1": "봉골레 기본 레시피 시드",
+    "assistant.vongoleLog.v1": "봉골레 시도 기록",
+    "assistant.customShortcuts.v1": "바로가기",
+    "assistant.settings.v1": "설정",
+    "assistant.hideCompleted.v1": "완료 항목 숨기기 설정",
+    "assistant.upcomingRangeDays.v1": "다가오는 일정 범위 설정",
+  };
+  const STORAGE_BREAKDOWN_TOP_N = 6;
+
   // Counts only "assistant."-prefixed keys — the same scope
   // exportData()/handleResetData() operate on below. This used to count
   // every localStorage key (including the device-local weather cache,
@@ -351,18 +383,21 @@
   // back up or reset" — it's a slight undercount against the *literal*
   // browser quota, but assistant.* data is what dominates that quota as it
   // grows, and it's what the gauge is actually meant to help reason about.
-  function calculateStorageBytes() {
+  function calculateStorageBreakdown() {
+    const perKey = [];
     try {
-      let chars = 0;
       for (const key in localStorage) {
         if (!Object.prototype.hasOwnProperty.call(localStorage, key)) continue;
         if (!key.startsWith("assistant.")) continue;
-        chars += key.length + (localStorage.getItem(key) || "").length;
+        const bytes = (key.length + (localStorage.getItem(key) || "").length) * 2; // UTF-16 ~2 bytes/char
+        perKey.push({ key, label: STORAGE_KEY_LABELS[key] || key, bytes });
       }
-      return chars * 2; // UTF-16 ~2 bytes/char
     } catch {
-      return 0;
+      return { total: 0, perKey: [] };
     }
+    perKey.sort((a, b) => b.bytes - a.bytes);
+    const total = perKey.reduce((sum, item) => sum + item.bytes, 0);
+    return { total, perKey };
   }
 
   function formatBytes(bytes) {
@@ -374,11 +409,25 @@
   function renderStorageUsage() {
     const container = document.getElementById("storageUsage");
     if (!container) return;
-    const used = calculateStorageBytes();
-    const percent = Math.min(100, Math.round((used / STORAGE_ESTIMATE_BYTES) * 100));
+    const { total, perKey } = calculateStorageBreakdown();
+    const percent = Math.min(100, Math.round((total / STORAGE_ESTIMATE_BYTES) * 100));
+
+    // Which items are actually eating the quota — without this, "80% used"
+    // gives no hint what to go clean up. Only items with real content are
+    // worth listing; a handful of leftover 0-byte keys would just be noise.
+    const withContent = perKey.filter((item) => item.bytes > 0);
+    const top = withContent.slice(0, STORAGE_BREAKDOWN_TOP_N);
+    const rest = withContent.slice(STORAGE_BREAKDOWN_TOP_N);
+    const restBytes = rest.reduce((sum, item) => sum + item.bytes, 0);
+    const rows = top.map((item) => `<li><span>${item.label}</span><span>${formatBytes(item.bytes)}</span></li>`);
+    if (rest.length > 0) {
+      rows.push(`<li><span>기타 ${rest.length}개 항목</span><span>${formatBytes(restBytes)}</span></li>`);
+    }
+
     container.innerHTML = `
       <div class="storage-gauge"><div class="storage-gauge-fill" style="width:${percent}%"></div></div>
-      <p class="storage-usage-text">${formatBytes(used)} / 약 ${formatBytes(STORAGE_ESTIMATE_BYTES)} 사용 중 (${percent}%)</p>
+      <p class="storage-usage-text">${formatBytes(total)} / 약 ${formatBytes(STORAGE_ESTIMATE_BYTES)} 사용 중 (${percent}%)</p>
+      ${rows.length > 0 ? `<ul class="storage-usage-breakdown">${rows.join("")}</ul>` : ""}
     `;
   }
 
