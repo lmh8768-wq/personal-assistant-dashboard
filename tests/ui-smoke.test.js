@@ -646,3 +646,24 @@ test("schedule/ledger/routine: onShow does a full data refresh, not just a layou
     await close();
   }
 });
+
+test("schedule modal: the category color dot tracks the selected category", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(200);
+    await page.evaluate(() => window.ScheduleView.openAddModal());
+    await page.waitForTimeout(200);
+
+    const cats = await page.evaluate(() => window.CategoryStore.getAll());
+    const initialColor = await page.evaluate(() => getComputedStyle(document.getElementById("scheduleCategoryDot")).backgroundColor);
+
+    await page.selectOption("#scheduleCategoryInput", cats[cats.length - 1].key);
+    await page.waitForTimeout(100);
+    const changedColor = await page.evaluate(() => getComputedStyle(document.getElementById("scheduleCategoryDot")).backgroundColor);
+
+    assert.notEqual(changedColor, initialColor);
+  } finally {
+    await close();
+  }
+});

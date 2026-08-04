@@ -105,6 +105,28 @@
   flex: 1;
 }
 
+/* The category filter pills elsewhere show a colored dot per category, but
+   this modal's category picker was a bare native <select> with no color at
+   all — same concept, inconsistent representation. This dot mirrors it,
+   kept in sync with the selected option's color from schedule.js. */
+.category-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-select-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.category-select-row select {
+  flex: 1;
+}
+
 .star-rating {
   display: flex;
   align-items: center;

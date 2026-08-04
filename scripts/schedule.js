@@ -750,6 +750,19 @@
   // — setting select.value to a key with no matching <option> just leaves
   // nothing selected rather than falling back to anything, so that case is
   // handled explicitly here instead of relying on the browser to do it.
+  // The filter pills elsewhere show each category's color as a dot;
+  // #scheduleCategoryDot mirrors that next to this plain <select> so
+  // picking a category here isn't the one place in the app where category
+  // color goes unrepresented. Kept in sync on both the initial value set
+  // here and every subsequent manual selection (see the "change" listener
+  // wired in init()).
+  function updateCategorySelectDot() {
+    const select = document.getElementById("scheduleCategoryInput");
+    const dot = document.getElementById("scheduleCategoryDot");
+    if (!select || !dot) return;
+    dot.style.background = getCategoryColor(select.value);
+  }
+
   function syncCategorySelectOptions(desiredValue) {
     const select = document.getElementById("scheduleCategoryInput");
     const categories = window.CategoryStore.getAll();
@@ -762,6 +775,7 @@
     });
     const hasDesired = categories.some((c) => c.key === desiredValue);
     select.value = hasDesired ? desiredValue : categories[0]?.key || "";
+    updateCategorySelectDot();
   }
 
   function openModal(mode, data) {
@@ -1071,6 +1085,7 @@
     document.getElementById("cancelScheduleBtn").addEventListener("click", closeModal);
     document.getElementById("deleteScheduleBtn").addEventListener("click", handleDelete);
     document.getElementById("scheduleRepeatInput").addEventListener("change", updateRepeatFieldsVisibility);
+    document.getElementById("scheduleCategoryInput").addEventListener("change", updateCategorySelectDot);
     document.getElementById("scheduleRepeatUntilModeInput").addEventListener("change", updateRepeatUntilDateVisibility);
 
     document.getElementById("scheduleSelectModeBtn").addEventListener("click", toggleScheduleSelectMode);
