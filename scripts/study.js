@@ -650,6 +650,7 @@
         });
       }
     });
+    window.makeKeyboardActivatable(remove, `${node.label || "목표"} 삭제`);
     row.appendChild(remove);
 
     li.appendChild(row);
@@ -757,6 +758,7 @@
         });
       }
     });
+    window.makeKeyboardActivatable(remove, `${period.label} 구간 삭제`);
     actions.appendChild(remove);
 
     headerRow.appendChild(actions);
@@ -818,6 +820,7 @@
         });
       }
     });
+    window.makeKeyboardActivatable(remove, `${year.label} 연도 삭제`);
     actions.appendChild(remove);
 
     header.appendChild(actions);

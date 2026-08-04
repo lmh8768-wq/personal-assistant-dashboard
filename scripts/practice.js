@@ -165,6 +165,7 @@
         renderChecklistItems();
         renderDashboardPractice();
       });
+      window.makeKeyboardActivatable(remove, "체크리스트에서 완전히 제거");
       li.appendChild(remove);
 
       list.appendChild(li);
@@ -940,6 +941,7 @@
         });
       }
     });
+    window.makeKeyboardActivatable(remove, `${node.label || "목표"} 삭제`);
     row.appendChild(remove);
 
     li.appendChild(row);

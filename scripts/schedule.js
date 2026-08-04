@@ -567,6 +567,15 @@
       label.textContent = tpl.title;
       chip.appendChild(label);
 
+      // Not wired up for keyboard access like the other "×" controls in this
+      // app (see window.makeKeyboardActivatable) — this span sits nested
+      // inside `chip`, itself a <button>, and making a span inside a button
+      // separately focusable is invalid nested-interactive-content markup.
+      // Fixing it properly means pulling this out to a sibling button
+      // instead of a nested span, which touches template-chip's CSS: not
+      // done here since nothing in the app ever calls TemplateStore.add()
+      // (confirmed via search), so this row can never actually render a
+      // chip today regardless.
       const remove = document.createElement("span");
       remove.className = "template-chip-remove";
       remove.textContent = "×";

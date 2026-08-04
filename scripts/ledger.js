@@ -249,6 +249,7 @@
         e.stopPropagation();
         deleteEntry(entry.id);
       });
+      window.makeKeyboardActivatable(remove);
       li.appendChild(remove);
 
       li.addEventListener("click", () => openModal("edit", entry));
@@ -330,6 +331,7 @@
       row.remove();
       updateRowRemoveVisibility();
     });
+    window.makeKeyboardActivatable(removeBtn);
     row.appendChild(removeBtn);
 
     return row;

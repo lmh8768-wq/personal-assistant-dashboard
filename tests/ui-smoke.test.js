@@ -177,3 +177,57 @@ test("routine: adding a checklist item and toggling it done both persist", { ski
     await close();
   }
 });
+
+test("accessibility: toast has aria-live, modal focus returns to its trigger, delete spans are keyboard-activatable", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const toastAttrs = await page.evaluate(() => {
+      window.Toast.show("테스트 메시지");
+      const container = document.getElementById("toastContainer");
+      return { role: container.getAttribute("role"), ariaLive: container.getAttribute("aria-live") };
+    });
+    assert.equal(toastAttrs.role, "status");
+    assert.equal(toastAttrs.ariaLive, "polite");
+
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(150);
+    await page.focus("#addScheduleBtn");
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(() => document.activeElement.id), "scheduleTitleInput");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+    assert.equal(
+      await page.evaluate(() => document.activeElement.id),
+      "addScheduleBtn",
+      "focus should return to whatever opened the modal, not fall back to <body>"
+    );
+
+    await page.evaluate(() => window.VongoleRecipeStore.add({ title: "UI키보드삭제", content: "" }));
+    await page.reload();
+    await page.addStyleTag({ content: "#authGate { display: none !important; }" });
+    await page.evaluate(() => {
+      const authGate = document.getElementById("authGate");
+      authGate.setAttribute("hidden", "");
+      Object.defineProperty(authGate, "hidden", { get: () => true, set: () => {} });
+      document.getElementById("appRoot").hidden = false;
+      window.initFeatures && window.initFeatures();
+    });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => document.querySelector('[data-view="vongole"]')?.click());
+    await page.waitForTimeout(150);
+
+    const before = await page.evaluate(() => window.VongoleRecipeStore.getAll().length);
+    const deleteSpan = page.locator(".vongole-recipe-card", { hasText: "UI키보드삭제" }).locator(".checklist-item-remove");
+    const spanAttrs = await deleteSpan.evaluate((el) => ({ tabIndex: el.tabIndex, role: el.getAttribute("role") }));
+    assert.equal(spanAttrs.tabIndex, 0);
+    assert.equal(spanAttrs.role, "button");
+    await deleteSpan.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(150);
+    const after = await page.evaluate(() => window.VongoleRecipeStore.getAll().length);
+    assert.equal(after, before - 1, "Enter on the focused delete span should trigger the same delete as a click");
+  } finally {
+    await close();
+  }
+});

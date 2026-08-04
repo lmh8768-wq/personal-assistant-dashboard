@@ -5,6 +5,13 @@
       container = document.createElement("div");
       container.id = "toastContainer";
       container.className = "toast-container";
+      // Toasts are appended dynamically with nothing else pointing a screen
+      // reader at them — without this, messages like "동기화 실패" or a
+      // delete confirmation are only ever seen, never announced.
+      // aria-live="polite" (not "assertive") so a toast doesn't barge in
+      // over whatever the user is already doing.
+      container.setAttribute("role", "status");
+      container.setAttribute("aria-live", "polite");
       document.body.appendChild(container);
     }
     return container;
@@ -16,6 +23,11 @@
 
     const toast = document.createElement("div");
     toast.className = "toast" + (opts.type ? ` toast-${opts.type}` : "");
+    // Set here too, not just on the shared container — a position-anchored
+    // toast (below) is appended straight to document.body instead, outside
+    // the container's aria-live region entirely.
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
 
     const text = document.createElement("span");
     text.className = "toast-text";

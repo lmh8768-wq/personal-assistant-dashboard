@@ -39,4 +39,37 @@
       first.focus();
     }
   });
+
+  // Same "one generic handler instead of touching every view's own
+  // openXModal/closeXModal" approach, for focus restoration: none of them
+  // return focus to whatever triggered the modal when it closes, so a
+  // keyboard user has to re-navigate from the top of the page every time.
+  // Tracks the last element focused *outside* any modal (i.e. whatever
+  // opened it, for a keyboard-driven open — a mouse click on a
+  // non-focusable trigger like a list row doesn't move focus at all, so
+  // this is a no-op for that case rather than actively wrong) and restores
+  // it once every modal on the page is hidden again.
+  let lastFocusedOutsideModal = null;
+
+  document.addEventListener(
+    "focusin",
+    (e) => {
+      if (!e.target.closest(".modal-overlay")) {
+        lastFocusedOutsideModal = e.target;
+      }
+    },
+    true
+  );
+
+  const restoreObserver = new MutationObserver(() => {
+    if (document.querySelector(".modal-overlay:not([hidden])")) return; // another modal is still open
+    if (!lastFocusedOutsideModal || !document.body.contains(lastFocusedOutsideModal)) return;
+    if (typeof lastFocusedOutsideModal.focus !== "function" || lastFocusedOutsideModal.disabled) return;
+    lastFocusedOutsideModal.focus();
+    lastFocusedOutsideModal = null;
+  });
+
+  document.querySelectorAll(".modal-overlay").forEach((el) => {
+    restoreObserver.observe(el, { attributes: true, attributeFilter: ["hidden"] });
+  });
 })();

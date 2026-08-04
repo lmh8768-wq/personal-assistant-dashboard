@@ -160,6 +160,7 @@
       e.stopPropagation();
       deleteRecipe(kind, recipe.id);
     });
+    window.makeKeyboardActivatable(removeBtn);
     header.appendChild(removeBtn);
     card.appendChild(header);
 

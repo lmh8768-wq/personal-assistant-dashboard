@@ -260,6 +260,7 @@
               });
             }
           });
+          window.makeKeyboardActivatable(remove, `${item.name} 삭제`);
           li.appendChild(remove);
 
           list.appendChild(li);

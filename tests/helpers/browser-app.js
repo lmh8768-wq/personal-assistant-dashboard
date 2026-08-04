@@ -57,14 +57,25 @@ async function launchApp() {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   await page.goto(`http://127.0.0.1:${port}/index.html`);
-  // Some Firebase auth check re-shows #authGate a moment after the initial
-  // bypass runs (there's no real Firebase project reachable here) — a CSS
-  // override that outranks any inline style toggle keeps it hidden for good,
-  // which plain `element.hidden = true` alone doesn't survive. Must come
-  // after goto(): a style tag added before navigation doesn't survive it.
+  // cloud-sync.js's auth-state handling re-shows #authGate a moment after
+  // the initial bypass runs (there's no real Firebase project reachable
+  // here) — a CSS override alone only hides it *visually*; the underlying
+  // `hidden` attribute still flips back to false, which matters for
+  // anything (like the modal focus-trap's open-modal check) that reads
+  // .hidden rather than computed style. Locking the property itself via
+  // defineProperty makes it stick for real. Must come after goto(): neither
+  // survives navigation.
   await page.addStyleTag({ content: "#authGate { display: none !important; }" });
   await page.evaluate(() => {
-    document.getElementById("authGate").hidden = true;
+    const authGate = document.getElementById("authGate");
+    // Locking the JS property alone isn't enough — [hidden] CSS/querySelector
+    // checks (like the modal focus-trap's "is another modal open" check)
+    // read the actual content attribute, which authGate doesn't carry by
+    // default (it's visible-by-default markup, shown until auth resolves).
+    // Set it directly, then lock the property too for code that reads
+    // .hidden rather than querying the attribute.
+    authGate.setAttribute("hidden", "");
+    Object.defineProperty(authGate, "hidden", { get: () => true, set: () => {} });
     document.getElementById("appRoot").hidden = false;
     window.initFeatures && window.initFeatures();
   });
