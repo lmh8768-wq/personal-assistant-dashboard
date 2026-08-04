@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      # format:check isn't wired in here — the repo isn't Prettier-clean yet
+      # (pre-existing, unrelated to CI), so it'd fail on day one for no reason.
+
+      - run: npm test
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:ui
