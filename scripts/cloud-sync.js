@@ -18,6 +18,7 @@
   let pushTimer = null;
   let unsubscribeSnapshot = null;
   let offlineTimer = null;
+  let sizeWarningShown = false; // nag about a near-limit payload once per session, not every push attempt
   // Guards against the exact class of bug that once wiped a user's data: a
   // local write (e.g. a widget seeding its own cache key) racing ahead of
   // the very first Firestore pull and getting pushed up as if it were the
@@ -305,6 +306,18 @@
       // PDF in the practice sheet library). Flag it clearly rather than
       // letting it fail with an opaque error later.
       logSync(`WARNING: payload is ${(payload.length / 1024).toFixed(0)}KB, nearing Firestore's 1MB doc limit`);
+      // This used to only ever reach the debug log in Settings, which
+      // nobody looks at unless something's already visibly wrong — the
+      // whole point of catching it this early is to warn before that
+      // happens. Once per session, not once per debounce cycle: this check
+      // re-runs on every single push attempt while stuck near the limit.
+      if (!sizeWarningShown) {
+        sizeWarningShown = true;
+        window.Toast?.show("동기화할 데이터가 많이 쌓였어요 — 곧 저장 공간 한계에 닿을 수 있어요", {
+          type: "warning",
+          duration: 6000,
+        });
+      }
     }
     db.collection("users").doc(user.uid).set({
       payload,
@@ -318,7 +331,16 @@
       logSync(`push FAILED: ${err.code || err.message}`);
       console.error("cloud sync push failed:", err);
       // Leave the pending marker set so the next load retries instead of
-      // risking an overwrite from a stale remote copy.
+      // risking an overwrite from a stale remote copy. If the payload was
+      // already near Firestore's limit, retrying the exact same push won't
+      // help — say so plainly instead of leaving the user staring at a
+      // generic "동기화 실패" that gives no hint what to actually do.
+      if (payload.length > 800000) {
+        window.Toast?.show("데이터가 너무 커서 동기화가 계속 실패하고 있어요. 오래된 가계부/연습 기록을 정리해보세요.", {
+          type: "error",
+          duration: 8000,
+        });
+      }
       setSyncStatus("error", "동기화 실패");
     });
   }

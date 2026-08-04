@@ -69,18 +69,38 @@
     return WEATHER_CODES[code] || ["🌡️", "날씨"];
   }
 
+  // Re-requesting geolocation on every load would mean a permission-prompt
+  // (or at least a location fix) every single time, which is its own
+  // annoyance — but caching it forever meant a user who granted this once
+  // while traveling, then came home, kept seeing weather for wherever they
+  // were when they first allowed it, with no way to fix that short of
+  // manually clearing localStorage. A day is long enough to not re-prompt
+  // constantly, short enough that a traveling user's weather catches up
+  // within it.
+  const LOCATION_TTL_MS = 24 * 60 * 60 * 1000;
+
   function loadLocation() {
     try {
       const raw = localStorage.getItem(LOCATION_KEY);
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed.at !== "number" || Date.now() - parsed.at > LOCATION_TTL_MS) return null;
+      return { lat: parsed.lat, lon: parsed.lon };
     } catch {
       return null;
     }
   }
 
   function saveLocation(loc) {
-    window.safeSetLocalStorage(LOCATION_KEY, JSON.stringify(loc));
+    window.safeSetLocalStorage(LOCATION_KEY, JSON.stringify({ ...loc, at: Date.now() }));
   }
+
+  // Exposed purely so tests/weather-location.test.js can exercise the real
+  // shipped TTL logic directly instead of driving the whole app through a
+  // real browser (geolocation/weather-fetch timing during app startup made
+  // that unreliable to assert against) — same reasoning cloud-sync.js's
+  // __mergeStoredValueForTest already uses.
+  window.__weatherLocationForTest = { loadLocation, saveLocation };
 
   function loadCache() {
     try {
@@ -227,16 +247,24 @@
 
     if (!tryAcquireFetchLock()) {
       // Another tab already grabbed the lock and is fetching right now —
-      // give it a moment to finish and just pick up the cache it writes,
-      // instead of also hitting the API ourselves.
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      const latest = loadCache();
-      if (latest && Date.now() - latest.fetchedAt < CACHE_TTL_MS) {
-        render(latest.weather, "");
-        return;
+      // poll for the cache it writes instead of also hitting the API
+      // ourselves. Polls up to the lock's own TTL, not a shorter fixed
+      // wait — a wait shorter than FETCH_LOCK_TTL_MS meant a fetch that was
+      // simply a normal amount slow (well within the lock's own TTL) still
+      // made this tab give up and fetch independently too, doubling the
+      // exact API call the lock exists to prevent.
+      const deadline = Date.now() + FETCH_LOCK_TTL_MS;
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const latest = loadCache();
+        if (latest && Date.now() - latest.fetchedAt < CACHE_TTL_MS) {
+          render(latest.weather, "");
+          return;
+        }
       }
-      // The other tab didn't finish (or failed) in time — fall through and
-      // fetch ourselves rather than leaving the view stuck on stale data.
+      // The other tab didn't finish (or failed) within the lock's own TTL —
+      // fall through and fetch ourselves rather than leaving the view stuck
+      // on stale data.
     }
 
     try {

@@ -71,7 +71,28 @@
     try {
       const registration = await navigator.serviceWorker.getRegistration("/sw.js");
       const subscription = await registration?.pushManager.getSubscription();
-      if (subscription) await subscription.unsubscribe();
+      if (subscription) {
+        // Delete the server-side copy too — otherwise it just sits in
+        // Firestore until the next daily cron run happens to get a 404/410
+        // from the push service and cleans it up incidentally. Best-effort:
+        // the local unsubscribe() below is what actually stops notifications
+        // from this device, so a failure here (offline, no signed-in user)
+        // isn't worth blocking on or surfacing to the user.
+        const user = window.firebase?.auth && window.firebase.auth().currentUser;
+        if (user) {
+          try {
+            const idToken = await user.getIdToken();
+            await fetch("/api/delete-subscription", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken, endpoint: subscription.endpoint }),
+            });
+          } catch {
+            // ignore — worst case the subscription just goes stale server-side
+          }
+        }
+        await subscription.unsubscribe();
+      }
     } catch {
       // ignore — worst case the subscription just goes stale server-side
     }
