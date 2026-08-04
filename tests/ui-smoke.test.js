@@ -1142,3 +1142,113 @@ test("schedule: selecting an item in bulk-select mode patches just that row, wit
     await close();
   }
 });
+
+test("search: a single early category can't starve out every other category — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    await page.evaluate((catKey) => {
+      // 12 matching schedules (well past the old flat 10-result cap) plus
+      // one matching ledger entry — the schedule matches alone used to
+      // fill the entire results.slice(0, 10) budget before the ledger
+      // category (or anything else) was ever considered.
+      for (let i = 0; i < 12; i++) {
+        window.ScheduleStore.add({ title: `테스트일정${i}`, date: "2026-08-01", repeat: { type: "none" }, category: catKey });
+      }
+      const expCat = window.LedgerCategoryStore.getByType("expense")[0];
+      window.LedgerCategoryStore.update(expCat.key, { label: "테스트카테고리" });
+      window.LedgerEntryStore.add({ date: "2026-08-01", amount: 1000, categoryKey: expCat.key, type: "expense" });
+    }, catKey);
+
+    await page.fill("#globalSearchInput", "테스트");
+    await page.waitForTimeout(250);
+    const types = await page.evaluate(() =>
+      [...document.querySelectorAll("#searchResults .search-result-badge")].map((el) => el.textContent)
+    );
+    assert.ok(types.includes("가계부"), `expected a 가계부 result among the top 10, got types: ${types.join(",")}`);
+    assert.ok(types.filter((t) => t === "일정").length <= 3, "no single category should exceed its per-category cap");
+  } finally {
+    await close();
+  }
+});
+
+test("search: a 1-character query doesn't spuriously match the 비서 assistant shortcut — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.fill("#globalSearchInput", "c");
+    await page.waitForTimeout(250);
+    const types = await page.evaluate(() =>
+      [...document.querySelectorAll("#searchResults .search-result-badge")].map((el) => el.textContent)
+    );
+    assert.ok(!types.includes("비서"), `"c" should not match the assistant shortcut, got types: ${types.join(",")}`);
+  } finally {
+    await close();
+  }
+});
+
+test("a11y: makeKeyboardActivatable fires once per Space press-release, not once per repeated keydown — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const clickCount = await page.evaluate(() => {
+      const btn = document.createElement("button");
+      btn.textContent = "test";
+      let clicks = 0;
+      btn.addEventListener("click", () => clicks++);
+      document.body.appendChild(btn);
+      window.makeKeyboardActivatable(btn);
+      btn.focus();
+
+      // Simulate OS key-repeat: several keydowns, only one keyup — this is
+      // exactly what holding a key down actually generates.
+      const keydown = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+      btn.dispatchEvent(keydown);
+      btn.dispatchEvent(keydown);
+      btn.dispatchEvent(keydown);
+      const keyup = new KeyboardEvent("keyup", { key: " ", bubbles: true, cancelable: true });
+      btn.dispatchEvent(keyup);
+
+      btn.remove();
+      return clicks;
+    });
+    assert.equal(clickCount, 1);
+  } finally {
+    await close();
+  }
+});
+
+test("calendar-fit: on a short viewport, MIN_WIDTH is only applied when it still fits — the actual bug fix", { skip: !RUN }, async () => {
+  // Regression test scoped to the specific bug: MIN_WIDTH used to be
+  // applied unconditionally, ignoring the (much taller) grid height that
+  // width implies via the fixed 3:4 cell aspect ratio — so the calendar
+  // PANEL ITSELF rendered taller than the content area had room for. This
+  // checks the panel's own height against the content area's, independent
+  // of any other unrelated chrome (filter bar, chips, ...) that might also
+  // be sitting above .schedule-layout and contributing to page-level
+  // scroll — that's a separate concern from what this fix addresses.
+  const { page, close } = await launchApp();
+  try {
+    await page.setViewportSize({ width: 1400, height: 500 }); // wide, short
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(300);
+
+    const { panelHeight, contentClientHeight, appliedWidth } = await page.evaluate(() => {
+      const content = document.querySelector(".content");
+      const panel = document.getElementById("calendarPanel");
+      const layout = document.getElementById("scheduleLayout");
+      return {
+        panelHeight: panel.getBoundingClientRect().height,
+        contentClientHeight: content.clientHeight,
+        appliedWidth: parseFloat(getComputedStyle(layout).gridTemplateColumns),
+      };
+    });
+    assert.ok(
+      panelHeight <= contentClientHeight,
+      `calendar panel (${panelHeight}px) should fit within the content area (${contentClientHeight}px)`
+    );
+    // On this short a viewport, the fix should have kept the width BELOW
+    // MIN_WIDTH (420) rather than forcing it up and overflowing.
+    assert.ok(appliedWidth < 420, `expected width to stay below MIN_WIDTH on a short viewport, got ${appliedWidth}px`);
+  } finally {
+    await close();
+  }
+});

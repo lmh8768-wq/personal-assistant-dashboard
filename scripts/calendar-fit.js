@@ -61,7 +61,24 @@
     const available = layout.getBoundingClientRect().width;
     targetWidth = Math.min(targetWidth, available - LAYOUT_GAP - DAY_PANEL_MIN_WIDTH);
 
-    return { width: Math.max(MIN_WIDTH, targetWidth), marginTop };
+    // MIN_WIDTH is a floor for readability, but blindly clamping up to it
+    // ignored what height THAT width actually implies via the fixed 3:4
+    // cell aspect ratio. On a short-but-wide viewport, targetWidth (and
+    // the smaller cell size it came from) was deliberately kept small
+    // specifically to fit the available vertical space — forcing it back
+    // up to MIN_WIDTH re-introduced the exact overflow this function
+    // exists to prevent (the actual rendered grid ends up taller than
+    // targetPanelHeight, since CSS drives height from width here, not the
+    // other way around). Only apply the floor when it still fits.
+    if (targetWidth < MIN_WIDTH) {
+      const minWidthCellSize = (MIN_WIDTH - chromeWidth - 6 * GRID_GAP) / 7;
+      const minWidthGridHeight = minWidthCellSize * CELL_ASPECT * ROWS + (ROWS - 1) * GRID_GAP;
+      if (minWidthGridHeight + chromeHeight <= targetPanelHeight) {
+        targetWidth = MIN_WIDTH;
+      }
+    }
+
+    return { width: targetWidth, marginTop };
   }
 
   function apply({ layoutId, panelId, gridId, extraHeight }) {

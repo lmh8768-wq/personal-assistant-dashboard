@@ -9,98 +9,117 @@
     });
   }
 
+  // Each category's contribution is capped BEFORE the sections are
+  // concatenated — without this, a query that happened to match 10+
+  // schedules alone (the first category checked) meant every later
+  // category — including 가계부, 봉골레, and the 비서 keyword shortcut,
+  // pushed last — was silently squeezed out of the final results.slice(0,
+  // 10) entirely, regardless of how good a match they were.
+  const PER_CATEGORY_CAP = 3;
+
   function getResults(query) {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    const results = [];
+    const sections = [];
+
+    function addSection(items) {
+      if (items.length) sections.push(items.slice(0, PER_CATEGORY_CAP));
+    }
 
     if (window.ScheduleStore) {
-      window.ScheduleStore.getAll().forEach((item) => {
-        const hay = `${item.title} ${item.memo || ""}`.toLowerCase();
-        if (hay.includes(q)) {
-          results.push({ type: "일정", label: item.title, view: "schedule" });
-        }
-      });
+      addSection(
+        window.ScheduleStore.getAll()
+          .filter((item) => `${item.title} ${item.memo || ""}`.toLowerCase().includes(q))
+          .map((item) => ({ type: "일정", label: item.title, view: "schedule" }))
+      );
     }
     if (window.PracticeStore) {
-      window.PracticeStore.getAll().forEach((p) => {
-        if ((p.text || "").toLowerCase().includes(q)) {
-          const label = p.text.length > 30 ? p.text.slice(0, 30) + "…" : p.text;
-          results.push({ type: "연습", label, view: "practice" });
-        }
-      });
+      addSection(
+        window.PracticeStore.getAll()
+          .filter((p) => (p.text || "").toLowerCase().includes(q))
+          .map((p) => ({
+            type: "연습",
+            label: p.text.length > 30 ? p.text.slice(0, 30) + "…" : p.text,
+            view: "practice",
+          }))
+      );
     }
     if (window.PracticeCurriculumStore) {
       const goals = [];
       collectGoalLabels(window.PracticeCurriculumStore.getGoals(), "커리큘럼", "practice", goals);
-      goals.forEach((g) => {
-        if (g.label.toLowerCase().includes(q)) results.push(g);
-      });
+      addSection(goals.filter((g) => g.label.toLowerCase().includes(q)));
     }
     if (window.RoutineStore) {
+      const items = [];
       ["routine", "life"].forEach((type) => {
         (window.RoutineStore.getItems(type) || []).forEach((item) => {
           if ((item.label || "").toLowerCase().includes(q)) {
-            results.push({ type: "루틴", label: item.label, view: "routine" });
+            items.push({ type: "루틴", label: item.label, view: "routine" });
           }
         });
       });
+      addSection(items);
     }
     if (window.AcademicGoalStore) {
+      const goals = [];
       window.AcademicGoalStore.getYears().forEach((year) => {
         window.AcademicGoalStore.getPeriods(year.id).forEach((period) => {
-          const goals = [];
           collectGoalLabels(window.AcademicGoalStore.getGoals(year.id, period.id), "학업", "study", goals);
-          goals.forEach((g) => {
-            if (g.label.toLowerCase().includes(q)) results.push(g);
-          });
         });
       });
+      addSection(goals.filter((g) => g.label.toLowerCase().includes(q)));
     }
     if (window.LearnedExerciseStore) {
-      window.LearnedExerciseStore.getAll().forEach((item) => {
-        const hay = `${item.name || ""} ${item.bodyPart || ""}`.toLowerCase();
-        if (hay.includes(q)) {
-          results.push({ type: "운동", label: `${item.bodyPart} · ${item.name}`, view: "exercise" });
-        }
-      });
+      addSection(
+        window.LearnedExerciseStore.getAll()
+          .filter((item) => `${item.name || ""} ${item.bodyPart || ""}`.toLowerCase().includes(q))
+          .map((item) => ({ type: "운동", label: `${item.bodyPart} · ${item.name}`, view: "exercise" }))
+      );
     }
     if (window.LedgerEntryStore && window.LedgerCategoryStore) {
-      window.LedgerEntryStore.getAll().forEach((entry) => {
-        const cat = window.LedgerCategoryStore.getByKey(entry.categoryKey);
-        const label = cat ? cat.label : "";
-        if (label.toLowerCase().includes(q)) {
-          results.push({ type: "가계부", label: `${label} · ${entry.date}`, view: "ledger" });
-        }
-      });
+      addSection(
+        window.LedgerEntryStore.getAll()
+          .map((entry) => ({ entry, label: window.LedgerCategoryStore.getByKey(entry.categoryKey)?.label || "" }))
+          .filter(({ label }) => label.toLowerCase().includes(q))
+          .map(({ entry, label }) => ({ type: "가계부", label: `${label} · ${entry.date}`, view: "ledger" }))
+      );
     }
+    const vongoleRecipes = [];
     [window.VongoleRecipeStore, window.VongoleCollectedRecipeStore].forEach((store) => {
       if (!store) return;
       store.getAll().forEach((r) => {
-        const hay = `${r.title || ""} ${r.content || ""}`.toLowerCase();
-        if (hay.includes(q)) {
-          results.push({ type: "봉골레", label: r.title || "(제목 없음)", view: "vongole" });
+        if (`${r.title || ""} ${r.content || ""}`.toLowerCase().includes(q)) {
+          vongoleRecipes.push({ type: "봉골레", label: r.title || "(제목 없음)", view: "vongole" });
         }
       });
     });
+    addSection(vongoleRecipes);
     if (window.VongoleLogStore) {
-      window.VongoleLogStore.getAll().forEach((entry) => {
-        const hay = `${entry.recipe || ""} ${entry.comment || ""}`.toLowerCase();
-        if (hay.includes(q)) {
-          results.push({ type: "봉골레", label: `시도 기록 · ${entry.date}`, view: "vongole" });
-        }
-      });
+      addSection(
+        window.VongoleLogStore.getAll()
+          .filter((entry) => `${entry.recipe || ""} ${entry.comment || ""}`.toLowerCase().includes(q))
+          .map((entry) => ({ type: "봉골레", label: `시도 기록 · ${entry.date}`, view: "vongole" }))
+      );
     }
 
     // 비서에게 묻기 has no data of its own to search, so it was previously
     // unreachable from global search entirely — a fixed keyword match at
     // least surfaces it for the obvious ways someone would look for it.
+    // The two directions of the match need different confidence: a query
+    // that CONTAINS a full keyword (e.g. typing "비서 어디") is always a
+    // precise match regardless of length, but a short query that's merely
+    // a SUBSTRING of a keyword ("c", "l", "e" are all substrings of
+    // "claude") produced spurious matches on totally unrelated 1-character
+    // searches — requiring at least 2 characters for that direction only.
     const ASSISTANT_KEYWORDS = ["비서", "질문", "상담", "claude", "클로드", "챗봇", "물어보기"];
-    if (ASSISTANT_KEYWORDS.some((k) => k.includes(q) || q.includes(k))) {
-      results.push({ type: "비서", label: "비서에게 묻기", view: "assistant" });
+    const matchesAssistant =
+      ASSISTANT_KEYWORDS.some((k) => q.includes(k)) ||
+      (q.length >= 2 && ASSISTANT_KEYWORDS.some((k) => k.includes(q)));
+    if (matchesAssistant) {
+      addSection([{ type: "비서", label: "비서에게 묻기", view: "assistant" }]);
     }
 
-    return results.slice(0, 10);
+    return sections.flat().slice(0, 10);
   }
 
   // -1 means nothing is highlighted yet (just opened / results just
