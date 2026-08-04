@@ -39,6 +39,15 @@ const TOP_BOTTOM_PADDING = 14;
 function getFrameSize() {
   const { width, height } = Device.screenSize();
   const w = Math.min(width, height);
+  // iPad's minimum screen width (744pt+) was falling into the ">= 428"
+  // iPhone Plus/Pro Max bucket below, sizing the grid as if it were a much
+  // narrower 364pt frame instead of iPad's actual (much wider) Large-
+  // widget frame. Scriptable still has no API to measure the real render
+  // size (see this function's own header comment on the module-level
+  // approach), so this iPad branch is a best-effort estimate — verify
+  // against Apple's current HIG widget-size docs if the grid still looks
+  // off on an actual iPad, and adjust here.
+  if (Device.isPad()) return { width: 360, height: 376 };
   if (w >= 428) return { width: 364, height: 382 }; // Plus / Pro Max
   if (w <= 376) return { width: 321, height: 324 }; // SE / mini
   return { width: 329, height: 345 }; // standard 12-16
@@ -130,6 +139,17 @@ function parseDateStr(s) {
   return new Date(y, m - 1, d);
 }
 
+// ⚠️ Hand-duplicated from scripts/schedule-recurrence.js's matchesDate —
+// Scriptable scripts are pasted in as one self-contained file with no
+// import mechanism, so this can't just require() the shared module the
+// way store.js and api/send-daily-notifications.js do. Any recurrence-rule
+// fix made there (this file already fell behind once, missing the
+// monthly/yearly day-rollover fix below until it was ported here) must be
+// manually re-applied here and in today-schedule-widget.js too.
+function daysInMonth(year, monthIndex) {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
 function matchesDate(item, dateStr) {
   if (dateStr < item.date) return false;
   const repeat = item.repeat || { type: "none" };
@@ -149,11 +169,19 @@ function matchesDate(item, dateStr) {
     }
     case "weekly":
       return parseDateStr(item.date).getDay() === parseDateStr(dateStr).getDay();
-    case "monthly":
-      return parseDateStr(item.date).getDate() === parseDateStr(dateStr).getDate();
+    case "monthly": {
+      const anchorDate = parseDateStr(item.date).getDate();
+      const target = parseDateStr(dateStr);
+      const effectiveAnchorDate = Math.min(anchorDate, daysInMonth(target.getFullYear(), target.getMonth()));
+      return target.getDate() === effectiveAnchorDate;
+    }
     case "yearly": {
       const anchor = parseDateStr(item.date);
       const target = parseDateStr(dateStr);
+      if (anchor.getMonth() === 1 && anchor.getDate() === 29) {
+        const effectiveDate = daysInMonth(target.getFullYear(), 1) === 29 ? 29 : 28;
+        return target.getMonth() === 1 && target.getDate() === effectiveDate;
+      }
       return anchor.getMonth() === target.getMonth() && anchor.getDate() === target.getDate();
     }
     default:
@@ -252,7 +280,13 @@ async function buildCalendarWidget() {
 
   let schedules = [];
   try {
-    schedules = JSON.parse(data["assistant.schedules.v1"] || "[]");
+    // Guards against the parsed value being valid JSON but not an array
+    // (e.g. stored as "null") too, not just a parse error — schedules.filter
+    // (via countOccurrences) below would otherwise throw uncaught and crash
+    // the whole widget instead of degrading to the "no events" state the
+    // catch below already handles gracefully.
+    const parsed = JSON.parse(data["assistant.schedules.v1"] || "[]");
+    schedules = Array.isArray(parsed) ? parsed : [];
   } catch {}
 
   const today = new Date();

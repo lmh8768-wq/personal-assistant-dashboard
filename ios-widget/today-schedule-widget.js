@@ -101,6 +101,17 @@ function parseDateStr(s) {
   return new Date(y, m - 1, d);
 }
 
+// ⚠️ Hand-duplicated from scripts/schedule-recurrence.js's matchesDate —
+// Scriptable scripts are pasted in as one self-contained file with no
+// import mechanism, so this can't just require() the shared module the
+// way store.js and api/send-daily-notifications.js do. Any recurrence-rule
+// fix made there (this file already fell behind once, missing the
+// monthly/yearly day-rollover fix below until it was ported here) must be
+// manually re-applied here and in month-calendar-widget.js too.
+function daysInMonth(year, monthIndex) {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
 function matchesDate(item, dateStr) {
   if (dateStr < item.date) return false;
   const repeat = item.repeat || { type: "none" };
@@ -120,11 +131,19 @@ function matchesDate(item, dateStr) {
     }
     case "weekly":
       return parseDateStr(item.date).getDay() === parseDateStr(dateStr).getDay();
-    case "monthly":
-      return parseDateStr(item.date).getDate() === parseDateStr(dateStr).getDate();
+    case "monthly": {
+      const anchorDate = parseDateStr(item.date).getDate();
+      const target = parseDateStr(dateStr);
+      const effectiveAnchorDate = Math.min(anchorDate, daysInMonth(target.getFullYear(), target.getMonth()));
+      return target.getDate() === effectiveAnchorDate;
+    }
     case "yearly": {
       const anchor = parseDateStr(item.date);
       const target = parseDateStr(dateStr);
+      if (anchor.getMonth() === 1 && anchor.getDate() === 29) {
+        const effectiveDate = daysInMonth(target.getFullYear(), 1) === 29 ? 29 : 28;
+        return target.getMonth() === 1 && target.getDate() === effectiveDate;
+      }
       return anchor.getMonth() === target.getMonth() && anchor.getDate() === target.getDate();
     }
     default:
@@ -185,10 +204,16 @@ async function buildScheduleWidget() {
   let schedules = [];
   let categories = [];
   try {
-    schedules = JSON.parse(data["assistant.schedules.v1"] || "[]");
+    // Guards against the parsed value being valid JSON but not an array
+    // (e.g. stored as "null") too, not just a parse error — getOccurrences'
+    // .filter() below would otherwise throw uncaught and crash the whole
+    // widget instead of degrading to the "no events" state gracefully.
+    const parsedSchedules = JSON.parse(data["assistant.schedules.v1"] || "[]");
+    schedules = Array.isArray(parsedSchedules) ? parsedSchedules : [];
   } catch {}
   try {
-    categories = JSON.parse(data["assistant.categories.v1"] || "[]");
+    const parsedCategories = JSON.parse(data["assistant.categories.v1"] || "[]");
+    categories = Array.isArray(parsedCategories) ? parsedCategories : [];
   } catch {}
 
   const today = new Date();
