@@ -424,6 +424,21 @@
         </div>
 
         <div class="view" id="view-study" hidden>
+          <div class="diary-header">
+            <h2>학업 목표</h2>
+            <div class="diary-header-actions">
+              <button type="button" class="ghost-btn" id="studySelectModeBtn">선택</button>
+            </div>
+          </div>
+          <div class="schedule-select-toolbar" id="studySelectToolbar" hidden>
+            <span id="studySelectCount">0개 선택됨</span>
+            <div>
+              <button type="button" class="ghost-btn" id="studyCopyBtn">복사</button>
+              <button type="button" class="ghost-btn danger" id="studyDeleteBtn">삭제</button>
+              <button type="button" class="ghost-btn danger" id="studyCancelSelectBtn">취소</button>
+            </div>
+          </div>
+          <div class="curriculum-clipboard-note" id="studyClipboardNote" hidden></div>
           <div class="goal-periods" id="goalPeriods"></div>
         </div>
 

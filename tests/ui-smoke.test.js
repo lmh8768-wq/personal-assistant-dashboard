@@ -11,7 +11,7 @@
 // under bare `node --test`, so nothing here is silently invisible.
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { launchApp } = require("./helpers/browser-app");
+const { launchApp, bypassAuthGate } = require("./helpers/browser-app");
 
 const RUN = !!process.env.RUN_UI_TESTS;
 
@@ -114,15 +114,7 @@ test("study: adding a goal inside a period via its own + button persists", { ski
       return { yearId: year.id, periodId: period.id };
     });
     await page.reload();
-    // reload() wipes the style-tag override from launchApp() too — reapply
-    // it, same as the initial bypass.
-    await page.addStyleTag({ content: "#authGate { display: none !important; }" });
-    await page.evaluate(() => {
-      document.getElementById("authGate").hidden = true;
-      document.getElementById("appRoot").hidden = false;
-      window.initFeatures && window.initFeatures();
-    });
-    await page.waitForTimeout(300);
+    await bypassAuthGate(page);
 
     await page.evaluate(() => document.querySelector('[data-view="study"]')?.click());
     await page.waitForTimeout(150);
@@ -205,15 +197,7 @@ test("accessibility: toast has aria-live, modal focus returns to its trigger, de
 
     await page.evaluate(() => window.VongoleRecipeStore.add({ title: "UI키보드삭제", content: "" }));
     await page.reload();
-    await page.addStyleTag({ content: "#authGate { display: none !important; }" });
-    await page.evaluate(() => {
-      const authGate = document.getElementById("authGate");
-      authGate.setAttribute("hidden", "");
-      Object.defineProperty(authGate, "hidden", { get: () => true, set: () => {} });
-      document.getElementById("appRoot").hidden = false;
-      window.initFeatures && window.initFeatures();
-    });
-    await page.waitForTimeout(300);
+    await bypassAuthGate(page);
     await page.evaluate(() => document.querySelector('[data-view="vongole"]')?.click());
     await page.waitForTimeout(150);
 
@@ -227,6 +211,115 @@ test("accessibility: toast has aria-live, modal focus returns to its trigger, de
     await page.waitForTimeout(150);
     const after = await page.evaluate(() => window.VongoleRecipeStore.getAll().length);
     assert.equal(after, before - 1, "Enter on the focused delete span should trigger the same delete as a click");
+  } finally {
+    await close();
+  }
+});
+
+test("study: select-mode multi-select, copy/paste, and multi-select delete match practice.js's curriculum tree", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const ids = await page.evaluate(() => {
+      const year = window.AcademicGoalStore.addYear("2028");
+      const period = window.AcademicGoalStore.addPeriod(year.id, "테스트구간");
+      const goalA = window.AcademicGoalStore.addGoal(year.id, period.id, null, "목표A");
+      const goalB = window.AcademicGoalStore.addGoal(year.id, period.id, null, "목표B");
+      return { yearId: year.id, periodId: period.id, goalA: goalA.id, goalB: goalB.id };
+    });
+    await page.reload();
+    await bypassAuthGate(page);
+    await page.evaluate(() => document.querySelector('[data-view="study"]')?.click());
+    await page.waitForTimeout(150);
+
+    await page.click("#studySelectModeBtn");
+    await page.waitForTimeout(100);
+    const rowA = page.locator(`.goal-item-row[data-goal-id="${ids.goalA}"]`);
+    await rowA.locator(".goal-select-checkbox").click();
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => document.getElementById("studySelectCount").textContent), "1개 선택됨");
+
+    await page.click("#studyCopyBtn");
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(() => !document.getElementById("studyClipboardNote").hidden), true);
+
+    await page.locator(`.goal-item-row[data-goal-id="${ids.goalB}"]`).locator(".goal-paste-btn").click();
+    await page.waitForTimeout(150);
+    const goalBChildren = await page.evaluate(
+      (ids) => window.AcademicGoalStore.getGoals(ids.yearId, ids.periodId).find((g) => g.id === ids.goalB)?.children?.length,
+      ids
+    );
+    assert.equal(goalBChildren, 1);
+
+    await page.click("#studySelectModeBtn");
+    await page.waitForTimeout(100);
+    await rowA.locator(".goal-select-checkbox").click();
+    await page.waitForTimeout(100);
+    await page.click("#studyDeleteBtn");
+    await page.waitForTimeout(150);
+    const remainingIds = await page.evaluate((ids) => window.AcademicGoalStore.getGoals(ids.yearId, ids.periodId).map((g) => g.id), ids);
+    assert.equal(remainingIds.includes(ids.goalA), false);
+    assert.equal(remainingIds.includes(ids.goalB), true);
+  } finally {
+    await close();
+  }
+});
+
+test("study: reordering goals only ever reorders siblings within the same period, never across periods", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const result = await page.evaluate(() => {
+      const year = window.AcademicGoalStore.addYear("리오더테스트");
+      const period = window.AcademicGoalStore.addPeriod(year.id, "구간");
+      const a = window.AcademicGoalStore.addGoal(year.id, period.id, null, "A");
+      window.AcademicGoalStore.addGoal(year.id, period.id, null, "B");
+      const c = window.AcademicGoalStore.addGoal(year.id, period.id, null, "C");
+
+      window.AcademicGoalStore.reorderGoal(year.id, period.id, c.id, a.id, true);
+      const afterMove = window.AcademicGoalStore.getGoals(year.id, period.id).map((g) => g.label);
+
+      const otherPeriod = window.AcademicGoalStore.addPeriod(year.id, "다른구간");
+      const d = window.AcademicGoalStore.addGoal(year.id, otherPeriod.id, null, "D");
+      window.AcademicGoalStore.reorderGoal(year.id, period.id, d.id, a.id, true);
+      return {
+        afterMove,
+        periodUnaffected: window.AcademicGoalStore.getGoals(year.id, period.id).map((g) => g.label),
+        otherPeriodUnaffected: window.AcademicGoalStore.getGoals(year.id, otherPeriod.id).map((g) => g.label),
+      };
+    });
+    assert.deepEqual(result.afterMove, ["C", "A", "B"]);
+    assert.deepEqual(result.periodUnaffected, ["C", "A", "B"]);
+    assert.deepEqual(result.otherPeriodUnaffected, ["D"]);
+  } finally {
+    await close();
+  }
+});
+
+test("study: deleting a year needs two clicks (arm, then confirm) — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => window.AcademicGoalStore.addYear("2028"));
+    await page.reload();
+    await bypassAuthGate(page);
+    await page.evaluate(() => document.querySelector('[data-view="study"]')?.click());
+    await page.waitForTimeout(150);
+
+    const yearRemove = page.locator(".goal-year-section", { hasText: "2028" }).locator(".goal-year-remove");
+    await yearRemove.click();
+    await page.waitForTimeout(100);
+    assert.equal(await yearRemove.textContent(), "확인");
+    assert.equal(
+      await page.evaluate(() => window.AcademicGoalStore.getYears().some((y) => y.label === "2028")),
+      true,
+      "first click only arms — the year must still exist"
+    );
+
+    await yearRemove.click();
+    await page.waitForTimeout(150);
+    assert.equal(
+      await page.evaluate(() => window.AcademicGoalStore.getYears().some((y) => y.label === "2028")),
+      false,
+      "second click confirms — the year should now be gone"
+    );
   } finally {
     await close();
   }

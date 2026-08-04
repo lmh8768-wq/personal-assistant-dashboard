@@ -136,6 +136,17 @@
     return { total, done };
   }
 
+  // Copies get fresh ids top to bottom so a pasted subtree never collides
+  // with the goal(s) it was copied from (or with itself, pasted twice).
+  function deepCloneWithNewIds(node) {
+    return {
+      id: createId("goal"),
+      label: node.label,
+      done: !!node.done,
+      children: (node.children || []).map(deepCloneWithNewIds),
+    };
+  }
+
   function findYear(data, yearId) {
     return data.years.find((y) => y.id === yearId);
   }
@@ -290,6 +301,43 @@
       node.label = label;
       saveGoals(data);
     },
+    // Reorders `draggedId` next to `targetId` within their shared sibling
+    // list, within this one period's tree. A no-op if they don't share a
+    // parent — dragging only ever reorders among siblings, it never
+    // re-parents a goal (and never moves a goal to a different period).
+    reorderGoal(yearId, periodId, draggedId, targetId, insertBefore) {
+      if (draggedId === targetId) return;
+      const data = loadGoals();
+      const period = findPeriod(findYear(data, yearId), periodId);
+      if (!period) return;
+      const draggedParentId = findParentIdIn(period.goals, draggedId);
+      const targetParentId = findParentIdIn(period.goals, targetId);
+      if (draggedParentId !== targetParentId) return;
+      const siblings = draggedParentId ? (findNode(period.goals, draggedParentId).children || []) : period.goals;
+      const fromIdx = siblings.findIndex((n) => n.id === draggedId);
+      if (fromIdx === -1) return;
+      const [node] = siblings.splice(fromIdx, 1);
+      let toIdx = siblings.findIndex((n) => n.id === targetId);
+      if (toIdx === -1) toIdx = siblings.length;
+      else if (!insertBefore) toIdx += 1;
+      siblings.splice(toIdx, 0, node);
+      saveGoals(data);
+    },
+    // Pastes deep clones of `nodes` (each gets an entirely new id, top to
+    // bottom) as new children of `targetParentId`, within this one period.
+    pasteGoals(yearId, periodId, targetParentId, nodes) {
+      const data = loadGoals();
+      const period = findPeriod(findYear(data, yearId), periodId);
+      if (!period) return [];
+      const parent = findNode(period.goals, targetParentId);
+      if (!parent) return [];
+      const cloned = nodes.map(deepCloneWithNewIds);
+      parent.children = parent.children || [];
+      parent.children.push(...cloned);
+      recomputeNodeAndAncestors(period.goals, targetParentId);
+      saveGoals(data);
+      return cloned;
+    },
   };
   window.AcademicGoalStore = GoalStore;
 
@@ -347,11 +395,146 @@
   // empty label forever.
   let pendingNewGoal = null; // { yearId, periodId, id }
 
+  // Deleting a whole year takes its every period and nested goal with it —
+  // a single mis-click on the same small "×" every other row uses shouldn't
+  // be enough to do that. Same "click once to arm, click again within a few
+  // seconds to actually act" pattern settings.js's "전체 데이터 초기화"
+  // button already uses, rather than a native confirm() dialog (which
+  // nothing else in this app uses) or just a longer undo window (a
+  // mis-click would still have *happened*, undo only helps if it's noticed
+  // in time).
+  let yearDeleteArmed = null; // year.id currently armed, or null
+  let yearDeleteArmedTimer = null;
+
   function discardPendingNewGoal() {
     if (!pendingNewGoal) return;
     const { yearId, periodId, id } = pendingNewGoal;
     GoalStore.removeGoal(yearId, periodId, id);
     pendingNewGoal = null;
+  }
+
+  // ---------- Multi-select copy/paste (drag across rows to select, copy,
+  // then paste as another goal's children) — same mechanic as practice.js's
+  // 커리큘럼 tree (scripts/practice.js's CurriculumStore/handleCurriculum*),
+  // adapted for this tree's extra year/period nesting: a selected goal's id
+  // alone isn't enough to look it up or delete it, so selections are kept
+  // as id -> {yearId, periodId} instead of a bare id set.
+  let studySelectMode = false;
+  let selectedGoals = new Map();
+  let dragSelectValue = null; // true/false while a paint-select drag is in progress, else null
+  let clipboardGoals = []; // deep-cloned snapshot of the goals copied last
+
+  function setGoalSelected(yearId, periodId, id, val) {
+    if (val) selectedGoals.set(id, { yearId, periodId });
+    else selectedGoals.delete(id);
+    const row = document.querySelector(`.goal-item-row[data-goal-id="${id}"]`);
+    if (row) {
+      row.classList.toggle("selected", val);
+      const cb = row.querySelector(".goal-select-checkbox");
+      if (cb) cb.checked = val;
+    }
+    updateStudySelectToolbar();
+  }
+
+  function updateStudySelectToolbar() {
+    const toolbar = document.getElementById("studySelectToolbar");
+    if (!toolbar) return;
+    toolbar.hidden = !studySelectMode;
+    const countEl = document.getElementById("studySelectCount");
+    if (countEl) countEl.textContent = `${selectedGoals.size}개 선택됨`;
+    const copyBtn = document.getElementById("studyCopyBtn");
+    if (copyBtn) copyBtn.disabled = selectedGoals.size === 0;
+    const deleteBtn = document.getElementById("studyDeleteBtn");
+    if (deleteBtn) deleteBtn.disabled = selectedGoals.size === 0;
+  }
+
+  function toggleStudySelectMode() {
+    studySelectMode = !studySelectMode;
+    selectedGoals.clear();
+    document.getElementById("studySelectModeBtn").textContent = studySelectMode ? "선택 취소" : "선택";
+    updateStudySelectToolbar();
+    renderAll();
+  }
+
+  function exitStudySelectMode() {
+    studySelectMode = false;
+    selectedGoals.clear();
+    document.getElementById("studySelectModeBtn").textContent = "선택";
+    updateStudySelectToolbar();
+  }
+
+  function handleStudyCopy() {
+    if (selectedGoals.size === 0) return;
+    clipboardGoals = [...selectedGoals.entries()]
+      .map(([id, { yearId, periodId }]) => findNode(GoalStore.getGoals(yearId, periodId), id))
+      .filter(Boolean)
+      .map((n) => JSON.parse(JSON.stringify(n)));
+    const count = clipboardGoals.length;
+    exitStudySelectMode();
+    updateClipboardNote();
+    renderAll();
+    window.Toast?.show(`${count}개 목표를 복사했어요. 붙여넣을 목표의 "붙여넣기"를 눌러주세요.`);
+  }
+
+  // Selecting both a parent and one of its own children would otherwise
+  // double-handle the child (once directly, once as part of the parent's
+  // subtree) — only the outermost selected ancestor in each branch acts.
+  function getTopLevelSelectedEntries() {
+    return [...selectedGoals.entries()].filter(([id, { yearId, periodId }]) => {
+      let parentId = GoalStore.findParentId(yearId, periodId, id);
+      while (parentId) {
+        if (selectedGoals.has(parentId)) return false;
+        parentId = GoalStore.findParentId(yearId, periodId, parentId);
+      }
+      return true;
+    });
+  }
+
+  function handleStudyDelete() {
+    if (selectedGoals.size === 0) return;
+    const removed = getTopLevelSelectedEntries()
+      .map(([id, { yearId, periodId }]) => {
+        const parentId = GoalStore.findParentId(yearId, periodId, id);
+        const node = GoalStore.removeGoal(yearId, periodId, id);
+        return node ? { yearId, periodId, parentId, node } : null;
+      })
+      .filter(Boolean);
+    exitStudySelectMode();
+    renderAll();
+    if (removed.length > 0 && window.Toast) {
+      window.Toast.show(`${removed.length}개 목표를 삭제했어요`, {
+        actionLabel: "실행취소",
+        onAction: () => {
+          removed.forEach(({ yearId, periodId, parentId, node }) => GoalStore.restoreGoal(yearId, periodId, parentId, node));
+          renderAll();
+        },
+      });
+    }
+  }
+
+  function updateClipboardNote() {
+    const note = document.getElementById("studyClipboardNote");
+    if (!note) return;
+    note.innerHTML = "";
+    if (clipboardGoals.length === 0) {
+      note.hidden = true;
+      return;
+    }
+    note.hidden = false;
+    const text = document.createElement("span");
+    text.textContent = `📋 ${clipboardGoals.length}개 복사됨 — 붙여넣을 목표의 "붙여넣기"를 누르세요.`;
+    note.appendChild(text);
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "checklist-item-remove";
+    clearBtn.textContent = "×";
+    clearBtn.setAttribute("aria-label", "복사 취소");
+    clearBtn.addEventListener("click", () => {
+      clipboardGoals = [];
+      updateClipboardNote();
+      renderAll();
+    });
+    note.appendChild(clearBtn);
   }
 
   // ---------- Rendering ----------
@@ -554,19 +737,76 @@
     li.className = "goal-item";
 
     const row = document.createElement("div");
-    row.className = "goal-item-row checklist-item" + (node.done ? " done" : "");
+    row.className = "goal-item-row checklist-item" +
+      (node.done ? " done" : "") +
+      (selectedGoals.has(node.id) ? " selected" : "");
+    row.dataset.goalId = node.id;
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = !!node.done;
-    checkbox.addEventListener("change", () => {
-      const applied = GoalStore.toggleDone(yearId, periodId, node.id);
-      if (!applied && window.Toast) {
-        window.Toast.show("하위 목표를 모두 완료해야 체크할 수 있어요", { type: "warning" });
-      }
+    row.draggable = !studySelectMode;
+    row.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/plain", node.id);
+      e.dataTransfer.effectAllowed = "move";
+    });
+    row.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      const rect = row.getBoundingClientRect();
+      const before = e.clientY - rect.top < rect.height / 2;
+      row.classList.toggle("drag-over-before", before);
+      row.classList.toggle("drag-over-after", !before);
+    });
+    row.addEventListener("dragleave", () => {
+      row.classList.remove("drag-over-before", "drag-over-after");
+    });
+    row.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      row.classList.remove("drag-over-before", "drag-over-after");
+      const draggedId = e.dataTransfer.getData("text/plain");
+      if (!draggedId) return;
+      const rect = row.getBoundingClientRect();
+      const before = e.clientY - rect.top < rect.height / 2;
+      GoalStore.reorderGoal(yearId, periodId, draggedId, node.id, before);
       onChange();
     });
-    row.appendChild(checkbox);
+
+    if (studySelectMode) {
+      // Click-and-drag across rows paints them all to the same new selected
+      // state as the row the gesture started on — same pattern as
+      // practice.js's curriculum tree (see its comment for why the
+      // checkbox itself is excluded here and handled by its own "change"
+      // listener instead).
+      row.addEventListener("mousedown", (e) => {
+        if (e.target.closest("button, .goal-item-label-input, .checklist-item-remove, .goal-select-checkbox")) return;
+        e.preventDefault();
+        const newVal = !selectedGoals.has(node.id);
+        dragSelectValue = newVal;
+        setGoalSelected(yearId, periodId, node.id, newVal);
+      });
+      row.addEventListener("mouseenter", () => {
+        if (dragSelectValue === null) return;
+        setGoalSelected(yearId, periodId, node.id, dragSelectValue);
+      });
+
+      const selectCheckbox = document.createElement("input");
+      selectCheckbox.type = "checkbox";
+      selectCheckbox.className = "goal-select-checkbox";
+      selectCheckbox.checked = selectedGoals.has(node.id);
+      selectCheckbox.addEventListener("click", (e) => e.stopPropagation());
+      selectCheckbox.addEventListener("change", () => setGoalSelected(yearId, periodId, node.id, selectCheckbox.checked));
+      row.appendChild(selectCheckbox);
+    } else {
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = !!node.done;
+      checkbox.addEventListener("change", () => {
+        const applied = GoalStore.toggleDone(yearId, periodId, node.id);
+        if (!applied && window.Toast) {
+          window.Toast.show("하위 목표를 모두 완료해야 체크할 수 있어요", { type: "warning" });
+        }
+        onChange();
+      });
+      row.appendChild(checkbox);
+    }
 
     const hasChildren = (node.children || []).length > 0;
     const collapsed = hasChildren && isGoalCollapsed(node.id);
@@ -620,6 +860,21 @@
         onChange();
       })
     );
+
+    if (!studySelectMode && clipboardGoals.length > 0) {
+      const pasteBtn = document.createElement("button");
+      pasteBtn.type = "button";
+      pasteBtn.className = "ghost-btn goal-paste-btn";
+      pasteBtn.textContent = "붙여넣기";
+      pasteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (collapsed) toggleGoalCollapsed(node.id);
+        const pasted = GoalStore.pasteGoals(yearId, periodId, node.id, clipboardGoals);
+        onChange();
+        window.Toast?.show(`${pasted.length}개 목표를 붙여넣었어요`);
+      });
+      row.appendChild(pasteBtn);
+    }
 
     if (hasChildren) {
       const { total, done } = countProgress(node);
@@ -805,9 +1060,24 @@
     );
 
     const remove = document.createElement("span");
-    remove.className = "checklist-item-remove goal-year-remove";
-    remove.textContent = "×";
+    const armed = yearDeleteArmed === year.id;
+    remove.className = "checklist-item-remove goal-year-remove" + (armed ? " confirm-armed" : "");
+    remove.textContent = armed ? "확인" : "×";
     remove.addEventListener("click", () => {
+      if (yearDeleteArmed !== year.id) {
+        yearDeleteArmed = year.id;
+        clearTimeout(yearDeleteArmedTimer);
+        yearDeleteArmedTimer = setTimeout(() => {
+          if (yearDeleteArmed === year.id) {
+            yearDeleteArmed = null;
+            onChange();
+          }
+        }, 4000);
+        onChange();
+        return;
+      }
+      clearTimeout(yearDeleteArmedTimer);
+      yearDeleteArmed = null;
       const removed = GoalStore.removeYear(year.id);
       onChange();
       if (removed && window.Toast) {
@@ -820,7 +1090,7 @@
         });
       }
     });
-    window.makeKeyboardActivatable(remove, `${year.label} 연도 삭제`);
+    window.makeKeyboardActivatable(remove, armed ? `${year.label} 연도 삭제 확인 (다시 누르면 삭제됩니다)` : `${year.label} 연도 삭제`);
     actions.appendChild(remove);
 
     header.appendChild(actions);
@@ -852,6 +1122,13 @@
 
   function init() {
     renderAll();
+    document.getElementById("studySelectModeBtn")?.addEventListener("click", toggleStudySelectMode);
+    document.getElementById("studyCopyBtn")?.addEventListener("click", handleStudyCopy);
+    document.getElementById("studyDeleteBtn")?.addEventListener("click", handleStudyDelete);
+    document.getElementById("studyCancelSelectBtn")?.addEventListener("click", () => {
+      exitStudySelectMode();
+      renderAll();
+    });
   }
 
   window.StudyView = { init };

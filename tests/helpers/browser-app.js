@@ -48,23 +48,15 @@ function startStaticServer() {
   });
 }
 
-// Launches a fresh browser + page against a freshly-started static server,
-// past the login gate, with initFeatures() already run. Each call gets its
-// own browser context, so localStorage never leaks between tests.
-async function launchApp() {
-  const server = await startStaticServer();
-  const port = server.address().port;
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
-  await page.goto(`http://127.0.0.1:${port}/index.html`);
-  // cloud-sync.js's auth-state handling re-shows #authGate a moment after
-  // the initial bypass runs (there's no real Firebase project reachable
-  // here) — a CSS override alone only hides it *visually*; the underlying
-  // `hidden` attribute still flips back to false, which matters for
-  // anything (like the modal focus-trap's open-modal check) that reads
-  // .hidden rather than computed style. Locking the property itself via
-  // defineProperty makes it stick for real. Must come after goto(): neither
-  // survives navigation.
+// cloud-sync.js's auth-state handling re-shows #authGate a moment after the
+// initial bypass runs (there's no real Firebase project reachable here) —
+// a CSS override alone only hides it *visually*; the underlying `hidden`
+// attribute still flips back to false, which matters for anything (like the
+// modal focus-trap's open-modal check) that reads .hidden/[hidden] rather
+// than computed style. Locking the property itself via defineProperty makes
+// it stick for real. Must run after the page has navigated: neither the
+// style tag nor the property override survives a goto()/reload().
+async function bypassAuthGate(page) {
   await page.addStyleTag({ content: "#authGate { display: none !important; }" });
   await page.evaluate(() => {
     const authGate = document.getElementById("authGate");
@@ -80,6 +72,20 @@ async function launchApp() {
     window.initFeatures && window.initFeatures();
   });
   await page.waitForTimeout(300);
+}
+
+// Launches a fresh browser + page against a freshly-started static server,
+// past the login gate, with initFeatures() already run. Each call gets its
+// own browser context, so localStorage never leaks between tests. Call
+// bypassAuthGate(page) again after any page.reload() within a test — reload
+// wipes both the style tag and the property override.
+async function launchApp() {
+  const server = await startStaticServer();
+  const port = server.address().port;
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  await page.goto(`http://127.0.0.1:${port}/index.html`);
+  await bypassAuthGate(page);
 
   async function close() {
     await browser.close();
@@ -89,4 +95,4 @@ async function launchApp() {
   return { page, browser, server, close };
 }
 
-module.exports = { launchApp };
+module.exports = { launchApp, bypassAuthGate };

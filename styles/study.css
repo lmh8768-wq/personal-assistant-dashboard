@@ -72,6 +72,19 @@
   font-size: 16px;
 }
 
+/* First click on 연도 삭제 arms it instead of deleting immediately —
+   deleting a whole year takes every period/goal under it with it, so it
+   gets one extra confirming click rather than the plain undo-toast pattern
+   every other delete in this app uses. */
+.goal-year-remove.confirm-armed {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e5687a;
+  padding: 2px 8px;
+  border: 1px solid #e5687a;
+  border-radius: 999px;
+}
+
 .goal-periods-in-year {
   display: flex;
   flex-direction: column;
