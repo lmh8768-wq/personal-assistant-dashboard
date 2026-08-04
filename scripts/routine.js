@@ -201,7 +201,9 @@
     },
     restoreItem(type, item, index) {
       const data = loadAll();
-      const at = Math.min(index, data[type].items.length);
+      // Only the upper bound was clamped — see store.js's createKeyedStore/
+      // createEntityStore.restore for the same fix and why it matters.
+      const at = Math.min(Math.max(0, index), data[type].items.length);
       data[type].items.splice(at, 0, item);
       saveAll(data);
     },

@@ -68,7 +68,9 @@
     },
     restore(item, index) {
       const items = loadLearned();
-      const at = Math.min(index, items.length);
+      // Only the upper bound was clamped — see store.js's createKeyedStore/
+      // createEntityStore.restore for the same fix and why it matters.
+      const at = Math.min(Math.max(0, index), items.length);
       items.splice(at, 0, item);
       saveLearned(items);
     },

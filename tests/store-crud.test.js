@@ -24,6 +24,44 @@ test("LedgerEntryStore: add/update/remove/restore round-trip", () => {
   assert.equal(store.getAll()[0].amount, 15000);
 });
 
+test("LedgerEntryStore: the 999,999,999,999 amount cap is enforced in the store itself, not just the UI — the actual bug fix", () => {
+  const window = loadStoreModule();
+  const store = window.LedgerEntryStore;
+
+  const entry = store.add({ date: "2026-08-01", amount: 5_000_000_000_000, categoryKey: "food", type: "expense" });
+  assert.equal(entry.amount, 999999999999);
+  assert.equal(store.getAll()[0].amount, 999999999999);
+
+  const updated = store.update(entry.id, { amount: 9_000_000_000_000 });
+  assert.equal(updated.amount, 999999999999);
+});
+
+test("restore() clamps a negative index to the start instead of letting splice() count it from the array's end — the actual bug fix", () => {
+  // With only Math.min(index, length) clamping the upper bound, a small
+  // negative index (e.g. -1, with a 2-item array) wasn't clamped at all —
+  // Array.prototype.splice treats a negative start as "count from the end"
+  // (max(length + start, 0)), so it silently inserted one slot away from
+  // the front instead of AT the front like index 0 would. Math.max(0, ...)
+  // now clamps it to a real 0 first, so it lands at the front either way.
+  const window = loadStoreModule();
+
+  // createEntityStore-backed (LedgerEntryStore).
+  const ledger = window.LedgerEntryStore;
+  ledger.add({ date: "2026-08-01", amount: 1000, categoryKey: "food", type: "expense" });
+  ledger.add({ date: "2026-08-02", amount: 2000, categoryKey: "food", type: "expense" });
+  const removedEntry = { date: "2026-08-03", amount: 3000, categoryKey: "food", type: "expense", id: "exp_test" };
+  ledger.restore(removedEntry, -1);
+  assert.equal(ledger.getAll()[0].id, "exp_test");
+
+  // createKeyedStore-backed (CategoryStore).
+  const categories = window.CategoryStore;
+  categories.add("첫 카테고리", "#111111");
+  categories.add("둘째 카테고리", "#222222");
+  const removedCategory = { key: "cat_test", label: "복원된 카테고리", color: "#333333" };
+  categories.restore(removedCategory, -1);
+  assert.equal(categories.getAll()[0].key, "cat_test");
+});
+
 test("LedgerEntryStore: update/remove on an unknown id is a no-op, not a throw", () => {
   const window = loadStoreModule();
   const store = window.LedgerEntryStore;

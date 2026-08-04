@@ -186,7 +186,9 @@
     },
     restoreYear(year, index) {
       const data = loadGoals();
-      const at = Math.min(index, data.years.length);
+      // Only the upper bound was clamped — see store.js's createKeyedStore/
+      // createEntityStore.restore for the same fix and why it matters.
+      const at = Math.min(Math.max(0, index), data.years.length);
       data.years.splice(at, 0, year);
       saveGoals(data);
     },
@@ -224,7 +226,9 @@
       const data = loadGoals();
       const year = findYear(data, yearId);
       if (!year) return;
-      const at = Math.min(index, year.periods.length);
+      // Only the upper bound was clamped — see store.js's createKeyedStore/
+      // createEntityStore.restore for the same fix and why it matters.
+      const at = Math.min(Math.max(0, index), year.periods.length);
       year.periods.splice(at, 0, period);
       saveGoals(data);
     },

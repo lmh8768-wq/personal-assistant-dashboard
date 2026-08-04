@@ -297,7 +297,13 @@ function createKeyedStore(loadFn, saveFn) {
     },
     restore(item, index) {
       const items = loadFn();
-      const at = Math.min(index, items.length);
+      // Only the upper bound was clamped — every current caller passes
+      // back an index straight from a same-session remove() (always >= 0),
+      // so a negative/NaN index was never reachable in practice, but
+      // splice() treats a negative index as "count from the end", which
+      // would silently insert in the wrong place for any future caller
+      // reconstructing an index (e.g. from persisted undo state).
+      const at = Math.min(Math.max(0, index), items.length);
       items.splice(at, 0, item);
       saveFn(items);
     },
@@ -518,7 +524,9 @@ function createEntityStore(key, idPrefix) {
     },
     restore(item, index) {
       const items = load();
-      const at = Math.min(index, items.length);
+      // Same fix as createKeyedStore.restore above — only the upper bound
+      // was clamped; see that comment for why.
+      const at = Math.min(Math.max(0, index), items.length);
       items.splice(at, 0, item);
       save(items);
     },
@@ -527,6 +535,27 @@ function createEntityStore(key, idPrefix) {
 
 // ---------- Ledger (가계부) expense entries ----------
 window.LedgerEntryStore = createEntityStore("assistant.ledgerEntries.v1", "exp");
+
+// The 999,999,999,999 cap (matches ledger.js's MAX_LEDGER_AMOUNT) used to
+// only be enforced in the UI's input-parsing layer (parseAmountInput/
+// formatAmountForInput) — anything writing to this store directly (a bad
+// merge, a future caller bypassing the form) could still persist an
+// unbounded number. Wrapping add()/update() here instead of baking this
+// into createEntityStore itself, since that factory is shared with
+// VongoleRecipeStore/TemplateStore/etc., none of which have an amount field.
+(function () {
+  const MAX_LEDGER_AMOUNT = 999999999999;
+  function clampAmount(patch) {
+    if (patch && typeof patch.amount === "number") {
+      return { ...patch, amount: Math.min(patch.amount, MAX_LEDGER_AMOUNT) };
+    }
+    return patch;
+  }
+  const baseAdd = window.LedgerEntryStore.add;
+  const baseUpdate = window.LedgerEntryStore.update;
+  window.LedgerEntryStore.add = (entry) => baseAdd(clampAmount(entry));
+  window.LedgerEntryStore.update = (id, patch) => baseUpdate(id, clampAmount(patch));
+})();
 
 // ---------- Vongole pasta (봉골레 파스타) recipes ----------
 // Same shape/logic backs two separate lists — 대성공 레시피 (personally
