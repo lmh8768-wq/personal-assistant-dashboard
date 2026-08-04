@@ -39,7 +39,17 @@ function mergeArrays(existing, incoming) {
   const isIdKeyed = (arr) => arr.some((item) => item && typeof item === "object" && item.id != null);
   if (isIdKeyed(existing) || isIdKeyed(incoming)) {
     const byId = new Map(existing.filter((item) => item && item.id != null).map((item) => [item.id, item]));
-    incoming.filter((item) => item && item.id != null).forEach((item) => byId.set(item.id, item));
+    incoming.filter((item) => item && item.id != null).forEach((item) => {
+      const existingItem = byId.get(item.id);
+      // A same-id item on both sides is merged field-by-field (recursing
+      // through mergeValues) rather than incoming replacing existing
+      // wholesale — otherwise two devices editing DIFFERENT fields of the
+      // SAME item (e.g. one fixes a ledger entry's amount, the other
+      // changes its category) within the sync window would have whichever
+      // side lands second silently discard the other's unrelated field
+      // too, not just genuinely conflicting ones.
+      byId.set(item.id, existingItem ? window.DeepMerge.mergeValues(existingItem, item) : item);
+    });
     return [...byId.values()];
   }
   // A primitive-valued array (e.g. RoutineStore's per-day list of completed

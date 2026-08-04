@@ -41,6 +41,23 @@ test("array merge: a same-id conflict resolves to the incoming (remote) version"
   assert.equal(merged[0].title, "remote edit");
 });
 
+test("array merge: a same-id item merges per field instead of replacing wholesale — this is the actual bug fix", () => {
+  // `memo` exists only on the existing (local) side. Before this fix,
+  // byId.set(item.id, item) replaced the whole existing object with
+  // incoming's wholesale — memo, which incoming's object doesn't even
+  // mention, would have silently vanished even though incoming never said
+  // anything about removing it. Field-level merging (via mergeValues,
+  // same "incoming wins per shared key" rule the plain-object case
+  // already uses) keeps it, since incoming just doesn't have that key.
+  const existing = [{ id: 1, date: "2026-08-01", amount: 15000, categoryKey: "food", memo: "점심" }];
+  const incoming = [{ id: 1, date: "2026-08-01", amount: 15000, categoryKey: "transport" }];
+
+  const merged = merge(existing, incoming);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].categoryKey, "transport", "incoming's explicit change to a shared key still wins");
+  assert.equal(merged[0].memo, "점심", "a field only the existing side had must survive, not be dropped wholesale");
+});
+
 test("plain-object values merge per field (shallow), incoming wins per key", () => {
   const existing = { naverBlogUrl: "https://a", profileName: "로컬" };
   const incoming = { naverBlogUrl: "https://b", instagramUrl: "https://insta" };

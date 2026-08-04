@@ -128,7 +128,7 @@
     }
   }
 
-  setInterval(() => {
+  function pollTick() {
     checkForLocalChanges();
     // Retry a push that was queued before sign-in/initial sync finished
     // (e.g. changes made in the offline-continue fallback) once we're ready.
@@ -136,7 +136,16 @@
       pushPending = true;
       pushToCloud();
     }
-  }, POLL_INTERVAL_MS);
+  }
+
+  // No UI interaction is possible while the tab is hidden, so nothing local
+  // CAN change during that time — pausing here cuts out a scan+JSON.stringify
+  // of the whole app-prefixed localStorage every 1.5s for however long the
+  // tab sits backgrounded, with no loss of correctness (flushPushNow already
+  // does one last check right as it hides, and resuming does an immediate
+  // check rather than waiting up to POLL_INTERVAL_MS to notice anything that
+  // changed while away, e.g. a remote push applied on reconnect).
+  let pollTimer = setInterval(pollTick, POLL_INTERVAL_MS);
 
   function applyRemoteData(payloadStr) {
     let data;
@@ -325,7 +334,14 @@
     }
   }
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") flushPushNow();
+    if (document.visibilityState === "hidden") {
+      flushPushNow();
+      clearInterval(pollTimer);
+      pollTimer = null;
+    } else if (!pollTimer) {
+      pollTick(); // catch up immediately instead of waiting up to POLL_INTERVAL_MS
+      pollTimer = setInterval(pollTick, POLL_INTERVAL_MS);
+    }
   });
   window.addEventListener("pagehide", flushPushNow);
 

@@ -137,15 +137,27 @@
     container.hidden = false;
   }
 
+  // getResults() re-flattens every goal tree in the app from scratch — fine
+  // for one search, wasteful to redo on every single keystroke while
+  // someone is still typing. A short debounce (rendering feels instant to a
+  // human well under ~150ms) cuts that down to once per pause instead of
+  // once per character.
+  function debounce(fn, delay) {
+    let timer = null;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  }
+
   function init() {
     const input = document.getElementById("globalSearchInput");
     const container = document.getElementById("searchResults");
     const box = document.getElementById("searchBox");
     if (!input || !container || !box) return;
 
-    input.addEventListener("input", () => {
-      renderResults(getResults(input.value));
-    });
+    const runSearch = debounce(() => renderResults(getResults(input.value)), 150);
+    input.addEventListener("input", runSearch);
     input.addEventListener("focus", () => {
       if (input.value.trim()) renderResults(getResults(input.value));
     });
