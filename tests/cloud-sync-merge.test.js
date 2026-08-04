@@ -64,3 +64,46 @@ test("existing side missing entirely just takes the incoming value as-is", () =>
   const incomingRaw = JSON.stringify([{ id: 1 }]);
   assert.equal(window.__mergeStoredValueForTest(null, incomingRaw), incomingRaw);
 });
+
+test("nested objects merge recursively — this is the actual bug fix (RoutineStore-shaped value)", () => {
+  // Regression test: the merge used to be shallow-only, so
+  // {...existing, ...incoming} at the top level meant incoming.routine
+  // replaced existing.routine WHOLESALE instead of merging item-by-item —
+  // a completion recorded on one device (existing) would vanish entirely
+  // if the other device's backup/sync (incoming) didn't have it yet.
+  const existing = {
+    routine: {
+      items: [{ id: "a", label: "아침 스트레칭" }],
+      history: { "2026-08-01": ["a"] },
+    },
+    life: { items: [], history: {} },
+  };
+  const incoming = {
+    routine: {
+      items: [{ id: "b", label: "물 마시기" }],
+      history: { "2026-08-02": ["b"] },
+    },
+    life: { items: [], history: {} },
+  };
+
+  const merged = merge(existing, incoming);
+
+  // Both items survive — neither device's added routine item is dropped.
+  const itemIds = merged.routine.items.map((i) => i.id).sort();
+  assert.deepEqual(itemIds, ["a", "b"]);
+  // Both days' history survive too.
+  assert.deepEqual(merged.routine.history["2026-08-01"], ["a"]);
+  assert.deepEqual(merged.routine.history["2026-08-02"], ["b"]);
+});
+
+test("primitive-valued arrays (e.g. a day's list of completed item ids) union instead of dropping everything", () => {
+  // Regression test: the old array-merge assumed every array held objects
+  // with an .id field and filtered out anything else — for a plain array of
+  // id strings (RoutineStore's history[date] shape), that filtered BOTH
+  // sides down to nothing, silently merging to an empty array.
+  const existing = { "2026-08-01": ["a", "b"] };
+  const incoming = { "2026-08-01": ["b", "c"] };
+
+  const merged = merge(existing, incoming);
+  assert.deepEqual([...merged["2026-08-01"]].sort(), ["a", "b", "c"]);
+});

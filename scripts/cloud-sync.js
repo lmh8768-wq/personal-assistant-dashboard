@@ -192,24 +192,16 @@
       incoming = undefined;
     }
 
-    if (Array.isArray(existing) && Array.isArray(incoming)) {
-      const byId = new Map(existing.filter((item) => item && item.id != null).map((item) => [item.id, item]));
-      incoming.filter((item) => item && item.id != null).forEach((item) => byId.set(item.id, item));
-      return JSON.stringify([...byId.values()]);
+    const bothMergeable =
+      (Array.isArray(existing) && Array.isArray(incoming)) ||
+      (existing && typeof existing === "object" && !Array.isArray(existing) &&
+        incoming && typeof incoming === "object" && !Array.isArray(incoming));
+    if (!bothMergeable) {
+      // Not both mergeable the same way (or one side missing/unparseable) —
+      // fall back to the old full-replace behavior for just this one key.
+      return incomingRaw;
     }
-    if (
-      existing &&
-      typeof existing === "object" &&
-      !Array.isArray(existing) &&
-      incoming &&
-      typeof incoming === "object" &&
-      !Array.isArray(incoming)
-    ) {
-      return JSON.stringify({ ...existing, ...incoming });
-    }
-    // Not both mergeable the same way (or one side missing/unparseable) —
-    // fall back to the old full-replace behavior for just this one key.
-    return incomingRaw;
+    return JSON.stringify(window.DeepMerge.mergeValues(existing, incoming));
   }
   // Exposed purely so tests/cloud-sync-merge.test.js can exercise the real
   // shipped implementation instead of a duplicated copy — it's a stateless

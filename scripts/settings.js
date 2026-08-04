@@ -228,13 +228,28 @@
 
   function handleCategorySubmit(e) {
     e.preventDefault();
+    let skippedLabelCount = 0;
     document.querySelectorAll("#categoryEditRows .category-edit-row").forEach((row) => {
       const key = row.dataset.key;
       const color = row.querySelector('[data-field="color"]').value;
       const label = row.querySelector('[data-field="label"]').value.trim();
-      if (label) window.CategoryStore.update(key, { color, label });
+      if (label) {
+        window.CategoryStore.update(key, { color, label });
+      } else {
+        // An empty name shouldn't also throw away a color pick made in the
+        // same row — apply just the color instead of skipping the whole
+        // row silently.
+        window.CategoryStore.update(key, { color });
+        skippedLabelCount += 1;
+      }
     });
-    window.Toast.show("카테고리를 저장했어요");
+    window.Toast.show(
+      skippedLabelCount > 0
+        ? `카테고리를 저장했어요 (이름이 비어있는 ${skippedLabelCount}개는 이름을 바꾸지 않았어요)`
+        : "카테고리를 저장했어요",
+      skippedLabelCount > 0 ? { type: "warning" } : undefined
+    );
+    renderCategoryEditor();
     if (window.ScheduleView) window.ScheduleView.refreshAll();
   }
 
@@ -376,39 +391,48 @@
     } catch {
       existing = undefined;
     }
-    if (Array.isArray(existing) && Array.isArray(incoming)) {
-      const byId = new Map(existing.map((item) => [item && item.id, item]));
-      incoming.forEach((item) => byId.set(item && item.id, item));
-      return [...byId.values()];
-    }
-    if (existing && typeof existing === "object" && !Array.isArray(existing) &&
-        incoming && typeof incoming === "object" && !Array.isArray(incoming)) {
-      return { ...existing, ...incoming };
-    }
-    return incoming;
+    return window.DeepMerge.mergeValues(existing, incoming);
   }
 
   function importDataFile(file) {
     const shouldMerge = document.getElementById("importMergeInput")?.checked;
     const reader = new FileReader();
     reader.onload = (e) => {
+      let data;
       try {
-        const data = JSON.parse(e.target.result);
-        let count = 0;
-        Object.keys(data).forEach((key) => {
-          if (!key.startsWith("assistant.")) return;
-          const incoming = data[key];
-          const finalValue = shouldMerge ? mergeValue(localStorage.getItem(key), incoming) : incoming;
-          const value = typeof finalValue === "string" ? finalValue : JSON.stringify(finalValue);
-          localStorage.setItem(key, value);
-          count += 1;
-        });
-        if (count === 0) throw new Error("empty");
-        window.Toast.show(`데이터 ${count}개 항목을 ${shouldMerge ? "병합" : "가져왔어요"}. 새로고침합니다...`, { duration: 2000 });
-        setTimeout(() => location.reload(), 1200);
+        data = JSON.parse(e.target.result);
       } catch {
         window.Toast.show("올바른 백업 파일이 아니에요", { type: "error" });
+        return;
       }
+
+      // localStorage.setItem can fail partway through this loop (quota
+      // exceeded on a large backup) — using safeSetLocalStorage instead of
+      // a bare setItem means a failure here can't throw and get swallowed
+      // by a catch that reports the same generic "invalid file" message
+      // regardless of whether the file was actually fine and it was just
+      // storage that ran out, with some keys already overwritten by then.
+      let succeeded = 0;
+      let failed = 0;
+      Object.keys(data).forEach((key) => {
+        if (!key.startsWith("assistant.")) return;
+        const incoming = data[key];
+        const finalValue = shouldMerge ? mergeValue(localStorage.getItem(key), incoming) : incoming;
+        const value = typeof finalValue === "string" ? finalValue : JSON.stringify(finalValue);
+        if (window.safeSetLocalStorage(key, value)) succeeded += 1;
+        else failed += 1;
+      });
+
+      if (succeeded === 0 && failed === 0) {
+        window.Toast.show("올바른 백업 파일이 아니에요", { type: "error" });
+        return;
+      }
+      const summary =
+        failed === 0
+          ? `데이터 ${succeeded}개 항목을 ${shouldMerge ? "병합" : "가져왔어요"}. 새로고침합니다...`
+          : `${succeeded}개 항목은 가져왔지만 ${failed}개는 저장 공간 부족 등으로 실패했어요. 새로고침합니다...`;
+      window.Toast.show(summary, { duration: 2500, type: failed === 0 ? undefined : "warning" });
+      setTimeout(() => location.reload(), 1800);
     };
     reader.readAsText(file);
   }

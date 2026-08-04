@@ -11,13 +11,18 @@ const vm = require("node:vm");
 const { createMemoryStorage } = require("./load-store");
 
 function loadCloudSyncModule() {
+  // cloud-sync.js's per-key merge now delegates to window.DeepMerge (see
+  // scripts/deep-merge.js) — has to be loaded into the sandbox first, same
+  // load order index.html uses for the real app.
+  const deepMergeCode = fs.readFileSync(path.join(__dirname, "..", "..", "scripts", "deep-merge.js"), "utf8");
   const code = fs.readFileSync(path.join(__dirname, "..", "..", "scripts", "cloud-sync.js"), "utf8");
   const localStorage = createMemoryStorage();
   const noopEl = { hidden: false, textContent: "", className: "" };
+  const windowObj = { addEventListener: () => {} };
   const sandbox = {
     localStorage,
     console,
-    window: { addEventListener: () => {} },
+    window: windowObj,
     document: {
       getElementById: () => noopEl,
       addEventListener: () => {},
@@ -29,6 +34,7 @@ function loadCloudSyncModule() {
     location: { reload: () => {} },
   };
   vm.createContext(sandbox);
+  vm.runInContext(deepMergeCode, sandbox, { filename: "scripts/deep-merge.js" });
   vm.runInContext(code, sandbox, { filename: "scripts/cloud-sync.js" });
   return sandbox.window;
 }
