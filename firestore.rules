@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// scripts/cloud-sync.js reads/writes users/{uid} directly from the browser
+// with the client SDK (db.collection("users").doc(uid).set/.onSnapshot) —
+// these rules are the only thing standing between that and any signed-in
+// user reading or overwriting anyone else's synced data.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // Only ever written by api/save-subscription.js and read/deleted by
+      // api/send-daily-notifications.js — both use the Admin SDK, which
+      // bypasses these rules entirely, so there's no legitimate reason for
+      // the client SDK to ever touch this subcollection directly.
+      match /pushSubscriptions/{subId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Default deny — nothing outside users/{uid} (and its explicitly-denied
+    // pushSubscriptions) is ever read or written by this app.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
