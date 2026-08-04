@@ -1085,5 +1085,20 @@
     renderCurriculum();
   }
 
-  window.PracticeView = { init, refreshDashboard: renderDashboardPractice };
+  // Unlike schedule/ledger/routine/settings, this tab's own content never
+  // refreshed when navigated to — only once, at app startup. A live
+  // cross-device sync update to the practice feed or curriculum tree while
+  // this tab wasn't the active one stayed invisible until some unrelated
+  // local action (e.g. adding a goal) happened to trigger renderCurriculum()
+  // again. onShow() doesn't re-attach any of init()'s event listeners, just
+  // re-runs the same render calls init() ends with.
+  window.PracticeView = {
+    init,
+    refreshDashboard: renderDashboardPractice,
+    onShow: () => {
+      renderFeed();
+      renderStreak();
+      renderCurriculum();
+    },
+  };
 })();

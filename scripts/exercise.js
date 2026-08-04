@@ -340,5 +340,15 @@
     renderDashboardExercise();
   }
 
-  window.ExerciseView = { init, refreshDashboard: renderDashboardExercise };
+  // Same gap as practice.js's curriculum tree (see its onShow comment) —
+  // this tab's records panel and learned-exercise list only ever rendered
+  // once, at app startup.
+  window.ExerciseView = {
+    init,
+    refreshDashboard: renderDashboardExercise,
+    onShow: () => {
+      renderRecordsPanel();
+      renderLearnedExercises();
+    },
+  };
 })();

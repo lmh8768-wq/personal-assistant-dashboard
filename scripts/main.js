@@ -171,6 +171,18 @@ function showView(viewName) {
   if (viewName === "ledger" && window.LedgerView) {
     window.LedgerView.onShow();
   }
+  if (viewName === "practice" && window.PracticeView) {
+    window.PracticeView.onShow();
+  }
+  if (viewName === "study" && window.StudyView) {
+    window.StudyView.onShow();
+  }
+  if (viewName === "vongole" && window.VongoleView) {
+    window.VongoleView.onShow();
+  }
+  if (viewName === "exercise" && window.ExerciseView) {
+    window.ExerciseView.onShow();
+  }
   if (viewName === "settings" && window.SettingsView) {
     window.SettingsView.refreshStorage();
     // Categories can change from outside this tab now (cloud sync pulling

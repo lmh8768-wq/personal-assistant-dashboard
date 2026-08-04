@@ -415,3 +415,35 @@ test("study: unchecking a done parent cascades to its children via the full-rebu
     await close();
   }
 });
+
+test("practice/study/vongole/exercise tabs reflect data changed while the tab wasn't active — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    // Simulates a live cross-device sync update: a raw store write with no
+    // UI-triggered re-render, while still sitting on the dashboard tab —
+    // these 4 tabs used to only ever render once, at app startup, with no
+    // onShow hook to catch up on navigation like schedule/ledger/routine/
+    // settings already had.
+    const needles = await page.evaluate(() => {
+      window.PracticeCurriculumStore.addGoal(null, "실시간동기화테스트-연습");
+      window.AcademicGoalStore.addYear("실시간동기화테스트-학업");
+      window.VongoleRecipeStore.add({ title: "실시간동기화테스트-봉골레", content: "" });
+      window.LearnedExerciseStore.add({ bodyPart: "가슴", name: "실시간동기화테스트-운동" });
+      return {
+        practice: "실시간동기화테스트-연습",
+        study: "실시간동기화테스트-학업",
+        vongole: "실시간동기화테스트-봉골레",
+        exercise: "실시간동기화테스트-운동",
+      };
+    });
+
+    for (const [view, needle] of Object.entries(needles)) {
+      await page.evaluate((v) => document.querySelector(`[data-view="${v}"]`)?.click(), view);
+      await page.waitForTimeout(200);
+      const bodyText = await page.evaluate((v) => document.getElementById(`view-${v}`)?.textContent || "", view);
+      assert.ok(bodyText.includes(needle), `${view} tab should show "${needle}" on its first render after the data changed off-tab`);
+    }
+  } finally {
+    await close();
+  }
+});

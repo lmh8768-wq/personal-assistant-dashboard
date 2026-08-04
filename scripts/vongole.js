@@ -482,5 +482,17 @@
     });
   }
 
-  window.VongoleView = { init, refreshDashboard };
+  // Same gap as practice.js's curriculum tree (see its onShow comment) —
+  // this tab's recipe lists and attempt log only ever rendered once, at
+  // app startup. seedDefaultRecipeIfEmpty() is deliberately NOT repeated
+  // here — it already ran once at init(), and its own one-time-seeded flag
+  // means calling it again would be a no-op anyway.
+  window.VongoleView = {
+    init,
+    refreshDashboard,
+    onShow: () => {
+      renderAllRecipes();
+      renderLog();
+    },
+  };
 })();

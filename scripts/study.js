@@ -1174,5 +1174,7 @@
     });
   }
 
-  window.StudyView = { init };
+  // Same gap as practice.js's curriculum tree (see its onShow comment) —
+  // this tab's content only ever rendered once, at app startup.
+  window.StudyView = { init, onShow: renderAll };
 })();
