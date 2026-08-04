@@ -141,9 +141,9 @@
 }
 
 .schedule-item-stars {
-  margin-left: 6px;
-  font-size: 11px;
-  letter-spacing: -1px;
+  margin-left: 8px;
+  font-size: 13px;
+  letter-spacing: -0.5px;
 }
 
 .schedule-item-stars .star-filled {
@@ -151,7 +151,7 @@
 }
 
 .schedule-item-stars .star-empty {
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .schedule-item-memo {

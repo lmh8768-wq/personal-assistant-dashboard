@@ -219,8 +219,11 @@
   flex: 1;
   height: 8px;
   border-radius: 999px;
-  background: var(--bg-elevated-2);
-  border: 1px solid var(--border);
+  /* bg-elevated-2 sat almost flush against this card's own background, so
+     an empty/near-empty bar read as basically invisible — --border is the
+     tone this app already uses whenever something needs to read as a
+     clear shape against a card (see .completion-rate-track). */
+  background: var(--border);
   overflow: hidden;
 }
 
@@ -250,7 +253,10 @@
   padding: 0;
   border: none;
   border-radius: 6px;
-  background: transparent;
+  /* Was fully transparent at rest, so next to the pill-shaped track it
+     read as a stray floating glyph rather than a control belonging to the
+     same row — a resting background ties the two together as one unit. */
+  background: var(--bg-elevated-2);
   color: var(--text-muted);
   cursor: pointer;
 }
