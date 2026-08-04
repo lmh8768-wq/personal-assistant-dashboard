@@ -36,6 +36,12 @@
     return new Date(y, m - 1, d);
   }
 
+  // Day 0 of the FOLLOWING month is the last day of `monthIndex` — a cheap
+  // way to get a month's actual length (28-31) without a lookup table.
+  function daysInMonth(year, monthIndex) {
+    return new Date(year, monthIndex + 1, 0).getDate();
+  }
+
   // A schedule item is a "series": one anchor date + an optional repeat
   // rule. Occurrences are derived on demand instead of being stored
   // individually, so editing/deleting a series affects every occurrence
@@ -59,11 +65,28 @@
       }
       case "weekly":
         return parseDateStr(item.date).getDay() === parseDateStr(dateStr).getDay();
-      case "monthly":
-        return parseDateStr(item.date).getDate() === parseDateStr(dateStr).getDate();
+      case "monthly": {
+        // An anchor day that doesn't exist in the target month (e.g. the
+        // 31st, anchored against Feb/Apr/Jun/Sep/Nov) used to just never
+        // match that month at all — silently skipped, with no occurrence
+        // and no indication anything was skipped. Rolls to that month's
+        // last day instead, matching how Google Calendar/Outlook handle
+        // the same "일" 31, 30, 30, 31 gap.
+        const anchorDate = parseDateStr(item.date).getDate();
+        const target = parseDateStr(dateStr);
+        const effectiveAnchorDate = Math.min(anchorDate, daysInMonth(target.getFullYear(), target.getMonth()));
+        return target.getDate() === effectiveAnchorDate;
+      }
       case "yearly": {
         const anchor = parseDateStr(item.date);
         const target = parseDateStr(dateStr);
+        // A Feb 29 anchor only exists once every 4 years — roll it to Feb
+        // 28 in a non-leap target year instead of silently never firing
+        // that year (same reasoning as monthly's day-doesn't-exist case).
+        if (anchor.getMonth() === 1 && anchor.getDate() === 29) {
+          const effectiveDate = daysInMonth(target.getFullYear(), 1) === 29 ? 29 : 28;
+          return target.getMonth() === 1 && target.getDate() === effectiveDate;
+        }
         return anchor.getMonth() === target.getMonth() && anchor.getDate() === target.getDate();
       }
       default:

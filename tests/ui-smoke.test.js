@@ -913,3 +913,77 @@ test("modals: Tab traps within the most-recently-opened modal, not whichever is 
     await close();
   }
 });
+
+test("study: dragging a goal onto a row under a different parent shows no drop indicator — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="study"]')?.click());
+    await page.waitForTimeout(150);
+
+    const result = await page.evaluate(async () => {
+      const store = window.AcademicGoalStore;
+      const year = store.addYear("2026");
+      const periodId = store.getPeriods(year.id)[0].id;
+      const a = store.addGoal(year.id, periodId, null, "A");
+      const a1 = store.addGoal(year.id, periodId, a.id, "A1");
+      const b = store.addGoal(year.id, periodId, null, "B");
+      window.StudyView.onShow();
+      await new Promise((r) => setTimeout(r, 50));
+
+      const rowFor = (id) => document.querySelector(`.goal-item-row[data-goal-id="${id}"]`);
+      const a1Row = rowFor(a1.id);
+      const bRow = rowFor(b.id);
+      const aRow = rowFor(a.id);
+
+      function simulateDragOver(draggedRow, draggedId, targetRow) {
+        const start = new Event("dragstart", { bubbles: true, cancelable: true });
+        start.dataTransfer = { setData: () => {}, effectAllowed: "" };
+        draggedRow.dispatchEvent(start);
+
+        const rect = targetRow.getBoundingClientRect();
+        const over = new Event("dragover", { bubbles: true, cancelable: true });
+        over.dataTransfer = { setData: () => {}, getData: () => draggedId };
+        Object.defineProperty(over, "clientY", { value: rect.top + rect.height / 2 });
+        targetRow.dispatchEvent(over);
+        return targetRow.classList.contains("drag-over-before") || targetRow.classList.contains("drag-over-after");
+      }
+
+      const crossParent = simulateDragOver(a1Row, a1.id, bRow); // a1's parent is A, B's parent is null
+      const sameParent = simulateDragOver(aRow, a.id, bRow); // both top-level siblings
+      return { crossParent, sameParent };
+    });
+
+    assert.equal(result.crossParent, false);
+    assert.equal(result.sameParent, true);
+  } finally {
+    await close();
+  }
+});
+
+test("vongole: adding a recipe while a filter is active also refreshes the other section and the attempt log — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => {
+      window.VongoleRecipeStore.add({ title: "필터에 안 걸리는 레시피", content: "" });
+      window.VongoleLogStore.add({ date: "2026-08-01", recipe: "필터에 안 걸리는 시도", comment: "" });
+    });
+    await page.evaluate(() => document.querySelector('[data-view="vongole"]')?.click());
+    await page.waitForTimeout(150);
+
+    // Filter down to something that matches nothing, so the collected-
+    // recipe section and the attempt log both render their "no results"
+    // empty state before the add.
+    await page.fill("#vongoleFilterInput", "존재하지않는검색어");
+    await page.waitForTimeout(150);
+
+    await page.click("#addVongoleCollectedRecipeBtn");
+    await page.waitForTimeout(150);
+
+    const successSectionText = await page.evaluate(() => document.getElementById("vongoleRecipeList")?.textContent || "");
+    const logText = await page.evaluate(() => document.getElementById("vongoleLogFeed")?.textContent || "");
+    assert.ok(successSectionText.includes("필터에 안 걸리는 레시피"), "the other (success) section should refresh too");
+    assert.ok(logText.includes("필터에 안 걸리는 시도"), "the attempt log should refresh too");
+  } finally {
+    await close();
+  }
+});

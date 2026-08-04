@@ -261,7 +261,13 @@
     clearFilter();
     const created = RECIPE_SECTIONS[kind].store().add({ title: "", content: "" });
     expandedRecipeIds.add(created.id);
-    renderRecipeSection(kind);
+    // clearFilter() just emptied the filter box, but only this one
+    // section used to re-render — the OTHER recipe section and the
+    // attempt log (both also filtered by the same query) kept showing
+    // their old filtered results/empty-state until some unrelated
+    // interaction happened to force a re-render.
+    renderAllRecipes();
+    renderLog();
     requestAnimationFrame(() => {
       const list = document.getElementById(RECIPE_SECTIONS[kind].listId);
       list?.querySelector(".vongole-recipe-card:last-child .vongole-recipe-title-input")?.focus();

@@ -434,6 +434,15 @@
   let dragSelectValue = null; // true/false while a paint-select drag is in progress, else null
   let clipboardGoals = []; // deep-cloned snapshot of the goals copied last
 
+  // ---------- Row reordering (drag-and-drop within a shared parent) ----------
+  // dataTransfer.getData() isn't readable during "dragover" in most browsers
+  // (only during "drop"), so the id being dragged is tracked here instead —
+  // lets dragover know up front whether this drop would actually be a no-op
+  // (reorderGoal below silently no-ops if dragged/target don't share a
+  // parent) instead of showing a before/after indicator for a drop that
+  // silently does nothing — same fix already applied to practice.js's tree.
+  let draggedGoalId = null;
+
   function setGoalSelected(yearId, periodId, id, val) {
     if (val) selectedGoals.set(id, { yearId, periodId });
     else selectedGoals.delete(id);
@@ -738,11 +747,26 @@
 
     row.draggable = !studySelectMode;
     row.addEventListener("dragstart", (e) => {
+      draggedGoalId = node.id;
       e.dataTransfer.setData("text/plain", node.id);
       e.dataTransfer.effectAllowed = "move";
     });
+    row.addEventListener("dragend", () => {
+      draggedGoalId = null;
+    });
     row.addEventListener("dragover", (e) => {
       e.preventDefault();
+      if (draggedGoalId === null || draggedGoalId === node.id) return;
+      const goals = GoalStore.getGoals(yearId, periodId);
+      // Not just a parent-id comparison — a drag started in a DIFFERENT
+      // period (dataTransfer works across the whole page, not just this
+      // period's list) has no entry in this period's goals at all, and
+      // findParentIdIn would return null for that "not found" case same as
+      // a genuine top-level goal — findNode's presence check catches that.
+      if (!findNode(goals, draggedGoalId) || findParentIdIn(goals, draggedGoalId) !== findParentIdIn(goals, node.id)) {
+        row.classList.remove("drag-over-before", "drag-over-after");
+        return;
+      }
       const rect = row.getBoundingClientRect();
       const before = e.clientY - rect.top < rect.height / 2;
       row.classList.toggle("drag-over-before", before);

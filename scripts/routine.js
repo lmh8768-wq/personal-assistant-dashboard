@@ -492,23 +492,28 @@
   // any later than that, which made the checklists appear to jump to a
   // wrong spot before animating from there instead of from their true
   // on-screen position.
+  // Returns whether it actually started a real animation — setCalendarExpanded
+  // uses this (combined with the week-cell FLIP's own outcome) to size its
+  // toggleAnimating lock to what actually needs covering, instead of always
+  // locking for the full worst-case duration even on a bailout path that
+  // changed nothing.
   function animateChecklistsLayout(expanding, startRectOverride) {
     const layout = document.getElementById("routineLayout");
     const checklists = document.getElementById("routineChecklists");
-    if (!layout || !checklists) return;
+    if (!layout || !checklists) return false;
 
     // Only switch to the side-by-side layout if the checklists would
     // actually fit beside the calendar without wrapping — otherwise leave
     // them stacked below it. Collapsing always still runs (regardless of
     // the current width) so the class never gets stuck on from before a
     // resize.
-    if (expanding && !canFitSideBySide(layout.getBoundingClientRect().width)) return;
+    if (expanding && !canFitSideBySide(layout.getBoundingClientRect().width)) return false;
 
     const startRect = startRectOverride || checklists.getBoundingClientRect();
     layout.classList.toggle("calendar-expanded", expanding);
     const endRect = checklists.getBoundingClientRect();
 
-    if (startRect.width === 0 || endRect.width === 0) return; // no usable layout to animate from
+    if (startRect.width === 0 || endRect.width === 0) return false; // no usable layout to animate from
 
     const dx = startRect.left - endRect.left;
     const dy = startRect.top - endRect.top;
@@ -535,6 +540,7 @@
       ],
       { duration: MOVE_MS, fill: "none" }
     );
+    return true;
   }
 
   // FLIP animation: the week strip's cells visually fly to wherever their
@@ -592,20 +598,23 @@
     // Move the checklists over to the calendar's right side now that the
     // calendar itself has its final width — placed before the week-cell
     // FLIP's own bail-out check further down so it always runs.
-    animateChecklistsLayout(true);
+    let animated = animateChecklistsLayout(true);
 
     if (panel) {
       const endHeight = panel.scrollHeight;
-      panel.style.height = startHeight + "px";
-      panel.style.overflow = "hidden";
-      void panel.offsetHeight;
-      panel.style.transition = "height 300ms ease";
-      panel.style.height = endHeight + "px";
-      setTimeout(() => {
-        panel.style.height = "";
-        panel.style.overflow = "";
-        panel.style.transition = "";
-      }, 320);
+      if (endHeight !== startHeight) {
+        animated = true;
+        panel.style.height = startHeight + "px";
+        panel.style.overflow = "hidden";
+        void panel.offsetHeight;
+        panel.style.transition = "height 300ms ease";
+        panel.style.height = endHeight + "px";
+        setTimeout(() => {
+          panel.style.height = "";
+          panel.style.overflow = "";
+          panel.style.transition = "";
+        }, 320);
+      }
     }
 
     const targetByDate = new Map();
@@ -632,7 +641,7 @@
       });
     });
 
-    if (matches.length === 0) return; // nothing to animate from — plain reveal, calendar is already fully visible
+    if (matches.length === 0) return animated; // nothing to FLIP — plain reveal, calendar is already fully visible
 
     const matched = matches.map((m) => m.target);
     matches.forEach(({ target, dx, dy, sx, sy }) => {
@@ -683,6 +692,7 @@
         c.style.transform = "";
       });
     }, ROW_MOVE_MS + OTHERS_GROW_MS + 30);
+    return true;
   }
 
   // Mirror of expandCalendarAnimated: the current week's calendar-day cells
@@ -731,7 +741,7 @@
     // Move the checklists back below the calendar now that it's back to
     // its full width — placed before the week-cell FLIP's own bail-out
     // check further down so it always runs.
-    animateChecklistsLayout(false, checklistsStartRect);
+    const checklistsAnimated = animateChecklistsLayout(false, checklistsStartRect);
 
     weekWrap.hidden = false;
     renderWeekRate();
@@ -773,7 +783,7 @@
       // No usable layout to animate from — fall back to the plain, instant swap.
       section.hidden = true;
       renderWeekRate();
-      return;
+      return checklistsAnimated;
     }
 
     const matched = matches.map((m) => m.target);
@@ -861,6 +871,7 @@
         weekdaysHeader.style.opacity = "";
       }
     }, Math.max(NAV_FADE_MS, ROW_MOVE_MS, OTHERS_SHRINK_MS, PANEL_SHRINK_MS) + 30);
+    return true;
   }
 
   function init() {
@@ -901,15 +912,24 @@
   function setCalendarExpanded(expanding) {
     if (toggleAnimating) return;
     const btn = document.getElementById("toggleRoutineCalendarBtn");
-    toggleAnimating = true;
-    setTimeout(() => {
-      toggleAnimating = false;
-    }, 650); // covers the longer of the two animations (expand's cleanup now fires at 610ms)
+    let didAnimate;
     if (expanding) {
       calendarViewDate = new Date();
-      expandCalendarAnimated();
+      didAnimate = expandCalendarAnimated();
     } else {
-      collapseCalendarAnimated();
+      didAnimate = collapseCalendarAnimated();
+    }
+    // Both functions can take an early, fully-instant bailout path (nothing
+    // to FLIP from — e.g. no usable layout to measure) — locking the
+    // toggle for the full worst-case 650ms even then meant the button (and
+    // the width-based auto-expand/collapse check below, which also checks
+    // this flag) stayed unresponsive for no visual reason. Only lock when
+    // a real animation actually started.
+    if (didAnimate) {
+      toggleAnimating = true;
+      setTimeout(() => {
+        toggleAnimating = false;
+      }, 650); // covers the longer of the two animations (expand's cleanup now fires at 610ms)
     }
     if (btn) {
       btn.textContent = expanding ? "▾" : "▸";

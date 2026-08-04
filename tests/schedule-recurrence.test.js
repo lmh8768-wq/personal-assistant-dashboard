@@ -70,6 +70,34 @@ test("yearly repeat recurs on the same month/day", () => {
   assert.equal(store.getOccurrences("2027-05-06").length, 0);
 });
 
+test("monthly repeat anchored on the 31st rolls to the last day of shorter months instead of never firing — the actual bug fix", () => {
+  const store = freshScheduleStore();
+  store.add({ title: "월말 결제", date: "2026-01-31", repeat: { type: "monthly" } });
+
+  assert.equal(store.getOccurrences("2026-02-28").length, 1); // Feb has 28 days in 2026
+  assert.equal(store.getOccurrences("2026-04-30").length, 1); // Apr has 30 days
+  assert.equal(store.getOccurrences("2026-01-31").length, 1); // the anchor month itself still matches exactly
+  assert.equal(store.getOccurrences("2026-05-31").length, 1); // May has 31 days — no rollover needed
+});
+
+test("monthly repeat anchored on the 30th still matches Feb 28 (rolled), unaffected months unaffected", () => {
+  const store = freshScheduleStore();
+  store.add({ title: "30일", date: "2026-01-30", repeat: { type: "monthly" } });
+
+  assert.equal(store.getOccurrences("2026-02-28").length, 1);
+  assert.equal(store.getOccurrences("2026-03-30").length, 1); // March has 31 days — exact match, no rollover
+});
+
+test("yearly repeat anchored on Feb 29 rolls to Feb 28 in non-leap years — the actual bug fix", () => {
+  const store = freshScheduleStore();
+  store.add({ title: "윤년 생일", date: "2024-02-29", repeat: { type: "yearly" } });
+
+  assert.equal(store.getOccurrences("2025-02-28").length, 1); // 2025 is not a leap year
+  assert.equal(store.getOccurrences("2026-02-28").length, 1); // 2026 is not a leap year
+  assert.equal(store.getOccurrences("2028-02-29").length, 1); // 2028 IS a leap year — exact match, no rollover
+  assert.equal(store.getOccurrences("2025-03-01").length, 0); // doesn't also match the day after
+});
+
 test("repeat.until stops occurrences after that date", () => {
   const store = freshScheduleStore();
   store.add({ title: "종료일 있음", date: "2026-08-01", repeat: { type: "daily", until: "2026-08-05" } });
