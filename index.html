@@ -637,8 +637,8 @@
             <div class="panel-header"><h2>나만의 바로가기</h2></div>
             <ul class="custom-shortcut-list" id="customShortcutList"></ul>
             <form id="customShortcutForm" class="custom-shortcut-form">
-              <input type="text" id="customShortcutNameInput" placeholder="이름 (예: 유튜브)" required />
-              <input type="url" id="customShortcutUrlInput" placeholder="https://..." required />
+              <input type="text" id="customShortcutNameInput" placeholder="이름 (예: 유튜브)" maxlength="50" required />
+              <input type="url" id="customShortcutUrlInput" placeholder="https://..." maxlength="1000" required />
               <button type="submit" class="ghost-btn">+ 추가</button>
             </form>
           </div>
@@ -681,7 +681,7 @@
       <form id="scheduleForm">
         <label>
           제목
-          <input type="text" id="scheduleTitleInput" placeholder="일정 제목" required />
+          <input type="text" id="scheduleTitleInput" placeholder="일정 제목" maxlength="200" required />
         </label>
         <div class="time-row">
           <label>
@@ -737,7 +737,7 @@
         </label>
         <label>
           메모
-          <textarea id="scheduleMemoInput" rows="3" placeholder="메모 (선택)"></textarea>
+          <textarea id="scheduleMemoInput" rows="3" placeholder="메모 (선택)" maxlength="1000"></textarea>
         </label>
         <div class="modal-actions-secondary">
           <button type="button" class="ghost-btn" id="duplicateScheduleBtn" hidden>⧉ 복제</button>
@@ -869,7 +869,7 @@
         </div>
         <label>
           연습 내용 &amp; 소감
-          <textarea id="practiceTextInput" rows="6" placeholder="오늘 어떤 연습을 했고 소감이 어땠는지 적어보세요"></textarea>
+          <textarea id="practiceTextInput" rows="6" placeholder="오늘 어떤 연습을 했고 소감이 어땠는지 적어보세요" maxlength="5000"></textarea>
         </label>
         <div class="modal-actions">
           <button type="button" class="ghost-btn danger" id="deletePracticeBtn" hidden>삭제</button>
@@ -900,11 +900,11 @@
         </label>
         <label>
           메모
-          <textarea id="vongoleLogRecipeInput" rows="6" placeholder="그 날 어떤 재료 · 비율 · 방법으로 만들었는지 적어보세요"></textarea>
+          <textarea id="vongoleLogRecipeInput" rows="6" placeholder="그 날 어떤 재료 · 비율 · 방법으로 만들었는지 적어보세요" maxlength="5000"></textarea>
         </label>
         <label>
           코멘트
-          <textarea id="vongoleLogCommentInput" rows="4" placeholder="맛이 어땠는지, 다음엔 뭘 바꿀지 적어보세요"></textarea>
+          <textarea id="vongoleLogCommentInput" rows="4" placeholder="맛이 어땠는지, 다음엔 뭘 바꿀지 적어보세요" maxlength="2000"></textarea>
         </label>
         <div class="modal-actions">
           <button type="button" class="ghost-btn danger" id="deleteVongoleLogBtn" hidden>삭제</button>

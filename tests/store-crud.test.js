@@ -176,3 +176,32 @@ test("CategoryStore: a corrupted non-array value falls back to defaults instead 
   assert.ok(Array.isArray(categories));
   assert.doesNotThrow(() => window.CategoryStore.add("새 카테고리", "#111111"));
 });
+
+test("LedgerEntryStore.addMany: adds several entries in one call, each with its own id, amount cap still enforced — the actual bug fix", () => {
+  const window = loadStoreModule();
+  const store = window.LedgerEntryStore;
+
+  const created = store.addMany([
+    { date: "2026-08-01", amount: 1000, categoryKey: "food", type: "expense" },
+    { date: "2026-08-02", amount: 5_000_000_000_000, categoryKey: "food", type: "expense" },
+  ]);
+
+  assert.equal(created.length, 2);
+  assert.notEqual(created[0].id, created[1].id);
+  assert.equal(store.getAll().length, 2);
+  assert.equal(created[1].amount, 999999999999, "the per-add amount cap must still apply through addMany");
+});
+
+test("ScheduleStore.addMany: adds several schedules in one call, preserving each item's own id (used for bulk-delete undo)", () => {
+  const window = loadStoreModule();
+  const store = window.ScheduleStore;
+
+  const created = store.addMany([
+    { id: "sc_a", title: "A", date: "2026-08-01", repeat: { type: "none" } },
+    { id: "sc_b", title: "B", date: "2026-08-02", repeat: { type: "none" } },
+  ]);
+
+  assert.deepEqual(created.map((s) => s.id).sort(), ["sc_a", "sc_b"]);
+  assert.equal(store.getById("sc_a").title, "A");
+  assert.equal(store.getById("sc_b").title, "B");
+});

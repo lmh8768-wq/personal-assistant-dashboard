@@ -70,6 +70,16 @@ window.safeSetLocalStorage = function (key, value) {
       saveSchedules(schedules);
       return item;
     },
+    // Adds several schedules with a single load+save instead of one full
+    // JSON.parse+JSON.stringify pass over the whole array per item — used
+    // by schedule.js's "duplicate" undo, which used to call add() in a loop.
+    addMany(items) {
+      const schedules = loadSchedules();
+      const created = items.map((item) => ({ id: createId(), ...item }));
+      schedules.push(...created);
+      saveSchedules(schedules);
+      return created;
+    },
     update(id, patch) {
       const schedules = loadSchedules();
       const idx = schedules.findIndex((s) => s.id === id);
@@ -506,6 +516,17 @@ function createEntityStore(key, idPrefix) {
       save(items);
       return item;
     },
+    // Adds several entries with a single load+save instead of one full
+    // JSON.parse+JSON.stringify pass over the whole array per entry — used
+    // by ledger.js's multi-row add ("한 번에 여러 건 추가") and its
+    // duplicate-undo, both of which used to call add() in a loop.
+    addMany(entries) {
+      const items = load();
+      const created = entries.map((entry) => ({ id: createId(), ...entry }));
+      items.push(...created);
+      save(items);
+      return created;
+    },
     update(id, patch) {
       const items = load();
       const idx = items.findIndex((it) => it.id === id);
@@ -552,8 +573,10 @@ window.LedgerEntryStore = createEntityStore("assistant.ledgerEntries.v1", "exp")
     return patch;
   }
   const baseAdd = window.LedgerEntryStore.add;
+  const baseAddMany = window.LedgerEntryStore.addMany;
   const baseUpdate = window.LedgerEntryStore.update;
   window.LedgerEntryStore.add = (entry) => baseAdd(clampAmount(entry));
+  window.LedgerEntryStore.addMany = (entries) => baseAddMany(entries.map(clampAmount));
   window.LedgerEntryStore.update = (id, patch) => baseUpdate(id, clampAmount(patch));
 })();
 

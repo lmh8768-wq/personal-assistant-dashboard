@@ -190,6 +190,7 @@
     const titleInput = document.createElement("input");
     titleInput.type = "text";
     titleInput.className = "vongole-recipe-title-input";
+    titleInput.maxLength = 200;
     titleInput.placeholder = "제목";
     titleInput.value = recipe.title;
     titleInput.addEventListener("click", (e) => e.stopPropagation());
@@ -202,6 +203,7 @@
 
     const contentInput = document.createElement("textarea");
     contentInput.className = "vongole-recipe-content-input";
+    contentInput.maxLength = 5000;
     contentInput.placeholder = "재료와 만드는 법을 적어보세요";
     contentInput.value = recipe.content || "";
     contentInput.addEventListener("click", (e) => e.stopPropagation());

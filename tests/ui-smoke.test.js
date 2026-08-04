@@ -1101,3 +1101,44 @@ test("routine: undoing a deleted checklist item restores its completion history 
     await close();
   }
 });
+
+test("schedule: selecting an item in bulk-select mode patches just that row, without rebuilding the day list — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    await page.evaluate((catKey) => {
+      window.ScheduleStore.add({ title: "일정A", date: "2026-08-04", repeat: { type: "none" }, category: catKey });
+      window.ScheduleStore.add({ title: "일정B", date: "2026-08-04", repeat: { type: "none" }, category: catKey });
+    }, catKey);
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(200);
+    await page.click("#scheduleSelectModeBtn");
+    await page.waitForTimeout(150);
+
+    // Tag every row so we can tell if any got torn down and rebuilt — a
+    // fresh element from renderDayList() wouldn't carry this marker.
+    await page.evaluate(() => {
+      document.querySelectorAll("#scheduleList .schedule-item").forEach((el, i) => {
+        el.dataset.notRebuilt = `row-${i}`;
+      });
+    });
+
+    const items = page.locator("#scheduleList .schedule-item");
+    await items.first().click();
+    await page.waitForTimeout(150);
+
+    const result = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll("#scheduleList .schedule-item")];
+      return {
+        allSurvived: rows.every((el) => el.dataset.notRebuilt?.startsWith("row-")),
+        firstSelected: rows[0]?.classList.contains("selected"),
+        countText: document.getElementById("scheduleSelectCount")?.textContent,
+      };
+    });
+    assert.equal(result.allSurvived, true, "no row should have been torn down and rebuilt");
+    assert.equal(result.firstSelected, true);
+    assert.equal(result.countText, "1개 선택됨");
+  } finally {
+    await close();
+  }
+});

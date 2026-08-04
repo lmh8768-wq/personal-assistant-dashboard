@@ -509,13 +509,6 @@
   }
 
   // ---------- Day panel ----------
-  function toggleScheduleSelection(key) {
-    if (scheduleSelectedIds.has(key)) scheduleSelectedIds.delete(key);
-    else scheduleSelectedIds.add(key);
-    updateScheduleSelectToolbar();
-    renderDayList();
-  }
-
   function updateScheduleSelectToolbar() {
     const toolbar = document.getElementById("scheduleSelectToolbar");
     if (!toolbar) return;
@@ -542,10 +535,21 @@
 
     items.forEach((item) => {
       const key = `${item.id}::${item.occurrenceDate}`;
+      // `li` is assigned right after this (still within the same closure) —
+      // toggling a selection used to call renderDayList() and tear down/
+      // rebuild every row in the list just to flip one .selected class.
+      // Patching this one row directly in place avoids that, same reasoning
+      // as patchGoalDoneAncestors in practice.js.
+      let li;
       const onClick = scheduleSelectMode
-        ? (it) => toggleScheduleSelection(`${it.id}::${it.occurrenceDate}`)
+        ? () => {
+            if (scheduleSelectedIds.has(key)) scheduleSelectedIds.delete(key);
+            else scheduleSelectedIds.add(key);
+            li.classList.toggle("selected", scheduleSelectedIds.has(key));
+            updateScheduleSelectToolbar();
+          }
         : (it) => openModal("edit", it);
-      const li = renderScheduleItem(item, onClick, dateStr);
+      li = renderScheduleItem(item, onClick, dateStr);
       if (scheduleSelectMode) {
         li.classList.add("selectable");
         if (scheduleSelectedIds.has(key)) li.classList.add("selected");
@@ -1029,7 +1033,7 @@
     window.Toast.show(`일정 ${count}개를 삭제했어요`, {
       actionLabel: "실행취소",
       onAction: () => {
-        removedItems.forEach((it) => window.ScheduleStore.add(it));
+        window.ScheduleStore.addMany(removedItems);
         refreshAll();
       },
     });

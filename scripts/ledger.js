@@ -457,7 +457,7 @@
       return;
     }
 
-    entries.forEach((entry) => window.LedgerEntryStore.add(entry));
+    window.LedgerEntryStore.addMany(entries);
     window.Toast?.show(entries.length > 1 ? `${entries.length}건 추가했어요` : "내역을 추가했어요");
     closeModal();
     renderAll();
