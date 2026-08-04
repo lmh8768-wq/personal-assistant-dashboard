@@ -999,5 +999,17 @@
     });
   }
 
-  window.LedgerView = { init, onShow: applyLedgerCalendarFit, refreshDashboard };
+  // onShow used to be just applyLedgerCalendarFit (a layout-fit check), so
+  // a change made elsewhere (e.g. cloud sync pulling in another device's
+  // edits) while this tab wasn't active never showed up until a full page
+  // reload — same gap already fixed for practice/study/vongole/exercise,
+  // just missed here since this tab already had *some* onShow.
+  window.LedgerView = {
+    init,
+    onShow: () => {
+      renderAll();
+      applyLedgerCalendarFit();
+    },
+    refreshDashboard,
+  };
 })();

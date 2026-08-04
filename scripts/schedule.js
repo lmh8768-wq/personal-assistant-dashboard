@@ -15,7 +15,11 @@
   const HIDE_COMPLETED_KEY = "assistant.hideCompleted.v1";
   const UPCOMING_RANGE_KEY = "assistant.upcomingRangeDays.v1";
   const UPCOMING_RANGE_OPTIONS = [3, 7, 30];
-  const CALENDAR_HIGHLIGHT_CATEGORIES = new Set(["appointment", "event"]);
+  // Only ★4+ items get a title chip on the month calendar — showing every
+  // occurrence there (this grid renders 42 cells per month) would crowd the
+  // cell fast. Everything else still gets the plain "something's on today"
+  // dot, so nothing disappears entirely.
+  const CALENDAR_HIGHLIGHT_MIN_IMPORTANCE = 4;
   const CALENDAR_MAX_EVENT_CHIPS = 3;
 
   function loadHideCompleted() {
@@ -336,14 +340,15 @@
       cell.appendChild(holiday);
     }
 
-    // 약속/행사 schedules show their own title right on the calendar; any
-    // other category just gets folded into the plain "something's on today" dot.
+    // ★4+ schedules show their own title right on the calendar; anything
+    // less important just gets folded into the plain "something's on
+    // today" dot.
     const occurrences = preloaded
       ? window.ScheduleRecurrence.getOccurrences(preloaded.schedules, dStr)
       : window.ScheduleStore.getOccurrences(dStr);
     const dayItems = applyCustomOrder(dStr, occurrences, preloaded);
-    const highlighted = dayItems.filter((item) => CALENDAR_HIGHLIGHT_CATEGORIES.has(item.category || "etc"));
-    const hasOtherCategory = dayItems.some((item) => !CALENDAR_HIGHLIGHT_CATEGORIES.has(item.category || "etc"));
+    const highlighted = dayItems.filter((item) => (item.importance || DEFAULT_IMPORTANCE) >= CALENDAR_HIGHLIGHT_MIN_IMPORTANCE);
+    const hasLowerImportance = dayItems.some((item) => (item.importance || DEFAULT_IMPORTANCE) < CALENDAR_HIGHLIGHT_MIN_IMPORTANCE);
 
     if (highlighted.length > 0) {
       const eventsWrap = document.createElement("div");
@@ -365,7 +370,7 @@
       cell.appendChild(eventsWrap);
     }
 
-    if (hasOtherCategory) {
+    if (hasLowerImportance) {
       const dot = document.createElement("span");
       dot.className = "dot";
       topRow.appendChild(dot);
@@ -1119,7 +1124,16 @@
     init,
     refreshDashboard,
     refreshAll,
-    onShow: applyScheduleCalendarFit,
+    // onShow used to be just applyScheduleCalendarFit (a layout-fit check),
+    // so a change made elsewhere (e.g. cloud sync pulling in another
+    // device's edits) while this tab wasn't active never showed up until a
+    // full page reload — same gap already fixed for practice/study/
+    // vongole/exercise, just missed here since this tab already had *some*
+    // onShow.
+    onShow: () => {
+      refreshAll();
+      applyScheduleCalendarFit();
+    },
     openAddModal: () => openModal("add"),
     goToToday: () => {
       const now = new Date();

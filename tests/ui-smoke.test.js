@@ -561,3 +561,88 @@ test("ledger: an amount typed past the upper bound clamps instead of saving an u
     await close();
   }
 });
+
+test("schedule: only ★4+ items get a title chip on the month calendar, lower-importance items just get a dot", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    await page.evaluate((catKey) => {
+      window.ScheduleStore.add({ title: "중요 회의", date: "2026-08-04", repeat: { type: "none" }, importance: 5, category: catKey });
+      window.ScheduleStore.add({ title: "가벼운 약속", date: "2026-08-04", repeat: { type: "none" }, importance: 2, category: catKey });
+    }, catKey);
+
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(300);
+
+    const cell = await page.evaluate(() => {
+      const cells = [...document.querySelectorAll("#calendarGrid .calendar-day")];
+      const cell4 = cells.find((c) => c.querySelector(".day-number")?.textContent === "4");
+      return {
+        chipText: cell4?.querySelector(".calendar-day-event-chip")?.textContent || null,
+        hasDot: !!cell4?.querySelector(".calendar-day-top .dot"),
+      };
+    });
+    assert.equal(cell.chipText, "중요 회의");
+    assert.equal(cell.hasDot, true);
+  } finally {
+    await close();
+  }
+});
+
+test("ledger: the month calendar shows that day's expense/income totals — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => {
+      const expCat = window.LedgerCategoryStore.getByType("expense")[0].key;
+      const incCat = window.LedgerCategoryStore.getByType("income")[0].key;
+      window.LedgerEntryStore.add({ date: "2026-08-04", amount: 15000, categoryKey: expCat, type: "expense" });
+      window.LedgerEntryStore.add({ date: "2026-08-04", amount: 2000000, categoryKey: incCat, type: "income" });
+    });
+
+    await page.evaluate(() => document.querySelector('[data-view="ledger"]')?.click());
+    await page.waitForTimeout(300);
+
+    const cellText = await page.evaluate(() => {
+      const cells = [...document.querySelectorAll("#ledgerCalendarGrid .calendar-day")];
+      const cell4 = cells.find((c) => c.querySelector(".day-number")?.textContent === "4");
+      return cell4?.querySelector(".ledger-calendar-day-amounts")?.textContent || "";
+    });
+    assert.ok(cellText.includes("1.5만"), `expected the expense total in the cell, got "${cellText}"`);
+    assert.ok(cellText.includes("200만"), `expected the income total in the cell, got "${cellText}"`);
+  } finally {
+    await close();
+  }
+});
+
+test("schedule/ledger/routine: onShow does a full data refresh, not just a layout re-fit — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    // Regression for onShow previously being wired to only the calendar's
+    // responsive-layout-fit function (applyScheduleCalendarFit /
+    // applyLedgerCalendarFit / checkResponsiveCalendarLayout), so data
+    // written while the tab wasn't active never appeared without a full
+    // page reload — same class of bug already fixed for practice/study/
+    // vongole/exercise, just missed here since these 3 already had *some*
+    // onShow.
+    await page.evaluate(() => {
+      const catKey = window.CategoryStore.getAll()[0].key;
+      window.ScheduleStore.add({ title: "실시간동기화테스트-일정", date: "2026-08-04", repeat: { type: "none" }, importance: 5, category: catKey });
+      const expCat = window.LedgerCategoryStore.getByType("expense")[0].key;
+      window.LedgerEntryStore.add({ date: "2026-08-04", amount: 12345, categoryKey: expCat, type: "expense" });
+    });
+
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(250);
+    const scheduleShows = await page.evaluate(() =>
+      document.getElementById("view-schedule").textContent.includes("실시간동기화테스트-일정")
+    );
+    assert.ok(scheduleShows, "schedule tab should show data added while it wasn't active");
+
+    await page.evaluate(() => document.querySelector('[data-view="ledger"]')?.click());
+    await page.waitForTimeout(250);
+    const ledgerShows = await page.evaluate(() => document.getElementById("view-ledger").textContent.includes("12,345"));
+    assert.ok(ledgerShows, "ledger tab should show data added while it wasn't active");
+  } finally {
+    await close();
+  }
+});

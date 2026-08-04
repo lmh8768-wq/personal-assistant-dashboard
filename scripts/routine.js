@@ -958,5 +958,16 @@
     }
   }
 
-  window.RoutineView = { init, onShow: checkResponsiveCalendarLayout };
+  // onShow used to be just checkResponsiveCalendarLayout (a layout-fit
+  // check), so a change made elsewhere (e.g. cloud sync pulling in another
+  // device's edits) while this tab wasn't active never showed up until a
+  // full page reload — same gap already fixed for practice/study/vongole/
+  // exercise, just missed here since this tab already had *some* onShow.
+  window.RoutineView = {
+    init,
+    onShow: () => {
+      renderAll();
+      checkResponsiveCalendarLayout();
+    },
+  };
 })();
