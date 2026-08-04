@@ -642,6 +642,19 @@ button.nav-item {
   font-weight: 700;
 }
 
+/* A handful of headings (봉골레 파스타's panels/sections) prefix their text
+   with a raw emoji character with no styling of its own — inheriting the
+   heading's font-size/line-height that way tends to look slightly off
+   next to CJK/Latin text, since emoji glyph metrics don't match a text
+   font's. 1em keeps it scaled to whatever heading it's nested in (15px in
+   .panel-header, 18px in .diary-header) while fixing the baseline. */
+.panel-icon {
+  display: inline-block;
+  font-size: 1em;
+  vertical-align: -0.1em;
+  line-height: 1;
+}
+
 .ghost-btn {
   background: transparent;
   border: 1px solid var(--border);
