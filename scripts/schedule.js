@@ -20,7 +20,7 @@
   // cell fast. Everything else still gets the plain "something's on today"
   // dot, so nothing disappears entirely.
   const CALENDAR_HIGHLIGHT_MIN_IMPORTANCE = 4;
-  const CALENDAR_MAX_EVENT_CHIPS = 3;
+  const CALENDAR_MAX_EVENT_CHIPS = 6;
 
   function loadHideCompleted() {
     try {
