@@ -256,7 +256,12 @@
 .goal-item-progress {
   flex-shrink: 0;
   font-size: 11px;
-  color: var(--text-faint);
+  /* This is the actual goal completion count (practice.js/study.js's goal
+     trees), not a decorative caption — text-faint falls well under WCAG's
+     4.5:1 body-text contrast minimum. text-muted is what this file
+     already uses for comparable real data (.routine-week-average,
+     .routine-week-cell-pct below). */
+  color: var(--text-muted);
 }
 
 .goal-item-add {

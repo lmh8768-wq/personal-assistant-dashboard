@@ -106,7 +106,7 @@
 }
 
 .goal-toggle-btn:hover {
-  border-color: var(--accent);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
@@ -133,7 +133,7 @@
 }
 
 .goal-edit-btn:hover {
-  border-color: var(--border);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 

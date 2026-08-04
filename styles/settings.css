@@ -131,6 +131,11 @@
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.accent-swatch:hover {
+  border-color: var(--border);
 }
 
 .accent-swatch.active {
@@ -159,6 +164,11 @@
   padding: 8px 10px;
   font-size: 13px;
   color: var(--text);
+  outline: none;
+}
+
+.category-edit-row input[type="text"]:focus {
+  border-color: var(--accent);
 }
 
 .category-color-swatches {
@@ -174,6 +184,11 @@
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;
+  transition: border-color 0.15s ease;
+}
+
+.category-color-swatch:hover {
+  border-color: var(--border);
 }
 
 .category-color-swatch.active {
@@ -222,6 +237,11 @@
   padding: 8px 10px;
   font-size: 13px;
   color: var(--text);
+  outline: none;
+}
+
+.custom-shortcut-form input:focus {
+  border-color: var(--accent);
 }
 
 .dashboard-greeting {
