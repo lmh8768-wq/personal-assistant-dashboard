@@ -275,6 +275,10 @@
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.checked = done;
+      // Without this a screen reader only ever announced "checkbox, not
+      // checked" for every single item, with no indication which item it
+      // toggles — schedule.js's equivalent checkbox already sets this.
+      checkbox.setAttribute("aria-label", item.label || "체크리스트 항목");
       checkbox.addEventListener("change", () => {
         RoutineStore.toggleDone(type, item.id);
         renderAll();

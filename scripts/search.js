@@ -155,7 +155,10 @@
     const items = [...container.children];
     if (items.length === 0) return;
     highlightedIndex = ((index % items.length) + items.length) % items.length; // wraps both directions
-    items.forEach((el, i) => el.classList.toggle("highlighted", i === highlightedIndex));
+    items.forEach((el, i) => {
+      el.classList.toggle("highlighted", i === highlightedIndex);
+      el.setAttribute("aria-selected", String(i === highlightedIndex));
+    });
     const current = items[highlightedIndex];
     current.scrollIntoView({ block: "nearest" });
     if (input) input.setAttribute("aria-activedescendant", current.id);
@@ -178,6 +181,7 @@
       item.className = "search-result-item";
       item.id = `search-result-${i}`;
       item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", "false");
 
       const badge = document.createElement("span");
       badge.className = "search-result-badge";

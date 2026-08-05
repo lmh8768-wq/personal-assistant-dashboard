@@ -16,10 +16,15 @@ window.GoalTreeUI = {
     let state = collapsed;
     btn.textContent = state ? "▸" : "▾";
     btn.setAttribute("aria-label", "접기/펼치기");
+    // The icon swap alone told a sighted user whether the subtree is
+    // expanded; a screen reader had no equivalent — aria-expanded is the
+    // standard way a toggle button communicates that state.
+    btn.setAttribute("aria-expanded", String(!state));
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       state = !state;
       btn.textContent = state ? "▸" : "▾";
+      btn.setAttribute("aria-expanded", String(!state));
       onToggle(state);
     });
     return btn;

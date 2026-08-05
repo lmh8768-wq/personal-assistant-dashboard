@@ -302,6 +302,10 @@
             saveCustomShortcuts(loadCustomShortcuts().filter((s) => s.id !== item.id));
             renderCustomShortcuts();
           });
+          // Every other delete span in the app (routine/practice/ledger/
+          // exercise/study/vongole) already goes through this — this one
+          // was missed, leaving it mouse-only.
+          window.makeKeyboardActivatable(remove, `${item.name} 바로가기 삭제`);
           li.appendChild(remove);
           settingsList.appendChild(li);
         });
@@ -427,7 +431,7 @@
     // Built with createElement/textContent (not innerHTML) so that can
     // never become a stored-XSS path, matching every other list in this file.
     container.innerHTML = `
-      <div class="storage-gauge"><div class="storage-gauge-fill" style="width:${percent}%"></div></div>
+      <div class="storage-gauge"><div class="storage-gauge-fill" role="progressbar" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100" style="width:${percent}%"></div></div>
       <p class="storage-usage-text">${formatBytes(total)} / 약 ${formatBytes(STORAGE_ESTIMATE_BYTES)} 사용 중 (${percent}%)</p>
     `;
     if (top.length === 0) return;

@@ -123,11 +123,13 @@
       const bodyPartInput = document.createElement("input");
       bodyPartInput.type = "text";
       bodyPartInput.placeholder = "부위 (예: 가슴)";
+      bodyPartInput.setAttribute("aria-label", "부위");
       bodyPartInput.setAttribute("list", "learnedExerciseBodyPartOptions");
 
       const nameInput = document.createElement("input");
       nameInput.type = "text";
       nameInput.placeholder = "운동 이름 (예: 벤치프레스)";
+      nameInput.setAttribute("aria-label", "운동 이름");
 
       const weightInput = document.createElement("input");
       weightInput.type = "number";
@@ -135,6 +137,7 @@
       weightInput.max = "500";
       weightInput.step = "0.5";
       weightInput.placeholder = "중량 (kg)";
+      weightInput.setAttribute("aria-label", "중량 (kg)");
 
       const setsInput = document.createElement("input");
       setsInput.type = "number";
@@ -142,6 +145,7 @@
       setsInput.max = "50";
       setsInput.step = "1";
       setsInput.placeholder = "세트 수";
+      setsInput.setAttribute("aria-label", "세트 수");
 
       const submitBtn = document.createElement("button");
       submitBtn.type = "button";

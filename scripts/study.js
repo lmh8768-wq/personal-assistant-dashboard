@@ -779,6 +779,7 @@
       const selectCheckbox = document.createElement("input");
       selectCheckbox.type = "checkbox";
       selectCheckbox.className = "goal-select-checkbox";
+      selectCheckbox.setAttribute("aria-label", `${node.label || "목표"} 선택`);
       selectCheckbox.checked = selectedGoals.has(node.id);
       selectCheckbox.addEventListener("click", (e) => e.stopPropagation());
       selectCheckbox.addEventListener("change", () => setGoalSelected(yearId, periodId, node.id, selectCheckbox.checked));
@@ -787,6 +788,7 @@
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.checked = !!node.done;
+      checkbox.setAttribute("aria-label", node.label || "목표");
       checkbox.addEventListener("change", () => {
         const applied = GoalStore.toggleDone(yearId, periodId, node.id);
         if (!applied) {
@@ -1061,6 +1063,7 @@
     const armed = yearDeleteArmed === year.id;
     remove.className = "checklist-item-remove goal-year-remove" + (armed ? " confirm-armed" : "");
     remove.textContent = armed ? "확인" : "×";
+    remove.dataset.yearRemoveId = year.id;
     remove.addEventListener("click", () => {
       if (yearDeleteArmed !== year.id) {
         yearDeleteArmed = year.id;
@@ -1072,6 +1075,13 @@
           }
         }, 4000);
         onChange();
+        // onChange() rebuilds the whole tree, destroying this exact node —
+        // a keyboard user who just pressed Enter/Space to arm the delete
+        // used to lose focus to <body> and have to re-navigate from
+        // scratch to find and confirm (or safely back out of) it.
+        requestAnimationFrame(() => {
+          document.querySelector(`.goal-year-remove[data-year-remove-id="${year.id}"]`)?.focus();
+        });
         return;
       }
       clearTimeout(yearDeleteArmedTimer);

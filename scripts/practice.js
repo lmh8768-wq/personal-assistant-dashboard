@@ -135,6 +135,7 @@
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.checked = checked;
+      checkbox.setAttribute("aria-label", item.label || "체크리스트 항목");
       checkbox.addEventListener("change", () => {
         if (checkbox.checked) pendingChecked.add(item.id);
         else pendingChecked.delete(item.id);
@@ -825,6 +826,7 @@
       const selectCheckbox = document.createElement("input");
       selectCheckbox.type = "checkbox";
       selectCheckbox.className = "goal-select-checkbox";
+      selectCheckbox.setAttribute("aria-label", `${node.label || "목표"} 선택`);
       selectCheckbox.checked = selectedGoalIds.has(node.id);
       selectCheckbox.addEventListener("click", (e) => e.stopPropagation());
       selectCheckbox.addEventListener("change", () => setGoalSelected(node.id, selectCheckbox.checked));
@@ -833,6 +835,7 @@
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.checked = !!node.done;
+      checkbox.setAttribute("aria-label", node.label || "목표");
       checkbox.addEventListener("change", () => {
         const applied = CurriculumStore.toggleDone(node.id);
         if (!applied) {

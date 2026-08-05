@@ -193,6 +193,7 @@
     const li = document.createElement("li");
     li.className = "schedule-item";
     li.draggable = true;
+    li.dataset.scheduleItemId = item.id;
     li.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", item.id);
       e.dataTransfer.effectAllowed = "move";
@@ -219,6 +220,35 @@
         const before = e.clientY - rect.top < rect.height / 2;
         moveWithinDay(reorderDateStr, draggedId, item.id, before, { x: e.clientX, y: e.clientY });
         renderDayList();
+      });
+      // Drag-and-drop had no keyboard equivalent — same Alt+↑/↓ pattern
+      // already used for the goal trees (practice.js/study.js). Reorders
+      // among the day's full (unfiltered) item order via the same
+      // moveWithinDay the mouse drag uses, so pinned/hidden-by-filter items
+      // keep working identically either way.
+      li.tabIndex = 0;
+      li.title = "Alt+↑/↓ 키로 순서를 바꿀 수 있어요";
+      li.addEventListener("keydown", (e) => {
+        if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+        if (e.target !== li) return; // let a nested checkbox/button handle its own keys
+        e.preventDefault();
+        const fullOrder = applyCustomOrder(reorderDateStr, window.ScheduleStore.getOccurrences(reorderDateStr));
+        const idx = fullOrder.findIndex((it) => it.id === item.id);
+        const targetIdx = e.key === "ArrowUp" ? idx - 1 : idx + 1;
+        if (idx === -1 || targetIdx < 0 || targetIdx >= fullOrder.length) return;
+        moveWithinDay(reorderDateStr, item.id, fullOrder[targetIdx].id, e.key === "ArrowUp");
+        renderDayList();
+        requestAnimationFrame(() => {
+          // Scoped to #scheduleList specifically — the dashboard's "오늘의
+          // 일정"/"다가오는 일정" widgets render this same schedule item
+          // (same id, same .schedule-item class) into their own lists too,
+          // which stay in the DOM (just [hidden]) when on the schedule tab.
+          // An unscoped selector matched whichever came first in DOM order,
+          // which could be one of those hidden copies — focus() on a hidden
+          // element is a silent no-op, so this used to leave focus on
+          // <body> instead of the reordered row.
+          document.querySelector(`#scheduleList .schedule-item[data-schedule-item-id="${item.id}"]`)?.focus();
+        });
       });
     }
 
@@ -321,6 +351,17 @@
     if (dStr === todayStr) cell.classList.add("today");
     if (dStr === selectedStr) cell.classList.add("selected");
     window.CalendarFit.applyWeekendClass(cell, d);
+    // A screen reader used to hear just the bare day number, 42 times a
+    // month, with no month/year context and no way to tell "today" or
+    // "selected" apart from any other day.
+    const WEEKDAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+    const dateLabel = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEKDAY_NAMES[d.getDay()]}요일`;
+    cell.setAttribute(
+      "aria-label",
+      dateLabel + (dStr === todayStr ? " (오늘)" : "") + (dStr === selectedStr ? " (선택됨)" : "")
+    );
+    if (dStr === todayStr) cell.setAttribute("aria-current", "date");
+    cell.setAttribute("aria-pressed", String(dStr === selectedStr));
 
     const topRow = document.createElement("div");
     topRow.className = "calendar-day-top";
@@ -649,7 +690,17 @@
     const fillEl = document.getElementById("completionRateFill");
     const valueEl = document.getElementById("completionRateValue");
     const rate = items.length === 0 ? null : completedCount / items.length;
-    if (fillEl) fillEl.style.width = rate === null ? "0%" : `${Math.round(rate * 100)}%`;
+    if (fillEl) {
+      const percent = rate === null ? 0 : Math.round(rate * 100);
+      fillEl.style.width = `${percent}%`;
+      // The percentage is also shown as adjacent text (valueEl below), but
+      // the bar itself carried none of it — a screen reader user relying on
+      // the bar rather than hunting for the nearby text got nothing.
+      fillEl.setAttribute("role", "progressbar");
+      fillEl.setAttribute("aria-valuenow", String(percent));
+      fillEl.setAttribute("aria-valuemin", "0");
+      fillEl.setAttribute("aria-valuemax", "100");
+    }
     if (valueEl) {
       valueEl.textContent =
         rate === null ? "오늘 일정 없음" : `${completedCount}/${items.length} · ${Math.round(rate * 100)}%`;

@@ -168,6 +168,15 @@
     const card = document.createElement("div");
     card.className = "vongole-recipe-card";
 
+    // header (the collapse/expand toggle, made role="button" below) and
+    // removeBtn (its own independent role="button") used to both live
+    // inside header, an interactive-in-interactive nesting the ARIA/HTML
+    // spec disallows and that made screen-reader virtual-cursor navigation
+    // unreliable. headerRow is the actual flex row now; header only wraps
+    // the title/badge (the part that's genuinely "click to expand").
+    const headerRow = document.createElement("div");
+    headerRow.className = "vongole-recipe-header-row";
+
     const header = document.createElement("div");
     header.className = "vongole-recipe-header";
 
@@ -183,6 +192,7 @@
       badge.textContent = `${attemptCount}번 시도`;
       header.appendChild(badge);
     }
+    headerRow.appendChild(header);
 
     const removeBtn = document.createElement("span");
     removeBtn.className = "checklist-item-remove";
@@ -194,8 +204,8 @@
       deleteRecipe(kind, recipe.id);
     });
     window.makeKeyboardActivatable(removeBtn);
-    header.appendChild(removeBtn);
-    card.appendChild(header);
+    headerRow.appendChild(removeBtn);
+    card.appendChild(headerRow);
 
     const body = document.createElement("div");
     body.className = "vongole-recipe-body";

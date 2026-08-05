@@ -121,6 +121,14 @@
     if (dStr === todayStr) cell.classList.add("today");
     if (dStr === selectedStr) cell.classList.add("selected");
     window.CalendarFit.applyWeekendClass(cell, d);
+    const WEEKDAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+    const dateLabel = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEKDAY_NAMES[d.getDay()]}요일`;
+    cell.setAttribute(
+      "aria-label",
+      dateLabel + (dStr === todayStr ? " (오늘)" : "") + (dStr === selectedStr ? " (선택됨)" : "")
+    );
+    if (dStr === todayStr) cell.setAttribute("aria-current", "date");
+    cell.setAttribute("aria-pressed", String(dStr === selectedStr));
 
     const topRow = document.createElement("div");
     topRow.className = "calendar-day-top";
@@ -271,7 +279,9 @@
   function setModalType(type) {
     modalType = type === "income" ? "income" : "expense";
     document.querySelectorAll("#ledgerTypeTabs .ledger-period-tab").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.type === modalType);
+      const isActive = btn.dataset.type === modalType;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-selected", String(isActive));
     });
     syncAllRowCategoryOptions();
   }
@@ -369,7 +379,9 @@
 
   function setSettingsTab(tab) {
     document.querySelectorAll("#ledgerSettingsTabs .ledger-period-tab").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.tab === tab);
+      const isActive = btn.dataset.tab === tab;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-selected", String(isActive));
     });
     const categoriesPanel = document.getElementById("ledgerSettingsCategoriesPanel");
     const analysisPanel = document.getElementById("ledgerSettingsAnalysisPanel");
@@ -592,6 +604,10 @@
     const fill = document.createElement("div");
     fill.className = "ledger-total-budget-fill" + (pct !== null && pct >= 100 ? " over" : pct !== null && pct >= 80 ? " warning" : "");
     fill.style.width = pct === null ? "0%" : `${Math.min(100, pct)}%`;
+    fill.setAttribute("role", "progressbar");
+    fill.setAttribute("aria-valuenow", String(pct === null ? 0 : Math.min(100, pct)));
+    fill.setAttribute("aria-valuemin", "0");
+    fill.setAttribute("aria-valuemax", "100");
     track.appendChild(fill);
     trackRow.appendChild(track);
 
@@ -649,6 +665,11 @@
         fill.className = "ledger-progress-fill" + (pct >= 100 ? " over" : pct >= 80 ? " warning" : "");
         fill.style.width = `${Math.min(100, pct)}%`;
         fill.style.background = cat.color;
+        fill.setAttribute("role", "progressbar");
+        fill.setAttribute("aria-valuenow", String(Math.min(100, pct)));
+        fill.setAttribute("aria-valuemin", "0");
+        fill.setAttribute("aria-valuemax", "100");
+        fill.setAttribute("aria-label", cat.label);
         track.appendChild(fill);
         trackRow.appendChild(track);
 
@@ -937,14 +958,19 @@
       .reduce((sum, e) => sum + e.amount, 0);
 
     fillEl.classList.remove("warning", "over");
+    fillEl.setAttribute("role", "progressbar");
+    fillEl.setAttribute("aria-valuemin", "0");
+    fillEl.setAttribute("aria-valuemax", "100");
     if (totalBudget === 0) {
       fillEl.style.width = "0%";
+      fillEl.setAttribute("aria-valuenow", "0");
       valueEl.textContent = "목표 미설정";
       return;
     }
 
     const pct = Math.round((totalSpent / totalBudget) * 100);
     fillEl.style.width = `${Math.min(100, pct)}%`;
+    fillEl.setAttribute("aria-valuenow", String(Math.min(100, pct)));
     if (pct >= 100) fillEl.classList.add("over");
     else if (pct >= 80) fillEl.classList.add("warning");
     valueEl.textContent = `${formatWon(totalSpent)} / ${formatWon(totalBudget)} · ${pct}%`;
@@ -1001,7 +1027,10 @@
       btn.addEventListener("click", () => {
         if (btn.classList.contains("active")) return;
         analysisMode = btn.dataset.period;
-        document.querySelectorAll(".ledger-period-tabs .ledger-period-tab").forEach((b) => b.classList.toggle("active", b === btn));
+        document.querySelectorAll(".ledger-period-tabs .ledger-period-tab").forEach((b) => {
+          b.classList.toggle("active", b === btn);
+          b.setAttribute("aria-selected", String(b === btn));
+        });
         renderAnalysis();
       });
     });

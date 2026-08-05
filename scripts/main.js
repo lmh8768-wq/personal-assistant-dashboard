@@ -203,11 +203,21 @@ const CURRENT_VIEW_KEY = "currentView";
 function setActiveView(viewName) {
   const item = [...navItems].find((n) => n.dataset.view === viewName);
   if (!item) return;
-  navItems.forEach((n) => n.classList.remove("active"));
+  navItems.forEach((n) => {
+    n.classList.remove("active");
+    n.removeAttribute("aria-current");
+  });
   item.classList.add("active");
+  item.setAttribute("aria-current", "page");
   pageTitle.textContent = viewTitles[viewName] ?? "";
   showView(viewName);
   safeSetItem(CURRENT_VIEW_KEY, viewName);
+  // A screen-reader user got no signal at all that a switch happened — the
+  // whole page's content changes under them with nothing but whatever they
+  // happened to already have focused. Moving focus to the new page's own
+  // heading both announces it (its text gets read) and gives keyboard
+  // users a sane starting point in the new view.
+  pageTitle.focus();
   // Nav clicks preventDefault() the real <a href="#view"> anchors, so the
   // hash used to only ever reflect whatever it was at page load — open the
   // app from a notification link (#schedule), switch to another tab, then
