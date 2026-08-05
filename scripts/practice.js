@@ -370,17 +370,23 @@
   // `storageKey`, when given, persists the collapsed state (device-local UI
   // state, not synced) — these sections used to always reopen expanded on
   // every reload regardless of what the user last chose.
-  function toggleSection(contentEl, btn, storageKey) {
-    const collapsing = !contentEl.hidden;
-    contentEl.hidden = collapsing;
+  //
+  // `regionEl` is the .collapse-region wrapper (index.html), not the raw
+  // content element — toggling .hidden on the content directly (the old
+  // approach) snapped it open/closed instantly with nothing for a
+  // transition to animate, unlike the goal tree right next to it, which
+  // already used this same grid-rows collapse trick.
+  function toggleSection(regionEl, btn, storageKey) {
+    const collapsing = !regionEl.classList.contains("collapsed");
+    regionEl.classList.toggle("collapsed", collapsing);
     btn.textContent = collapsing ? "▸" : "▾";
     btn.setAttribute("aria-expanded", String(!collapsing));
     if (storageKey) localStorage.setItem(storageKey, String(collapsing));
   }
 
-  function applyStoredCollapse(contentEl, btn, storageKey) {
+  function applyStoredCollapse(regionEl, btn, storageKey) {
     const collapsed = localStorage.getItem(storageKey) === "true";
-    contentEl.hidden = collapsed;
+    regionEl.classList.toggle("collapsed", collapsed);
     btn.textContent = collapsed ? "▸" : "▾";
     btn.setAttribute("aria-expanded", String(!collapsed));
   }
@@ -1056,18 +1062,18 @@
     });
 
     const feedToggleBtn = document.getElementById("toggleFeedBtn");
-    const feedEl = document.getElementById("practiceFeed");
-    applyStoredCollapse(feedEl, feedToggleBtn, "practiceFeedCollapsed");
+    const feedRegion = document.getElementById("practiceFeedRegion");
+    applyStoredCollapse(feedRegion, feedToggleBtn, "practiceFeedCollapsed");
     feedToggleBtn.addEventListener("click", (e) => {
-      toggleSection(feedEl, e.currentTarget, "practiceFeedCollapsed");
+      toggleSection(feedRegion, e.currentTarget, "practiceFeedCollapsed");
     });
 
     const curriculumToggleBtn = document.getElementById("toggleCurriculumBtn");
-    const curriculumEl = document.getElementById("practiceCurriculum");
-    if (curriculumToggleBtn && curriculumEl) {
-      applyStoredCollapse(curriculumEl, curriculumToggleBtn, "practiceCurriculumCollapsed");
+    const curriculumRegion = document.getElementById("practiceCurriculumRegion");
+    if (curriculumToggleBtn && curriculumRegion) {
+      applyStoredCollapse(curriculumRegion, curriculumToggleBtn, "practiceCurriculumCollapsed");
       curriculumToggleBtn.addEventListener("click", (e) => {
-        toggleSection(curriculumEl, e.currentTarget, "practiceCurriculumCollapsed");
+        toggleSection(curriculumRegion, e.currentTarget, "practiceCurriculumCollapsed");
       });
     }
 

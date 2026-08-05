@@ -96,6 +96,13 @@
   vertical-align: middle;
 }
 
+/* Same instant-innerHTML-swap-needs-an-entrance-cue fix already applied to
+   the goal-tree rename input and toasts — reuses that same keyframe
+   (study.css) rather than defining a near-identical one here. */
+.learned-exercise-add-row.expanded {
+  animation: goal-title-input-in 0.15s ease;
+}
+
 .learned-exercise-add-row.expanded input {
   font-family: inherit;
   background: var(--bg-elevated-2);

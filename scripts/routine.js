@@ -542,6 +542,13 @@
     const midWidth = (startRect.width + endRect.width) / 2;
 
     checklists.getAnimations().forEach((a) => a.cancel());
+    // The app's only reduced-motion handling is a global CSS override that
+    // zeroes out `animation-duration`/`transition-duration` — that has no
+    // effect on this Web Animations API call, the one .animate() site in
+    // the app. The layout class toggle above already applied the real end
+    // state; skipping just the flight-path animation leaves it snapping
+    // straight there instead of playing the arc motion.
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
     checklists.animate(
       [
         {

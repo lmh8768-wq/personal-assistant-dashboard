@@ -114,6 +114,12 @@
   document.querySelectorAll(".modal-overlay").forEach((overlay) => {
     const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "hidden");
     if (!descriptor || !descriptor.set || !descriptor.get) return;
+    // Tracked per-overlay so a re-open within the animation window can
+    // cancel it — without this, quickly closing then reopening the same
+    // modal left the original close's timeout still pending, and 150ms
+    // later it force-hid the modal the user had just reopened and was
+    // already interacting with.
+    let closeTimer = null;
     Object.defineProperty(overlay, "hidden", {
       configurable: true,
       get() {
@@ -122,11 +128,14 @@
       set(value) {
         if (value && !descriptor.get.call(overlay) && !overlay.classList.contains("modal-closing")) {
           overlay.classList.add("modal-closing");
-          setTimeout(() => {
+          closeTimer = setTimeout(() => {
+            closeTimer = null;
             overlay.classList.remove("modal-closing");
             descriptor.set.call(overlay, true);
           }, MODAL_CLOSE_ANIMATION_MS);
         } else if (!value) {
+          clearTimeout(closeTimer);
+          closeTimer = null;
           overlay.classList.remove("modal-closing");
           descriptor.set.call(overlay, value);
         }

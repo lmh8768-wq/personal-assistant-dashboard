@@ -20,7 +20,11 @@
 
 .goal-period-card {
   cursor: default;
-  transition: padding 0.22s ease;
+  /* Matches its own nested .collapse-region's timing exactly (was 0.22s
+     ease — numerically close to --dur-panel but a different easing curve,
+     so the card's padding and its content's height settled at visibly
+     different paces during the same collapse toggle). */
+  transition: padding var(--dur-panel) var(--ease-standard);
 }
 
 .goal-period-card + .goal-period-card {

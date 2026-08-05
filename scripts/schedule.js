@@ -510,15 +510,22 @@
       grid.classList.add("month-nav-animating");
       grid.style.transform = "translateX(0)";
       grid.style.opacity = "1";
-      grid.addEventListener(
-        "transitionend",
-        () => {
-          grid.classList.remove("month-nav-animating");
-          grid.style.transform = "";
-          grid.style.opacity = "";
-        },
-        { once: true }
-      );
+      // A rapid second month-nav click starts a new renderCalendar() call,
+      // which removes .month-nav-animating (line 489 above) before this
+      // transition finishes — that fires "transitioncancel", not
+      // "transitionend" per spec, so this listener never runs and used to
+      // leak forever on the persistent #calendarGrid element (same fix
+      // pattern as the ghost's own setTimeout safety net below).
+      let gridAnimFallbackTimer;
+      const finishGridAnim = () => {
+        clearTimeout(gridAnimFallbackTimer);
+        grid.removeEventListener("transitionend", finishGridAnim);
+        grid.classList.remove("month-nav-animating");
+        grid.style.transform = "";
+        grid.style.opacity = "";
+      };
+      grid.addEventListener("transitionend", finishGridAnim, { once: true });
+      gridAnimFallbackTimer = setTimeout(finishGridAnim, 500);
 
       requestAnimationFrame(() => {
         ghost.style.transform = `translateX(${direction > 0 ? "-100%" : "100%"})`;

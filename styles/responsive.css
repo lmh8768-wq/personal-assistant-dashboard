@@ -28,21 +28,26 @@
      dimmed backdrop, this used to be entirely absent, so the sliding panel
      had nothing separating it from the page content it covers. Clicks on
      it already close the sidebar via main.js's existing "click outside
-     .sidebar" handler, since this element isn't a descendant of #sidebar. */
+     .sidebar" handler, since this element isn't a descendant of #sidebar.
+     Stays display:block at all times in this breakpoint (toggled via
+     opacity/pointer-events instead of display:none) so the dismiss also
+     transitions — display can't be animated at all, so the previous
+     display:none<->block toggle made the backdrop vanish instantly the
+     moment .mobile-open was removed, while the sidebar panel it's paired
+     with was still sliding shut smoothly over its own transition. */
   .sidebar-backdrop {
-    display: none;
-  }
-  .sidebar.mobile-open ~ .sidebar-backdrop {
     display: block;
     position: fixed;
     inset: 0;
     z-index: 29;
     background: rgba(0, 0, 0, 0.35);
-    animation: sidebar-backdrop-in 0.2s ease;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
   }
-  @keyframes sidebar-backdrop-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+  .sidebar.mobile-open ~ .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
   }
   .mobile-menu-btn {
     display: inline-flex;

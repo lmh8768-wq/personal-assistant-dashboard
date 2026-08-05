@@ -424,6 +424,16 @@
     const rest = withContent.slice(STORAGE_BREAKDOWN_TOP_N);
     const restBytes = rest.reduce((sum, item) => sum + item.bytes, 0);
 
+    // The gauge fill's own `transition: width` never actually played: this
+    // whole container gets rebuilt via innerHTML every time storage
+    // changes, and a freshly created element has no "previous" width for a
+    // transition to animate from — it always just snapped straight to the
+    // new value. Start the fresh element at whatever width was already
+    // on-screen (0 on the very first render), then flip to the real value
+    // a frame later so the transition has something to actually animate.
+    const previousFill = container.querySelector(".storage-gauge-fill");
+    const startPercent = previousFill ? previousFill.style.width : "0%";
+
     // item.label falls back to the raw key when it's not in
     // STORAGE_KEY_LABELS — and applyRemoteData() never validates that a
     // synced key name is one this app actually recognizes, so a crafted
@@ -431,9 +441,13 @@
     // Built with createElement/textContent (not innerHTML) so that can
     // never become a stored-XSS path, matching every other list in this file.
     container.innerHTML = `
-      <div class="storage-gauge"><div class="storage-gauge-fill" role="progressbar" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100" style="width:${percent}%"></div></div>
+      <div class="storage-gauge"><div class="storage-gauge-fill" role="progressbar" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100" style="width:${startPercent}"></div></div>
       <p class="storage-usage-text">${formatBytes(total)} / 약 ${formatBytes(STORAGE_ESTIMATE_BYTES)} 사용 중 (${percent}%)</p>
     `;
+    requestAnimationFrame(() => {
+      const fill = container.querySelector(".storage-gauge-fill");
+      if (fill) fill.style.width = `${percent}%`;
+    });
     if (top.length === 0) return;
     const list = document.createElement("ul");
     list.className = "storage-usage-breakdown";

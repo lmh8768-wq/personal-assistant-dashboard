@@ -6,6 +6,10 @@
   ];
 
   let calendarViewDate = new Date(); // which month the big calendar shows
+  // Set by the prev/next month buttons right before renderCalendar() runs,
+  // so it knows which way to animate; 0 means "just redraw", no page-turn.
+  // Same pattern schedule.js's month calendar already uses.
+  let monthNavDirection = 0;
   let selectedDate = new Date(); // which day the day-panel is showing
   let analysisMode = "month"; // "month" | "year" — always tied to calendarViewDate
   let editingId = null;
@@ -193,6 +197,13 @@
     return cell;
   }
 
+  // Page-turn effect ported from schedule.js's identical month calendar
+  // (same .calendar-grid-viewport/.calendar-grid markup and CSS, already
+  // shared via calendar-fit.js) — freezes the outgoing month as a ghost
+  // that slides out over the grid while the grid (already holding the new
+  // month) slides in from the entry side. Without this, rebuilding the
+  // grid's innerHTML just swapped content instantly with nothing for a
+  // transition to animate.
   function renderCalendar() {
     const year = calendarViewDate.getFullYear();
     const month = calendarViewDate.getMonth();
@@ -201,14 +212,58 @@
 
     const grid = document.getElementById("ledgerCalendarGrid");
     if (!grid) return;
+    const direction = monthNavDirection;
+    monthNavDirection = 0;
+
+    grid.parentElement.querySelectorAll(".calendar-grid-ghost").forEach((el) => el.remove());
+
+    let ghost = null;
+    if (direction && grid.children.length) {
+      ghost = grid.cloneNode(true);
+      ghost.removeAttribute("id");
+      ghost.classList.add("calendar-grid-ghost");
+      grid.parentElement.appendChild(ghost);
+    }
+
+    if (ghost) {
+      grid.classList.remove("month-nav-animating");
+      grid.style.transform = `translateX(${direction > 0 ? "100%" : "-100%"})`;
+      grid.style.opacity = "0";
+    }
+
     grid.innerHTML = "";
     buildMonthGrid(year, month).forEach((d) => {
       grid.appendChild(buildCalendarCell(d, d.getMonth() !== month));
     });
+
+    if (ghost) {
+      void grid.offsetWidth;
+      grid.classList.add("month-nav-animating");
+      grid.style.transform = "translateX(0)";
+      grid.style.opacity = "1";
+      let gridAnimFallbackTimer;
+      const finishGridAnim = () => {
+        clearTimeout(gridAnimFallbackTimer);
+        grid.removeEventListener("transitionend", finishGridAnim);
+        grid.classList.remove("month-nav-animating");
+        grid.style.transform = "";
+        grid.style.opacity = "";
+      };
+      grid.addEventListener("transitionend", finishGridAnim, { once: true });
+      gridAnimFallbackTimer = setTimeout(finishGridAnim, 500);
+
+      requestAnimationFrame(() => {
+        ghost.style.transform = `translateX(${direction > 0 ? "-100%" : "100%"})`;
+        ghost.style.opacity = "0";
+      });
+      ghost.addEventListener("transitionend", () => ghost.remove(), { once: true });
+      setTimeout(() => ghost.remove(), 500);
+    }
   }
 
   function shiftMonth(delta) {
     calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + delta, 1);
+    monthNavDirection = delta;
     renderCalendar();
     renderCategoryProgress();
     renderAnalysis();
@@ -705,7 +760,21 @@
   function renderCategoryProgress() {
     const totalRow = document.getElementById("ledgerTotalBudgetRow");
     const rowsContainer = document.getElementById("ledgerCategoryRows");
+    // The expand/collapse toggle button's own icon rotation was already
+    // smoothly animated (.ledger-expand-icon), but the content it reveals
+    // just snapped open/closed via rowsContainer.hidden with nothing to
+    // animate from — toggling .collapsed on this wrapping .collapse-region
+    // instead (same grid-rows trick the goal trees already use) lets the
+    // content's height animate too, in step with the icon.
+    const rowsRegion = document.getElementById("ledgerCategoryRowsRegion");
     if (!totalRow || !rowsContainer) return;
+    // Same reasoning as settings.js's storage gauge: totalRow gets rebuilt
+    // via innerHTML on every entry add/edit/delete and month change, so the
+    // fill's own `transition: width` never had an old value to animate
+    // from — a brand-new element with the final width already set just
+    // snapped there instantly every time. Capture whatever was already
+    // on-screen before it gets wiped below.
+    const previousFillWidth = totalRow.querySelector(".ledger-total-budget-fill")?.style.width || "0%";
     totalRow.innerHTML = "";
     rowsContainer.innerHTML = "";
 
@@ -727,7 +796,7 @@
       empty.className = "empty-state";
       empty.innerHTML = `<span class="empty-icon">🏷️</span><p>지출 카테고리를 추가해주세요</p>`;
       totalRow.appendChild(empty);
-      rowsContainer.hidden = true;
+      if (rowsRegion) rowsRegion.classList.add("collapsed");
       applyLedgerCalendarFit();
       return;
     }
@@ -768,12 +837,16 @@
     track.className = "ledger-total-budget-track";
     const fill = document.createElement("div");
     fill.className = "ledger-total-budget-fill" + (pct !== null && pct >= 100 ? " over" : pct !== null && pct >= 80 ? " warning" : "");
-    fill.style.width = pct === null ? "0%" : `${Math.min(100, pct)}%`;
+    const targetWidth = pct === null ? "0%" : `${Math.min(100, pct)}%`;
+    fill.style.width = previousFillWidth;
     fill.setAttribute("role", "progressbar");
     fill.setAttribute("aria-valuenow", String(pct === null ? 0 : Math.min(100, pct)));
     fill.setAttribute("aria-valuemin", "0");
     fill.setAttribute("aria-valuemax", "100");
     track.appendChild(fill);
+    requestAnimationFrame(() => {
+      fill.style.width = targetWidth;
+    });
     trackRow.appendChild(track);
 
     const expandBtn = document.createElement("button");
@@ -796,7 +869,7 @@
 
     totalRow.appendChild(trackRow);
 
-    rowsContainer.hidden = !categoryProgressExpanded;
+    if (rowsRegion) rowsRegion.classList.toggle("collapsed", !categoryProgressExpanded);
 
     categories.forEach((cat) => {
       const spent = monthEntries

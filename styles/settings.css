@@ -73,7 +73,7 @@
   height: 100%;
   background: var(--accent);
   border-radius: 999px;
-  transition: width 0.2s ease;
+  transition: width 0.3s ease; /* matches every other progress-fill in the app (ledger.css) — was 0.2s */
 }
 
 .storage-usage-text {
