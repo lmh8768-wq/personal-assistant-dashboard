@@ -76,6 +76,21 @@
     return (window.CategoryStore && window.CategoryStore.getByKey(key || "etc").color) || "#94a3b8";
   }
 
+  // Event chips on the month calendar always used a fixed white label
+  // color over an arbitrary user-picked category color — a bright preset
+  // like #fbbf24 (yellow) gives white text under 2:1 contrast, effectively
+  // unreadable. Pick black or white per chip based on the background's own
+  // relative luminance instead of assuming one text color always works.
+  function readableTextOn(hexColor) {
+    const hex = (hexColor || "").replace("#", "");
+    if (hex.length !== 6) return "#fff";
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.6 ? "#1c1e22" : "#fff";
+  }
+
   function getCategoryLabel(key) {
     return (window.CategoryStore && window.CategoryStore.getByKey(key || "etc").label) || "기타";
   }
@@ -397,7 +412,9 @@
       highlighted.slice(0, CALENDAR_MAX_EVENT_CHIPS).forEach((item) => {
         const chip = document.createElement("span");
         chip.className = "calendar-day-event-chip";
-        chip.style.background = getCategoryColor(item.category);
+        const chipColor = getCategoryColor(item.category);
+        chip.style.background = chipColor;
+        chip.style.color = readableTextOn(chipColor);
         chip.textContent = item.title;
         chip.title = item.title;
         eventsWrap.appendChild(chip);

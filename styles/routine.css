@@ -154,13 +154,25 @@
   opacity: 0.45;
 }
 
-.routine-calendar-day.today {
-  border-color: var(--accent);
-  border-width: 2px;
-}
-
 .routine-calendar-day-number {
   font-weight: 600;
+}
+
+/* Matches the schedule month calendar's "today" convention (.calendar-day
+   .day-number) instead of the different border-thickening treatment this
+   grid used to have — same concept, same look, on the two structurally
+   identical month-grid calendars. */
+.routine-calendar-day.today .routine-calendar-day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 2px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
 }
 
 .routine-calendar-day-pct {

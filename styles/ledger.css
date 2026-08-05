@@ -20,6 +20,12 @@
   background: var(--bg-elevated-2);
   color: var(--text-muted);
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.ledger-period-tab:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .ledger-period-tab.active {
@@ -69,14 +75,19 @@
   color: var(--success);
 }
 
-.ledger-category-manager-subheading {
+/* Same "section subheading" role as .ledger-analysis-subheading below —
+   two copies of the identical style with slightly different, seemingly
+   arbitrary margins used to exist; unified here. */
+.ledger-category-manager-subheading,
+.ledger-analysis-subheading {
   margin: 14px 0 8px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
 }
 
-.ledger-category-manager-subheading:first-child {
+.ledger-category-manager-subheading:first-child,
+.ledger-analysis-subheading:first-child {
   margin-top: 0;
 }
 
@@ -101,17 +112,6 @@
 .ledger-total-value {
   font-size: 22px;
   font-weight: 700;
-}
-
-.ledger-analysis-subheading {
-  margin: 12px 0 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.ledger-analysis-subheading:first-child {
-  margin-top: 0;
 }
 
 .ledger-bar-list {
@@ -237,7 +237,7 @@
 }
 
 .ledger-total-budget-fill.warning {
-  background: #f5a524;
+  background: var(--warning);
 }
 
 .ledger-total-budget-fill.over {
@@ -348,7 +348,7 @@
 }
 
 .ledger-progress-fill.warning {
-  background: #f5a524 !important;
+  background: var(--warning) !important;
 }
 
 .ledger-progress-fill.over {
@@ -432,18 +432,25 @@
   gap: 8px;
 }
 
+/* The modal is 380px wide with 24px of horizontal padding on each side —
+   332px of content. With 3 inputs + a remove glyph on one row (3 gaps of
+   8px, ~18px for the glyph), their flex-basis values must sum to well
+   under ~290px: CSS flexbox decides which line an item wraps to using its
+   flex-basis, not its post-shrink size, so a basis sum over budget forces
+   a wrap onto a second line no matter how much flex-shrink could have
+   compressed them to fit on one. */
 .ledger-entry-row .ledger-row-category {
-  flex: 1 1 90px;
+  flex: 1 1 80px;
   min-width: 0;
 }
 
 .ledger-entry-row .ledger-row-name {
-  flex: 2 1 140px;
+  flex: 2 1 110px;
   min-width: 0;
 }
 
 .ledger-entry-row .ledger-row-amount {
-  flex: 1 1 90px;
+  flex: 1 1 80px;
   min-width: 0;
 }
 

@@ -184,6 +184,10 @@
   cursor: pointer;
 }
 
+.modal select:hover {
+  border-color: var(--accent);
+}
+
 .time-row {
   display: flex;
   gap: 10px;
@@ -421,8 +425,8 @@
    was confirming something or reporting that an action failed — these give
    warnings and errors their own color so they actually stand out. */
 .toast-warning {
-  border-color: #f5a524;
-  border-left-color: #f5a524;
+  border-color: var(--warning);
+  border-left-color: var(--warning);
 }
 
 .toast-error {

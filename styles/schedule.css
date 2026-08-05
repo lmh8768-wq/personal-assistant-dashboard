@@ -207,7 +207,7 @@
 }
 
 .calendar-weekdays .weekday-sun {
-  color: #f43f5e;
+  color: var(--danger);
 }
 
 .calendar-weekdays .weekday-sat {
@@ -299,7 +299,7 @@
 }
 
 .calendar-day.weekday-sun {
-  color: #f43f5e;
+  color: var(--danger);
 }
 
 .calendar-day.weekday-sat {
@@ -477,7 +477,7 @@
   align-self: stretch;
   text-align: center;
   font-size: 9px;
-  color: #f87171;
+  color: var(--danger);
   line-height: 1;
   max-width: 100%;
   overflow: hidden;
@@ -577,6 +577,11 @@
   font-size: 13px;
   color: var(--text);
   cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.checklist-add-row select:hover {
+  border-color: var(--accent);
 }
 
 .schedule-item-checklist-badge {
@@ -591,7 +596,11 @@
   margin-left: auto;
   width: 22px;
   height: 22px;
-  border-radius: 50%;
+  /* Was the one icon button in the app using a full circle — every other
+     small icon button (.goal-toggle-btn, .goal-edit-btn,
+     .ledger-settings-btn, .ledger-expand-btn) uses this rounded-square
+     convention instead. */
+  border-radius: 6px;
   border: none;
   background: transparent;
   color: var(--text-faint);
@@ -606,7 +615,11 @@
 
 .schedule-item-delete:hover,
 .schedule-item-delete:focus-visible {
-  background: rgba(229, 104, 122, 0.15);
+  /* Was rgba(229, 104, 122, 0.15) — a 4th, unrelated hardcoded red that
+     survived the hex-based cleanup search because it was written as decimal
+     rgb() instead. --danger-soft is the same translucent-hover treatment
+     --accent-soft already gives every other icon button in the app. */
+  background: var(--danger-soft);
   color: var(--danger);
 }
 

@@ -15,7 +15,13 @@
      same "negative/danger" and "positive/success" meanings — consolidated
      to the two values already used most (ledger expense/income). */
   --danger: #f31260;
+  --danger-soft: rgba(243, 18, 96, 0.12);
   --success: #17c964;
+  /* Was #f5a524 duplicated as a hardcoded literal in 4 separate files for
+     the same "warning" meaning (80%/100% budget alerts, near-limit sync
+     payload) — same reasoning as the --danger/--success consolidation
+     above, just for the one shade that got left out of it. */
+  --warning: #f5a524;
 }
 
 :root[data-theme="light"] {
@@ -30,7 +36,9 @@
   --accent-soft: rgba(74, 99, 224, 0.08);
   --shadow: 0 8px 24px rgba(20, 20, 30, 0.06);
   --danger: #f31260;
+  --danger-soft: rgba(243, 18, 96, 0.08);
   --success: #17c964;
+  --warning: #f5a524;
 }
 
 :root {
@@ -571,7 +579,7 @@ button.nav-item {
 }
 
 .completion-rate-fill.warning {
-  background: #f5a524;
+  background: var(--warning);
 }
 
 .completion-rate-fill.over {
@@ -690,6 +698,11 @@ button.nav-item {
   font-size: 12px;
   color: var(--text);
   cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.panel-header select:hover {
+  border-color: var(--accent);
 }
 
 .panel-header h2 {

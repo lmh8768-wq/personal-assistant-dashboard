@@ -10,7 +10,7 @@
 
 .diary-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px; /* matches .panel-header h2/.calendar-header h2 — same "card heading" role */
   font-weight: 700;
 }
 
