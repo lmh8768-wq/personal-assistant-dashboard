@@ -359,11 +359,22 @@
     }
   }
 
-  function toggleSection(contentEl, btn) {
+  // `storageKey`, when given, persists the collapsed state (device-local UI
+  // state, not synced) — these sections used to always reopen expanded on
+  // every reload regardless of what the user last chose.
+  function toggleSection(contentEl, btn, storageKey) {
     const collapsing = !contentEl.hidden;
     contentEl.hidden = collapsing;
     btn.textContent = collapsing ? "▸" : "▾";
     btn.setAttribute("aria-expanded", String(!collapsing));
+    if (storageKey) localStorage.setItem(storageKey, String(collapsing));
+  }
+
+  function applyStoredCollapse(contentEl, btn, storageKey) {
+    const collapsed = localStorage.getItem(storageKey) === "true";
+    contentEl.hidden = collapsed;
+    btn.textContent = collapsed ? "▸" : "▾";
+    btn.setAttribute("aria-expanded", String(!collapsed));
   }
 
   // ---------- Dashboard panel (just the practice streak, in big text) ----------
@@ -607,6 +618,18 @@
     selectedGoalIds.clear();
     document.getElementById("curriculumSelectModeBtn").textContent = "선택";
     updateCurriculumSelectToolbar();
+  }
+
+  function handleCurriculumSelectAll() {
+    function addAll(nodes) {
+      nodes.forEach((node) => {
+        selectedGoalIds.add(node.id);
+        addAll(node.children || []);
+      });
+    }
+    addAll(CurriculumStore.getGoals());
+    updateCurriculumSelectToolbar();
+    renderCurriculum();
   }
 
   function handleCurriculumCopy() {
@@ -1017,14 +1040,24 @@
       }
     });
 
-    document.getElementById("toggleFeedBtn").addEventListener("click", (e) => {
-      toggleSection(document.getElementById("practiceFeed"), e.currentTarget);
-    });
-    document.getElementById("toggleCurriculumBtn")?.addEventListener("click", (e) => {
-      toggleSection(document.getElementById("practiceCurriculum"), e.currentTarget);
+    const feedToggleBtn = document.getElementById("toggleFeedBtn");
+    const feedEl = document.getElementById("practiceFeed");
+    applyStoredCollapse(feedEl, feedToggleBtn, "practiceFeedCollapsed");
+    feedToggleBtn.addEventListener("click", (e) => {
+      toggleSection(feedEl, e.currentTarget, "practiceFeedCollapsed");
     });
 
+    const curriculumToggleBtn = document.getElementById("toggleCurriculumBtn");
+    const curriculumEl = document.getElementById("practiceCurriculum");
+    if (curriculumToggleBtn && curriculumEl) {
+      applyStoredCollapse(curriculumEl, curriculumToggleBtn, "practiceCurriculumCollapsed");
+      curriculumToggleBtn.addEventListener("click", (e) => {
+        toggleSection(curriculumEl, e.currentTarget, "practiceCurriculumCollapsed");
+      });
+    }
+
     document.getElementById("curriculumSelectModeBtn")?.addEventListener("click", toggleCurriculumSelectMode);
+    document.getElementById("curriculumSelectAllBtn")?.addEventListener("click", handleCurriculumSelectAll);
     document.getElementById("curriculumCopyBtn")?.addEventListener("click", handleCurriculumCopy);
     document.getElementById("curriculumDeleteBtn")?.addEventListener("click", handleCurriculumDelete);
     document.getElementById("curriculumCancelSelectBtn")?.addEventListener("click", () => {

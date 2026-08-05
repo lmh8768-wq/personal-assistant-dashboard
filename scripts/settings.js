@@ -498,6 +498,36 @@
     return window.DeepMerge.mergeValues(existing, incoming);
   }
 
+  // localStorage.setItem can fail partway through this loop (quota
+  // exceeded on a large backup) — using safeSetLocalStorage instead of
+  // a bare setItem means a failure here can't throw and get swallowed
+  // by a catch that reports the same generic "invalid file" message
+  // regardless of whether the file was actually fine and it was just
+  // storage that ran out, with some keys already overwritten by then.
+  function applyImportedData(data, shouldMerge) {
+    let succeeded = 0;
+    let failed = 0;
+    Object.keys(data).forEach((key) => {
+      if (!key.startsWith("assistant.")) return;
+      const incoming = data[key];
+      const finalValue = shouldMerge ? mergeValue(localStorage.getItem(key), incoming) : incoming;
+      const value = typeof finalValue === "string" ? finalValue : JSON.stringify(finalValue);
+      if (window.safeSetLocalStorage(key, value)) succeeded += 1;
+      else failed += 1;
+    });
+
+    if (succeeded === 0 && failed === 0) {
+      window.Toast.show("올바른 백업 파일이 아니에요", { type: "error" });
+      return;
+    }
+    const summary =
+      failed === 0
+        ? `데이터 ${succeeded}개 항목을 ${shouldMerge ? "병합" : "가져왔어요"}. 새로고침합니다...`
+        : `${succeeded}개 항목은 가져왔지만 ${failed}개는 저장 공간 부족 등으로 실패했어요. 새로고침합니다...`;
+    window.Toast.show(summary, { duration: 2500, type: failed === 0 ? undefined : "warning" });
+    setTimeout(() => location.reload(), 1800);
+  }
+
   function importDataFile(file) {
     const shouldMerge = document.getElementById("importMergeInput")?.checked;
     const reader = new FileReader();
@@ -518,33 +548,22 @@
         return;
       }
 
-      // localStorage.setItem can fail partway through this loop (quota
-      // exceeded on a large backup) — using safeSetLocalStorage instead of
-      // a bare setItem means a failure here can't throw and get swallowed
-      // by a catch that reports the same generic "invalid file" message
-      // regardless of whether the file was actually fine and it was just
-      // storage that ran out, with some keys already overwritten by then.
-      let succeeded = 0;
-      let failed = 0;
-      Object.keys(data).forEach((key) => {
-        if (!key.startsWith("assistant.")) return;
-        const incoming = data[key];
-        const finalValue = shouldMerge ? mergeValue(localStorage.getItem(key), incoming) : incoming;
-        const value = typeof finalValue === "string" ? finalValue : JSON.stringify(finalValue);
-        if (window.safeSetLocalStorage(key, value)) succeeded += 1;
-        else failed += 1;
-      });
-
-      if (succeeded === 0 && failed === 0) {
-        window.Toast.show("올바른 백업 파일이 아니에요", { type: "error" });
-        return;
+      // Overwrite mode is irreversible (every existing assistant.* key gets
+      // replaced) and used to run the instant the file was picked, with no
+      // confirmation at all — unlike "전체 데이터 초기화", which requires an
+      // armed second click first. Merge mode is left alone: it's additive/
+      // non-destructive (mergeValue keeps whatever the existing side had a
+      // key the incoming side didn't), so there's nothing here to guard.
+      if (shouldMerge) {
+        applyImportedData(data, true);
+      } else {
+        window.Toast.show("기존 데이터를 전부 덮어써요. 되돌릴 수 없어요 — 계속할까요?", {
+          type: "warning",
+          duration: 10000,
+          actionLabel: "덮어쓰기",
+          onAction: () => applyImportedData(data, false),
+        });
       }
-      const summary =
-        failed === 0
-          ? `데이터 ${succeeded}개 항목을 ${shouldMerge ? "병합" : "가져왔어요"}. 새로고침합니다...`
-          : `${succeeded}개 항목은 가져왔지만 ${failed}개는 저장 공간 부족 등으로 실패했어요. 새로고침합니다...`;
-      window.Toast.show(summary, { duration: 2500, type: failed === 0 ? undefined : "warning" });
-      setTimeout(() => location.reload(), 1800);
     };
     // Without this, a read failure (corrupted file handle, permission
     // revoked mid-read) just meant onload never fired — the user clicks

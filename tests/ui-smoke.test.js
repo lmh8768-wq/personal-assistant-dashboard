@@ -790,6 +790,45 @@ test("settings: importing a backup file whose top-level JSON isn't an object sho
   }
 });
 
+test("settings: an overwrite-mode import requires a confirm click before applying — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    await page.evaluate((catKey) => {
+      window.ScheduleStore.add({ title: "덮어쓰기전일정", date: "2026-08-05", repeat: { type: "none" }, category: catKey });
+    }, catKey);
+
+    await page.evaluate(() => document.querySelector('[data-view="settings"]')?.click());
+    await page.waitForTimeout(150);
+
+    const result = await page.evaluate(async () => {
+      document.getElementById("importMergeInput").checked = false; // overwrite mode
+      const backup = { "assistant.schedules.v1": JSON.stringify([]) };
+      const file = new File([JSON.stringify(backup)], "backup.json", { type: "application/json" });
+      document.getElementById("importDataInput").files = (() => {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        return dt.files;
+      })();
+      document.getElementById("importDataInput").dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 200));
+      // Nothing should have applied yet — still just the confirm toast.
+      const beforeConfirm = window.ScheduleStore.getAll().length;
+      const toastText = [...document.querySelectorAll(".toast")].map((t) => t.textContent).join(" | ");
+      document.querySelector(".toast-action")?.click();
+      await new Promise((r) => setTimeout(r, 200));
+      const afterConfirm = window.ScheduleStore.getAll().length;
+      return { beforeConfirm, toastText, afterConfirm };
+    });
+
+    assert.equal(result.beforeConfirm, 1, "import must not apply until the user confirms");
+    assert.ok(result.toastText.includes("덮어써요"), "expected a warning toast about the destructive overwrite");
+    assert.equal(result.afterConfirm, 0, "confirming should apply the overwrite (backup had zero schedules)");
+  } finally {
+    await close();
+  }
+});
+
 test("practice: Alt+ArrowDown reorders a goal among its siblings via the keyboard — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {

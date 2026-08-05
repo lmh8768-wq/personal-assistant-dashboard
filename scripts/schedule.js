@@ -7,6 +7,7 @@
   let editingId = null;
   let editingOccurrenceDate = null;
   let categoryFilter = null;
+  let scheduleTextFilter = "";
   let scheduleSelectMode = false;
   let scheduleSelectedIds = new Set();
 
@@ -101,6 +102,12 @@
   function applyCategoryFilter(items) {
     if (!categoryFilter) return items;
     return items.filter((item) => (item.category || "etc") === categoryFilter);
+  }
+
+  function applyTextFilter(items) {
+    const q = scheduleTextFilter.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((item) => `${item.title} ${item.memo || ""}`.toLowerCase().includes(q));
   }
 
   // Applies the day's saved manual order, if any; otherwise (or for items
@@ -568,9 +575,12 @@
     let items = applyCustomOrder(dateStr, window.ScheduleStore.getOccurrences(dateStr));
     items = applyCategoryFilter(items);
     items = applyHideCompleted(items);
+    items = applyTextFilter(items);
 
     if (items.length === 0) {
-      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon">🗓️</span>이 날에는 일정이 없어요</li>`;
+      list.innerHTML = scheduleTextFilter.trim()
+        ? `<li class="schedule-empty"><span class="empty-icon">🔍</span>검색 결과가 없어요</li>`
+        : `<li class="schedule-empty"><span class="empty-icon">🗓️</span>이 날에는 일정이 없어요</li>`;
       return;
     }
 
@@ -1056,6 +1066,26 @@
     window.Toast.show(`"${original.title}" 일정을 복제했어요`);
   }
 
+  // The template-chip row (renderTemplateChips) has always existed, but
+  // nothing in the app ever called TemplateStore.add() — the row could
+  // never actually show a chip. Saves the modal's current title/category/
+  // importance (the same fields a chip click re-applies) as a reusable
+  // template.
+  function handleSaveAsTemplate() {
+    const title = document.getElementById("scheduleTitleInput").value.trim();
+    if (!title) {
+      window.Toast?.show("제목을 입력해주세요", { type: "error" });
+      return;
+    }
+    window.TemplateStore.add({
+      title,
+      category: document.getElementById("scheduleCategoryInput").value,
+      importance: Number(document.getElementById("scheduleImportanceInput").value) || DEFAULT_IMPORTANCE,
+    });
+    renderTemplateChips();
+    window.Toast?.show(`"${title}" 템플릿을 저장했어요`);
+  }
+
   function toggleHideCompleted() {
     hideCompleted = !hideCompleted;
     window.safeSetLocalStorage(HIDE_COMPLETED_KEY, String(hideCompleted));
@@ -1070,6 +1100,21 @@
     scheduleSelectMode = !scheduleSelectMode;
     scheduleSelectedIds.clear();
     document.getElementById("scheduleSelectModeBtn").textContent = scheduleSelectMode ? "선택 취소" : "선택";
+    updateScheduleSelectToolbar();
+    renderDayList();
+  }
+
+  // Every select-mode toolbar in the app required checking items one at a
+  // time — matches renderDayList()'s own filter pipeline so "all" means
+  // everything actually visible under the current category/completed
+  // filters, not the day's full unfiltered set.
+  function handleScheduleSelectAll() {
+    const dateStr = toDateStr(selectedDate);
+    let items = applyCustomOrder(dateStr, window.ScheduleStore.getOccurrences(dateStr));
+    items = applyCategoryFilter(items);
+    items = applyHideCompleted(items);
+    items = applyTextFilter(items);
+    items.forEach((item) => scheduleSelectedIds.add(`${item.id}::${item.occurrenceDate}`));
     updateScheduleSelectToolbar();
     renderDayList();
   }
@@ -1133,7 +1178,12 @@
       ? "완료 항목 보기"
       : "완료 항목 숨기기";
     document.getElementById("toggleHideCompletedBtn").addEventListener("click", toggleHideCompleted);
+    document.getElementById("scheduleTextFilterInput")?.addEventListener("input", (e) => {
+      scheduleTextFilter = e.target.value;
+      renderDayList();
+    });
     document.getElementById("duplicateScheduleBtn").addEventListener("click", handleDuplicate);
+    document.getElementById("saveAsTemplateBtn")?.addEventListener("click", handleSaveAsTemplate);
 
     const upcomingRangeSelect = document.getElementById("upcomingRangeSelect");
     if (upcomingRangeSelect) {
@@ -1183,6 +1233,7 @@
     document.getElementById("scheduleRepeatUntilModeInput").addEventListener("change", updateRepeatUntilDateVisibility);
 
     document.getElementById("scheduleSelectModeBtn").addEventListener("click", toggleScheduleSelectMode);
+    document.getElementById("scheduleSelectAllBtn")?.addEventListener("click", handleScheduleSelectAll);
     document.getElementById("scheduleBulkCompleteBtn").addEventListener("click", handleBulkComplete);
     document.getElementById("scheduleBulkDeleteBtn").addEventListener("click", handleBulkDelete);
 

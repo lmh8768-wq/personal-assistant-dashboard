@@ -383,11 +383,13 @@
               <div class="schedule-select-toolbar" id="scheduleSelectToolbar" hidden>
                 <span id="scheduleSelectCount">0개 선택됨</span>
                 <div>
+                  <button type="button" class="ghost-btn" id="scheduleSelectAllBtn">전체 선택</button>
                   <button type="button" class="ghost-btn" id="scheduleBulkCompleteBtn">완료 처리</button>
                   <button type="button" class="ghost-btn danger" id="scheduleBulkDeleteBtn">삭제</button>
                 </div>
               </div>
               <div class="template-chip-row" id="templateChipRow"></div>
+              <input type="text" id="scheduleTextFilterInput" class="schedule-text-filter-input" placeholder="이 날짜의 일정 검색" aria-label="이 날짜의 일정 검색" />
               <div class="schedule-filter-bar" id="scheduleFilterBar"></div>
               <div class="day-panel-toolbar">
                 <button type="button" class="ghost-btn" id="toggleHideCompletedBtn">완료 항목 숨기기</button>
@@ -411,6 +413,7 @@
               <div class="schedule-select-toolbar" id="curriculumSelectToolbar" hidden>
                 <span id="curriculumSelectCount">0개 선택됨</span>
                 <div>
+                  <button type="button" class="ghost-btn" id="curriculumSelectAllBtn">전체 선택</button>
                   <button type="button" class="ghost-btn" id="curriculumCopyBtn">복사</button>
                   <button type="button" class="ghost-btn danger" id="curriculumDeleteBtn">삭제</button>
                   <button type="button" class="ghost-btn danger" id="curriculumCancelSelectBtn">취소</button>
@@ -444,6 +447,7 @@
           <div class="schedule-select-toolbar" id="studySelectToolbar" hidden>
             <span id="studySelectCount">0개 선택됨</span>
             <div>
+              <button type="button" class="ghost-btn" id="studySelectAllBtn">전체 선택</button>
               <button type="button" class="ghost-btn" id="studyCopyBtn">복사</button>
               <button type="button" class="ghost-btn danger" id="studyDeleteBtn">삭제</button>
               <button type="button" class="ghost-btn danger" id="studyCancelSelectBtn">취소</button>
@@ -520,7 +524,17 @@
             <div class="day-panel">
               <div class="day-panel-header">
                 <h2 id="ledgerSelectedDateLabel"></h2>
-                <button class="primary-btn" id="addLedgerEntryBtn">+ 추가</button>
+                <div class="day-panel-header-actions">
+                  <button type="button" class="ghost-btn" id="ledgerSelectModeBtn">선택</button>
+                  <button class="primary-btn" id="addLedgerEntryBtn">+ 추가</button>
+                </div>
+              </div>
+              <div class="schedule-select-toolbar" id="ledgerSelectToolbar" hidden>
+                <span id="ledgerSelectCount">0개 선택됨</span>
+                <div>
+                  <button type="button" class="ghost-btn" id="ledgerSelectAllBtn">전체 선택</button>
+                  <button type="button" class="ghost-btn danger" id="ledgerBulkDeleteBtn">삭제</button>
+                </div>
               </div>
               <div class="ledger-day-summary" id="ledgerDaySummary"></div>
               <ul class="schedule-list" id="ledgerDayEntryList"></ul>
@@ -741,6 +755,7 @@
           <textarea id="scheduleMemoInput" rows="3" placeholder="메모 (선택)" maxlength="1000"></textarea>
         </label>
         <div class="modal-actions-secondary">
+          <button type="button" class="ghost-btn" id="saveAsTemplateBtn">📌 템플릿으로 저장</button>
           <button type="button" class="ghost-btn" id="duplicateScheduleBtn" hidden>⧉ 복제</button>
         </div>
         <div class="modal-actions">
@@ -767,6 +782,9 @@
         <input type="hidden" id="ledgerDateInput" />
         <div class="ledger-entry-rows" id="ledgerEntryRows"></div>
         <button type="button" class="ghost-btn ledger-add-row-btn" id="ledgerAddRowBtn" aria-label="항목 추가">+</button>
+        <div class="modal-actions-secondary">
+          <button type="button" class="ghost-btn" id="duplicateLedgerEntryBtn" hidden>⧉ 복제</button>
+        </div>
         <div class="modal-actions">
           <button type="button" class="ghost-btn danger" id="deleteLedgerEntryBtn" hidden>삭제</button>
           <div class="modal-actions-right">

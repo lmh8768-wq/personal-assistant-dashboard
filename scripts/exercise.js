@@ -78,11 +78,22 @@
   window.LearnedExerciseStore = LearnedExerciseStore;
 
   // ---------- Collapsible sections ----------
-  function toggleSection(contentEl, btn) {
+  // `storageKey`, when given, persists the collapsed state (device-local UI
+  // state, not synced) — this section used to always reopen expanded on
+  // every reload regardless of what the user last chose.
+  function toggleSection(contentEl, btn, storageKey) {
     const collapsing = !contentEl.hidden;
     contentEl.hidden = collapsing;
     btn.textContent = collapsing ? "▸" : "▾";
     btn.setAttribute("aria-expanded", String(!collapsing));
+    if (storageKey) localStorage.setItem(storageKey, String(collapsing));
+  }
+
+  function applyStoredCollapse(contentEl, btn, storageKey) {
+    const collapsed = localStorage.getItem(storageKey) === "true";
+    contentEl.hidden = collapsed;
+    btn.textContent = collapsed ? "▸" : "▾";
+    btn.setAttribute("aria-expanded", String(!collapsed));
   }
 
   // ---------- Personal records panel ----------
@@ -363,9 +374,14 @@
   }
 
   function init() {
-    document.getElementById("toggleLearnedExerciseBtn")?.addEventListener("click", (e) => {
-      toggleSection(document.getElementById("learnedExerciseGroups"), e.currentTarget);
-    });
+    const learnedToggleBtn = document.getElementById("toggleLearnedExerciseBtn");
+    const learnedGroupsEl = document.getElementById("learnedExerciseGroups");
+    if (learnedToggleBtn && learnedGroupsEl) {
+      applyStoredCollapse(learnedGroupsEl, learnedToggleBtn, "learnedExerciseGroupsCollapsed");
+      learnedToggleBtn.addEventListener("click", (e) => {
+        toggleSection(learnedGroupsEl, e.currentTarget, "learnedExerciseGroupsCollapsed");
+      });
+    }
 
     const addRow = document.getElementById("learnedExerciseAddRow");
     if (addRow) addRow.appendChild(makeLearnedExerciseAddTrigger());

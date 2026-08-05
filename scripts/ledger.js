@@ -10,7 +10,28 @@
   let analysisMode = "month"; // "month" | "year" — always tied to calendarViewDate
   let editingId = null;
   let modalType = "expense"; // which tab is active in the add/edit modal
-  let categoryProgressExpanded = false; // whether the per-category breakdown is shown
+  // Deleting a category orphans every entry still using it (they fall back
+  // to a permanent "삭제된 카테고리" label with no way to reassign) —
+  // exactly as cascading as deleting a whole study year, which already
+  // needs an armed second click. Same pattern (click once to arm, click
+  // again within a few seconds to actually act), not a native confirm().
+  let categoryDeleteArmed = null; // category key currently armed, or null
+  let categoryDeleteArmedTimer = null;
+  // Bulk-select for the day panel — schedule.js already has this; the
+  // ledger day list required deleting one entry at a time.
+  let ledgerSelectMode = false;
+  let ledgerSelectedIds = new Set();
+  // The budget bar (refreshDashboard) only ever warned passively — visible
+  // only if the ledger tab happened to be open. Nagging on every single add
+  // past the threshold would be worse than the silence it replaces, so each
+  // threshold only ever fires once per session.
+  let budgetAlert80Shown = false;
+  let budgetAlert100Shown = false;
+  // Persisted (device-local UI state, not synced) — used to reset to
+  // collapsed on every reload/tab-switch even after the user deliberately
+  // expanded it.
+  const CATEGORY_PROGRESS_EXPANDED_KEY = "ledgerCategoryProgressExpanded";
+  let categoryProgressExpanded = localStorage.getItem(CATEGORY_PROGRESS_EXPANDED_KEY) === "true";
 
   function pad2(n) {
     return String(n).padStart(2, "0");
@@ -230,7 +251,24 @@
 
     entries.forEach((entry) => {
       const li = document.createElement("li");
-      li.className = "schedule-item ledger-entry-item";
+      li.className = "schedule-item ledger-entry-item" + (ledgerSelectMode ? " selectable" : "");
+      if (ledgerSelectMode && ledgerSelectedIds.has(entry.id)) li.classList.add("selected");
+
+      if (ledgerSelectMode) {
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "schedule-item-checkbox";
+        checkbox.checked = ledgerSelectedIds.has(entry.id);
+        checkbox.setAttribute("aria-label", "선택");
+        checkbox.addEventListener("click", (e) => e.stopPropagation());
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) ledgerSelectedIds.add(entry.id);
+          else ledgerSelectedIds.delete(entry.id);
+          li.classList.toggle("selected", checkbox.checked);
+          updateLedgerSelectToolbar();
+        });
+        li.appendChild(checkbox);
+      }
 
       const dot = document.createElement("span");
       dot.className = "schedule-item-category-dot";
@@ -269,9 +307,66 @@
       window.makeKeyboardActivatable(remove);
       li.appendChild(remove);
 
-      li.addEventListener("click", () => openModal("edit", entry));
+      li.addEventListener("click", () => {
+        if (ledgerSelectMode) {
+          const nowSelected = !ledgerSelectedIds.has(entry.id);
+          if (nowSelected) ledgerSelectedIds.add(entry.id);
+          else ledgerSelectedIds.delete(entry.id);
+          li.classList.toggle("selected", nowSelected);
+          const checkbox = li.querySelector(".schedule-item-checkbox");
+          if (checkbox) checkbox.checked = nowSelected;
+          updateLedgerSelectToolbar();
+          return;
+        }
+        openModal("edit", entry);
+      });
 
       list.appendChild(li);
+    });
+  }
+
+  // ---------- Bulk select ----------
+  function updateLedgerSelectToolbar() {
+    const toolbar = document.getElementById("ledgerSelectToolbar");
+    if (!toolbar) return;
+    toolbar.hidden = !ledgerSelectMode;
+    const countEl = document.getElementById("ledgerSelectCount");
+    if (countEl) countEl.textContent = `${ledgerSelectedIds.size}개 선택됨`;
+  }
+
+  function toggleLedgerSelectMode() {
+    ledgerSelectMode = !ledgerSelectMode;
+    ledgerSelectedIds.clear();
+    document.getElementById("ledgerSelectModeBtn").textContent = ledgerSelectMode ? "선택 취소" : "선택";
+    updateLedgerSelectToolbar();
+    renderDayPanel();
+  }
+
+  function handleLedgerSelectAll() {
+    const dStr = toDateStr(selectedDate);
+    entriesForDate(dStr).forEach((entry) => ledgerSelectedIds.add(entry.id));
+    updateLedgerSelectToolbar();
+    renderDayPanel();
+  }
+
+  function handleLedgerBulkDelete() {
+    const ids = [...ledgerSelectedIds];
+    const removedItems = ids
+      .map((id) => window.LedgerEntryStore.getAll().find((e) => e.id === id))
+      .filter(Boolean);
+    ids.forEach((id) => window.LedgerEntryStore.remove(id));
+    const count = removedItems.length;
+    ledgerSelectedIds.clear();
+    ledgerSelectMode = false;
+    document.getElementById("ledgerSelectModeBtn").textContent = "선택";
+    updateLedgerSelectToolbar();
+    renderAll();
+    window.Toast?.show(`내역 ${count}개를 삭제했어요`, {
+      actionLabel: "실행취소",
+      onAction: () => {
+        window.LedgerEntryStore.addMany(removedItems);
+        renderAll();
+      },
     });
   }
 
@@ -438,6 +533,7 @@
     // ones — editing is always about a single already-existing entry.
     document.getElementById("ledgerAddRowBtn").hidden = mode === "edit";
     document.getElementById("deleteLedgerEntryBtn").hidden = mode !== "edit";
+    document.getElementById("duplicateLedgerEntryBtn").hidden = mode !== "edit";
     document.getElementById("ledgerModalOverlay").hidden = false;
     rowsContainer.querySelector(".ledger-row-amount")?.focus();
   }
@@ -491,6 +587,28 @@
     window.Toast?.show(entries.length > 1 ? `${entries.length}건 추가했어요` : "내역을 추가했어요");
     closeModal();
     renderAll();
+    if (entries.some((entry) => entryType(entry) === "expense")) checkBudgetAlert();
+  }
+
+  // Fires once per session per threshold, right when an expense addition is
+  // what pushes the current month over it — separate from the passive
+  // budget bar (refreshDashboard), which only ever informs someone already
+  // looking at the ledger tab.
+  function checkBudgetAlert() {
+    const totalBudget = window.LedgerCategoryStore.getByType("expense").reduce((sum, c) => sum + (c.budget || 0), 0);
+    if (totalBudget === 0) return;
+    const mKey = toDateStr(new Date()).slice(0, 7);
+    const totalSpent = window.LedgerEntryStore.getAll()
+      .filter((e) => e.date.slice(0, 7) === mKey && entryType(e) === "expense")
+      .reduce((sum, e) => sum + e.amount, 0);
+    const pct = Math.round((totalSpent / totalBudget) * 100);
+    if (pct >= 100 && !budgetAlert100Shown) {
+      budgetAlert100Shown = true;
+      window.Toast?.show(`이번 달 지출이 목표(${formatWon(totalBudget)})를 넘었어요`, { type: "error", duration: 8000 });
+    } else if (pct >= 80 && !budgetAlert80Shown) {
+      budgetAlert80Shown = true;
+      window.Toast?.show(`이번 달 지출이 목표의 ${pct}%에 도달했어요`, { type: "warning", duration: 8000 });
+    }
   }
 
   function handleDeleteFromModal() {
@@ -498,6 +616,20 @@
     const id = editingId;
     closeModal();
     deleteEntry(id);
+  }
+
+  // A recurring purchase (e.g. a subscription) used to have to be re-typed
+  // from scratch every time — schedule.js already has this same "⧉ 복제"
+  // pattern for its own edit modal.
+  function handleDuplicateEntry() {
+    if (!editingId) return;
+    const original = window.LedgerEntryStore.getAll().find((e) => e.id === editingId);
+    if (!original) return;
+    const { id, ...rest } = original;
+    window.LedgerEntryStore.add(rest);
+    closeModal();
+    renderAll();
+    window.Toast?.show("내역을 복제했어요");
   }
 
   function deleteEntry(id) {
@@ -618,6 +750,7 @@
     expandBtn.innerHTML = `<span class="ledger-expand-icon${categoryProgressExpanded ? " expanded" : ""}">▾</span>`;
     expandBtn.addEventListener("click", () => {
       categoryProgressExpanded = !categoryProgressExpanded;
+      localStorage.setItem(CATEGORY_PROGRESS_EXPANDED_KEY, String(categoryProgressExpanded));
       renderCategoryProgress();
     });
     trackRow.appendChild(expandBtn);
@@ -713,10 +846,25 @@
 
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
-    removeBtn.className = "checklist-item-remove";
-    removeBtn.textContent = "×";
-    removeBtn.setAttribute("aria-label", `${cat.label} 카테고리 삭제`);
+    const armed = categoryDeleteArmed === cat.key;
+    removeBtn.className = "checklist-item-remove goal-year-remove" + (armed ? " confirm-armed" : "");
+    removeBtn.textContent = armed ? "확인" : "×";
+    removeBtn.setAttribute("aria-label", armed ? `${cat.label} 카테고리 삭제 확인 (다시 누르면 삭제됩니다)` : `${cat.label} 카테고리 삭제`);
     removeBtn.addEventListener("click", () => {
+      if (categoryDeleteArmed !== cat.key) {
+        categoryDeleteArmed = cat.key;
+        clearTimeout(categoryDeleteArmedTimer);
+        categoryDeleteArmedTimer = setTimeout(() => {
+          if (categoryDeleteArmed === cat.key) {
+            categoryDeleteArmed = null;
+            renderCategoryManager();
+          }
+        }, 4000);
+        renderCategoryManager();
+        return;
+      }
+      clearTimeout(categoryDeleteArmedTimer);
+      categoryDeleteArmed = null;
       const removed = window.LedgerCategoryStore.remove(cat.key);
       renderAll();
       if (removed && window.Toast) {
@@ -987,11 +1135,15 @@
 
   function init() {
     document.getElementById("addLedgerEntryBtn")?.addEventListener("click", () => openModal("add"));
+    document.getElementById("ledgerSelectModeBtn")?.addEventListener("click", toggleLedgerSelectMode);
+    document.getElementById("ledgerSelectAllBtn")?.addEventListener("click", handleLedgerSelectAll);
+    document.getElementById("ledgerBulkDeleteBtn")?.addEventListener("click", handleLedgerBulkDelete);
     document.getElementById("ledgerAddRowBtn")?.addEventListener("click", addEntryRow);
     document.getElementById("cancelLedgerBtn")?.addEventListener("click", closeModal);
     document.getElementById("closeLedgerModalBtn")?.addEventListener("click", closeModal);
     document.getElementById("ledgerForm")?.addEventListener("submit", handleSubmit);
     document.getElementById("deleteLedgerEntryBtn")?.addEventListener("click", handleDeleteFromModal);
+    document.getElementById("duplicateLedgerEntryBtn")?.addEventListener("click", handleDuplicateEntry);
     document.getElementById("ledgerModalOverlay")?.addEventListener("click", (e) => {
       if (e.target.id === "ledgerModalOverlay") closeModal();
     });

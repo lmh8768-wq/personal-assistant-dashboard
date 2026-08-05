@@ -423,6 +423,22 @@
     updateStudySelectToolbar();
   }
 
+  function handleStudySelectAll() {
+    function addAll(nodes, yearId, periodId) {
+      nodes.forEach((node) => {
+        selectedGoals.set(node.id, { yearId, periodId });
+        addAll(node.children || [], yearId, periodId);
+      });
+    }
+    GoalStore.getYears().forEach((year) => {
+      GoalStore.getPeriods(year.id).forEach((period) => {
+        addAll(GoalStore.getGoals(year.id, period.id), year.id, period.id);
+      });
+    });
+    updateStudySelectToolbar();
+    renderAll();
+  }
+
   function handleStudyCopy() {
     if (selectedGoals.size === 0) return;
     clipboardGoals = [...selectedGoals.entries()]
@@ -1131,6 +1147,7 @@
   function init() {
     renderAll();
     document.getElementById("studySelectModeBtn")?.addEventListener("click", toggleStudySelectMode);
+    document.getElementById("studySelectAllBtn")?.addEventListener("click", handleStudySelectAll);
     document.getElementById("studyCopyBtn")?.addEventListener("click", handleStudyCopy);
     document.getElementById("studyDeleteBtn")?.addEventListener("click", handleStudyDelete);
     document.getElementById("studyCancelSelectBtn")?.addEventListener("click", () => {
