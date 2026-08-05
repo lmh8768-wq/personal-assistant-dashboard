@@ -520,6 +520,11 @@
       window.Toast.show("올바른 백업 파일이 아니에요", { type: "error" });
       return;
     }
+    // Writes here go straight through safeSetLocalStorage, bypassing every
+    // store's own save() — each store's in-memory read cache (store.js)
+    // would otherwise keep serving pre-import data for the few seconds
+    // before the reload below actually lands.
+    window.__resetStoreCaches?.forEach((reset) => reset());
     const summary =
       failed === 0
         ? `데이터 ${succeeded}개 항목을 ${shouldMerge ? "병합" : "가져왔어요"}. 새로고침합니다...`
@@ -600,6 +605,10 @@
       window.Toast.show("초기화 중 오류가 발생했어요. 일부만 삭제됐을 수 있어요.", { type: "error" });
       return;
     }
+    // Same reasoning as applyImportedData above — this bypasses every
+    // store's own save(), so their in-memory read caches need an explicit
+    // invalidation instead of only relying on the reload below.
+    window.__resetStoreCaches?.forEach((reset) => reset());
     window.Toast.show("모든 데이터를 초기화했어요. 새로고침합니다...", { duration: 1500 });
     setTimeout(() => location.reload(), 1000);
   }

@@ -15,20 +15,46 @@ window.safeSetLocalStorage = function (key, value) {
   }
 };
 
+// Every store below caches its parsed localStorage value in memory,
+// invalidated by that store's own save() — safe as long as nothing writes
+// to the same key any other way. settings.js's backup import/full-reset are
+// exactly that other way (they write via safeSetLocalStorage directly, for
+// every assistant.* key at once, bypassing each store's own save()) — both
+// already trigger a location.reload() shortly after, which resets this
+// in-memory state along with everything else, but relying on that alone
+// leaves the brief window before the reload actually fires serving stale
+// cached reads. Each cache below registers a reset function here so
+// settings.js can invalidate everything immediately, not just eventually.
+window.__resetStoreCaches = [];
+
 // ---------- Schedule persistence (localStorage) ----------
 (function () {
   const SCHEDULE_KEY = "assistant.schedules.v1";
 
+  // Invalidated by saveSchedules() below — see createEntityStore's cache
+  // comment (further down this file) for why this is safe against external
+  // writes. getOccurrences()/getOccurrenceCountFor() get called once per
+  // calendar cell (42/month, in both schedule.js and ledger.js) on top of
+  // every dashboard widget — each of those used to be its own fresh parse
+  // of the entire schedules array.
+  let schedulesCache = null;
+  window.__resetStoreCaches.push(() => {
+    schedulesCache = null;
+  });
+
   function loadSchedules() {
+    if (schedulesCache) return [...schedulesCache];
     try {
       const raw = localStorage.getItem(SCHEDULE_KEY);
-      return raw ? JSON.parse(raw) : [];
+      schedulesCache = raw ? JSON.parse(raw) : [];
     } catch {
-      return [];
+      schedulesCache = [];
     }
+    return [...schedulesCache];
   }
 
   function saveSchedules(schedules) {
+    schedulesCache = schedules;
     window.safeSetLocalStorage(SCHEDULE_KEY, JSON.stringify(schedules));
   }
 
@@ -381,20 +407,37 @@ function createKeyedStore(loadFn, saveFn) {
     return `cat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
+  // Invalidated by saveCategories() — see createEntityStore's cache above
+  // for why this is safe against external writes. getCategoryColor()/
+  // getCategoryLabel() (schedule.js/ledger.js) call getByKey() once per
+  // rendered item — a 42-cell month calendar alone used to mean 42+ fresh
+  // parses of this same small-but-frequently-hit array per render.
+  let categoriesCache = null;
+  window.__resetStoreCaches.push(() => {
+    categoriesCache = null;
+  });
+
   function loadCategories() {
     // Always a fresh copy — add()/update()/remove() below mutate whatever
     // array they get back in place (push/splice), and returning the DEFAULTS
     // constant itself here would let that first mutation permanently corrupt
     // it for the rest of the page's lifetime.
+    if (categoriesCache) return categoriesCache.map((c) => ({ ...c }));
     try {
       const raw = localStorage.getItem(CATEGORIES_KEY);
-      if (!raw) return DEFAULTS.map((c) => ({ ...c }));
+      if (!raw) {
+        categoriesCache = DEFAULTS.map((c) => ({ ...c }));
+        return categoriesCache.map((c) => ({ ...c }));
+      }
       const parsed = JSON.parse(raw);
       // A corrupted/unexpected shape (e.g. a bad cloud-sync merge) used to
       // fall through to `return parsed` as-is here, unlike every sibling
       // store in this file — later callers like add() would then throw
       // trying to .push() onto whatever non-array value that was.
-      if (!Array.isArray(parsed)) return DEFAULTS.map((c) => ({ ...c }));
+      if (!Array.isArray(parsed)) {
+        categoriesCache = DEFAULTS.map((c) => ({ ...c }));
+        return categoriesCache.map((c) => ({ ...c }));
+      }
       const isUnmodifiedOldDefaults =
         parsed.length === TRUE_OLD_DEFAULTS.length &&
         parsed.every(
@@ -405,15 +448,19 @@ function createKeyedStore(loadFn, saveFn) {
         );
       if (isUnmodifiedOldDefaults) {
         saveCategories(DEFAULTS);
-        return DEFAULTS.map((c) => ({ ...c }));
+        categoriesCache = DEFAULTS.map((c) => ({ ...c }));
+        return categoriesCache.map((c) => ({ ...c }));
       }
-      return parsed;
+      categoriesCache = parsed;
+      return parsed.map((c) => ({ ...c }));
     } catch {
-      return DEFAULTS.map((c) => ({ ...c }));
+      categoriesCache = DEFAULTS.map((c) => ({ ...c }));
+      return categoriesCache.map((c) => ({ ...c }));
     }
   }
 
   function saveCategories(categories) {
+    categoriesCache = categories;
     window.safeSetLocalStorage(CATEGORIES_KEY, JSON.stringify(categories));
   }
 
@@ -464,16 +511,33 @@ function createKeyedStore(loadFn, saveFn) {
     return `cat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
+  // Invalidated by save() below — see createEntityStore's cache comment
+  // for why this is safe against external writes. getByType() used to
+  // re-parse this on every call, and ledger.js's calendar calls it once per
+  // rendered day cell (42 per month render) on top of every category-color/
+  // label lookup per line item.
+  let cache = null;
+  window.__resetStoreCaches.push(() => {
+    cache = null;
+  });
+
   function load() {
     // Always a fresh copy — add()/update()/remove() below mutate whatever
     // array they get back in place (push/splice), and returning the DEFAULTS
     // constant itself here would let that first mutation permanently corrupt
     // it for the rest of the page's lifetime.
+    if (cache) return cache.map((c) => ({ ...c }));
     try {
       const raw = localStorage.getItem(KEY);
-      if (!raw) return DEFAULTS.map((c) => ({ ...c }));
+      if (!raw) {
+        cache = DEFAULTS.map((c) => ({ ...c }));
+        return cache.map((c) => ({ ...c }));
+      }
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return DEFAULTS.map((c) => ({ ...c }));
+      if (!Array.isArray(parsed)) {
+        cache = DEFAULTS.map((c) => ({ ...c }));
+        return cache.map((c) => ({ ...c }));
+      }
 
       // Migrate categories saved before income categories existed — they
       // were all implicitly expense categories, and income defaults get
@@ -489,13 +553,16 @@ function createKeyedStore(loadFn, saveFn) {
         changed = true;
       }
       if (changed) save(migrated);
-      return migrated;
+      cache = migrated;
+      return migrated.map((c) => ({ ...c }));
     } catch {
-      return DEFAULTS.map((c) => ({ ...c }));
+      cache = DEFAULTS.map((c) => ({ ...c }));
+      return cache.map((c) => ({ ...c }));
     }
   }
 
   function save(categories) {
+    cache = categories;
     window.safeSetLocalStorage(KEY, JSON.stringify(categories));
   }
 
@@ -525,17 +592,36 @@ function createEntityStore(key, idPrefix) {
     return `${idPrefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
+  // In-memory cache of the parsed array, invalidated by save() below —
+  // every read used to be its own fresh JSON.parse of the whole array,
+  // even when nothing had changed since the last read (e.g. re-rendering
+  // the same month's calendar, or reading categories once per rendered
+  // list item). Safe because every write in this app that could touch this
+  // key goes through save() below or is immediately followed by a full
+  // location.reload() (cloud-sync applying a remote pull/merge, settings.js
+  // import/reset) — nothing changes this key's localStorage value out from
+  // under a live page without one of those two happening first; window.
+  // __resetStoreCaches also lets settings.js invalidate this immediately
+  // rather than only once that reload actually lands.
+  let cache = null;
+  window.__resetStoreCaches.push(() => {
+    cache = null;
+  });
+
   function load() {
+    if (cache) return [...cache]; // shallow copy: callers can push/sort/splice their own copy freely
     try {
       const raw = localStorage.getItem(key);
       const data = raw ? JSON.parse(raw) : [];
-      return Array.isArray(data) ? data : [];
+      cache = Array.isArray(data) ? data : [];
     } catch {
-      return [];
+      cache = [];
     }
+    return [...cache];
   }
 
   function save(items) {
+    cache = items;
     window.safeSetLocalStorage(key, JSON.stringify(items));
   }
 
