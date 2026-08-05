@@ -168,6 +168,95 @@ test("CategoryStore: a truly-untouched old-scheme set still migrates to the new 
   assert.ok(!categories.some((c) => c.key === "work"));
 });
 
+test("CategoryStore: a failed write during old-scheme migration doesn't poison the in-memory cache — the actual bug fix", () => {
+  const { window, localStorage } = loadStoreModuleWithStorage();
+  const untouched = [
+    { key: "work", label: "업무", color: "#60a5fa" },
+    { key: "personal", label: "개인", color: "#a78bfa" },
+    { key: "health", label: "건강", color: "#f87171" },
+    { key: "study", label: "공부", color: "#4ade80" },
+    { key: "etc", label: "기타", color: "#94a3b8" },
+  ];
+  localStorage.setItem("assistant.categories.v1", JSON.stringify(untouched));
+
+  const realSetItem = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = () => {
+    throw new Error("quota exceeded");
+  };
+  window.CategoryStore.getAll(); // triggers the migration write, which fails
+  localStorage.setItem = realSetItem;
+
+  // The write never actually landed, so the raw persisted value must still
+  // be the old un-migrated array.
+  const persisted = JSON.parse(localStorage.getItem("assistant.categories.v1"));
+  assert.equal(persisted.length, 5, "a failed write must not be treated as if it landed");
+
+  // A later read (storage healthy again) must retry the migration instead
+  // of serving a cache that got poisoned by the earlier failed attempt.
+  const categories = window.CategoryStore.getAll();
+  assert.ok(categories.some((c) => c.key === "appointment"), "the retried migration must still succeed once storage works again");
+});
+
+test("LedgerCategoryStore: a failed write during the income-category migration doesn't poison the in-memory cache — the actual bug fix", () => {
+  const { window, localStorage } = loadStoreModuleWithStorage();
+  const preIncomeScheme = [{ key: "food", label: "식비", color: "#f97316", budget: 0 }];
+  localStorage.setItem("assistant.ledgerCategories.v1", JSON.stringify(preIncomeScheme));
+
+  const realSetItem = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = () => {
+    throw new Error("quota exceeded");
+  };
+  window.LedgerCategoryStore.getAll();
+  localStorage.setItem = realSetItem;
+
+  const persisted = JSON.parse(localStorage.getItem("assistant.ledgerCategories.v1"));
+  assert.equal(persisted.length, 1, "a failed write must not be treated as if it landed");
+
+  const categories = window.LedgerCategoryStore.getAll();
+  assert.ok(categories.some((c) => c.type === "income"), "the retried migration must still succeed once storage works again");
+});
+
+test("store.js: a 'storage' event from another same-origin tab resets every registered cache — the actual bug fix", () => {
+  // Two tabs of the SAME browser share cloud-sync's persisted DEVICE_ID, so
+  // a write in one tab is filed as an "own echo" by the other tab's
+  // Firestore listener and never triggers a reload — the native `storage`
+  // event (fired on every OTHER same-origin tab, never the one that wrote)
+  // is the only signal available to invalidate that other tab's stale cache.
+  const { window, localStorage } = loadStoreModuleWithStorage();
+
+  // Warm ScheduleStore's cache with one item.
+  window.ScheduleStore.add({ title: "A", date: "2026-08-01", repeat: { type: "none" } });
+  assert.equal(window.ScheduleStore.getAll().length, 1);
+
+  // Simulate a SECOND tab writing directly to the same underlying
+  // localStorage (as cloud-sync.js's own-echo-ignored write would) —
+  // bypassing this tab's store entirely, the way a real second tab would.
+  const raw = JSON.parse(localStorage.getItem("assistant.schedules.v1"));
+  raw.push({ id: "sc_from_other_tab", title: "B", date: "2026-08-02", repeat: { type: "none" } });
+  localStorage.setItem("assistant.schedules.v1", JSON.stringify(raw));
+
+  // Without invalidation, the cache still only knows about the first item.
+  assert.equal(window.ScheduleStore.getAll().length, 1, "sanity: the cache is stale before the storage event fires");
+
+  // Fire the real registered "storage" listener, exactly as the browser
+  // would on every OTHER same-origin tab when localStorage changes.
+  assert.ok(window.__testStorageListeners.length >= 1, "store.js must register a storage listener");
+  window.__testStorageListeners.forEach((fn) => fn({ key: "assistant.schedules.v1" }));
+
+  assert.equal(window.ScheduleStore.getAll().length, 2, "the cache must reflect the other tab's write after invalidation");
+});
+
+test("store.js: a 'storage' event for a non-assistant.* key is ignored", () => {
+  const { window } = loadStoreModuleWithStorage();
+  window.ScheduleStore.add({ title: "A", date: "2026-08-01", repeat: { type: "none" } });
+  window.ScheduleStore.getAll(); // warm the cache
+
+  let resetCount = 0;
+  window.__resetStoreCaches.push(() => resetCount++);
+  window.__testStorageListeners.forEach((fn) => fn({ key: "someOtherSite.unrelated" }));
+  assert.equal(resetCount, 0, "an unrelated key must not trigger a cache reset");
+});
+
 test("CategoryStore: a corrupted non-array value falls back to defaults instead of throwing later — the actual bug fix", () => {
   const { window, localStorage } = loadStoreModuleWithStorage();
   localStorage.setItem("assistant.categories.v1", JSON.stringify({ oops: true }));

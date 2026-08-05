@@ -137,5 +137,34 @@
     });
   }
 
-  window.PushNotifications = { isSupported, isEnabled, enableNotifications, disableNotifications };
+  // sw.js's pushsubscriptionchange handler only relays a rotated
+  // subscription to the server via postMessage — but that event can fire
+  // while this app isn't open at all (it's a background event), and no
+  // page is around to receive the message or hold the auth session needed
+  // to save it. Without any other recovery, a rotation in that common case
+  // leaves the server holding a stale endpoint forever, silently breaking
+  // notifications with no way to fix it short of manually toggling them off
+  // and back on. Reconciling on every app start closes that gap: re-saving
+  // whatever subscription the browser currently holds is a harmless no-op
+  // when nothing changed, and self-heals when something did.
+  async function reconcileSubscription() {
+    if (!isSupported() || !isEnabled()) return;
+    const user = window.firebase?.auth && window.firebase.auth().currentUser;
+    if (!user) return;
+    try {
+      const registration = await navigator.serviceWorker.getRegistration("/sw.js");
+      const subscription = await registration?.pushManager.getSubscription();
+      if (!subscription) return;
+      const idToken = await user.getIdToken();
+      await fetch("/api/save-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, subscription: subscription.toJSON() }),
+      });
+    } catch (err) {
+      console.error("push subscription reconcile failed", err);
+    }
+  }
+
+  window.PushNotifications = { isSupported, isEnabled, enableNotifications, disableNotifications, reconcileSubscription };
 })();

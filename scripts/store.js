@@ -27,6 +27,22 @@ window.safeSetLocalStorage = function (key, value) {
 // settings.js can invalidate everything immediately, not just eventually.
 window.__resetStoreCaches = [];
 
+// A second tab of the SAME browser shares this device's cloud-sync
+// DEVICE_ID (see cloud-sync.js), so a write there is filed as "own echo"
+// by every other tab's snapshot listener and never triggers the reload the
+// caches above assume covers every external write — a change made in tab A
+// would otherwise sit invisible to tab B's cache until something unrelated
+// happened to reload it, and a save from tab B in the meantime would
+// silently overwrite tab A's change with stale data. The browser's native
+// `storage` event is the one signal that reliably fires in every other
+// same-origin tab the instant localStorage changes — use it to invalidate
+// every cache right away instead of leaving them stale.
+window.addEventListener("storage", (e) => {
+  if (e.key && e.key.startsWith("assistant.")) {
+    window.__resetStoreCaches.forEach((reset) => reset());
+  }
+});
+
 // ---------- Schedule persistence (localStorage) ----------
 (function () {
   const SCHEDULE_KEY = "assistant.schedules.v1";
@@ -455,9 +471,15 @@ function createKeyedStore(loadFn, saveFn) {
             c.color === TRUE_OLD_DEFAULTS[i].color
         );
       if (isUnmodifiedOldDefaults) {
+        // saveCategories() itself only updates categoriesCache when the
+        // write actually persists (see its own comment) — asserting the
+        // cache here too would undo that guard and let a failed write
+        // (quota exceeded) leave the in-memory view silently diverged from
+        // what's actually on disk/synced. Returning DEFAULTS directly still
+        // gives this call the right value either way; a failed write just
+        // means the next loadCategories() call retries the migration.
         saveCategories(DEFAULTS);
-        categoriesCache = DEFAULTS.map((c) => ({ ...c }));
-        return categoriesCache.map((c) => ({ ...c }));
+        return DEFAULTS.map((c) => ({ ...c }));
       }
       categoriesCache = parsed;
       return parsed.map((c) => ({ ...c }));
@@ -563,7 +585,14 @@ function createKeyedStore(loadFn, saveFn) {
         migrated.push(...DEFAULTS.filter((c) => c.type === "income").map((c) => ({ ...c })));
         changed = true;
       }
-      if (changed) save(migrated);
+      // Same reasoning as CategoryStore's isUnmodifiedOldDefaults branch
+      // above: save() only updates `cache` when the write actually
+      // persists, so only assert it ourselves when there was no write to
+      // gate on in the first place.
+      if (changed) {
+        save(migrated);
+        return migrated.map((c) => ({ ...c }));
+      }
       cache = migrated;
       return migrated.map((c) => ({ ...c }));
     } catch {

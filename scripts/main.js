@@ -274,6 +274,7 @@ window.initFeatures = function initFeatures() {
   if (window.VongoleView) window.VongoleView.init();
   if (window.RoutineView) window.RoutineView.init();
   if (window.GlobalSearch) window.GlobalSearch.init();
+  if (window.PushNotifications) window.PushNotifications.reconcileSubscription();
 };
 
 // ---------- Open Claude app (stand-in for AI features) ----------

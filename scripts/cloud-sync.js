@@ -30,6 +30,11 @@
   const OFFLINE_TIMEOUT_MS = 8000;
   const PUSH_DEBOUNCE_MS = 800;
   const LISTEN_RETRY_DELAY_MS = 10000;
+  // A push that fails because the payload is too large will fail identically
+  // on every retry until the user actually deletes data — unlike a network
+  // hiccup, hammering it every POLL_INTERVAL_MS (1.5s) forever accomplishes
+  // nothing but wasted requests. Back off to a much slower recheck instead.
+  const LARGE_PAYLOAD_RETRY_BACKOFF_MS = 5 * 60 * 1000;
 
   let auth;
   let db;
@@ -39,6 +44,12 @@
   let offlineTimer = null;
   let listenRetryTimer = null;
   let sizeWarningShown = false; // nag about a near-limit payload once per session, not every push attempt
+  let largePayloadRetryBlockedUntil = 0;
+  // Set once the user clicks "오프라인으로 계속" — a Firebase auth response
+  // that resolves later (a flaky connection is exactly when that button
+  // appears in the first place) must not re-cover the app the user is
+  // already using with the loading gate again.
+  let offlineContinueActive = false;
   // Guards against the exact class of bug that once wiped a user's data: a
   // local write (e.g. a widget seeding its own cache key) racing ahead of
   // the very first Firestore pull and getting pushed up as if it were the
@@ -173,7 +184,17 @@
     checkForLocalChanges();
     // Retry a push that was queued before sign-in/initial sync finished
     // (e.g. changes made in the offline-continue fallback) once we're ready.
-    if (hasPendingLocalChanges() && !pushPending && !pushInFlight && auth && auth.currentUser && initialSyncDone) {
+    // Skipped while backed off after an oversized-payload failure — see
+    // LARGE_PAYLOAD_RETRY_BACKOFF_MS.
+    if (
+      hasPendingLocalChanges() &&
+      !pushPending &&
+      !pushInFlight &&
+      auth &&
+      auth.currentUser &&
+      initialSyncDone &&
+      Date.now() >= largePayloadRetryBlockedUntil
+    ) {
       pushPending = true;
       pushToCloud();
     }
@@ -429,18 +450,26 @@
       // already near Firestore's limit, retrying the exact same push won't
       // help — say so plainly instead of leaving the user staring at a
       // generic "동기화 실패" that gives no hint what to actually do.
-      if (payload.length > 800000) {
+      const isOversized = payload.length > 800000;
+      if (isOversized) {
         window.Toast?.show("데이터가 너무 커서 동기화가 계속 실패하고 있어요. 오래된 가계부/연습 기록을 정리해보세요.", {
           type: "error",
           duration: 8000,
         });
+        // Retrying an oversized payload fails identically every time until
+        // the user deletes data — back off instead of retrying every
+        // 1.5s forever (see LARGE_PAYLOAD_RETRY_BACKOFF_MS).
+        largePayloadRetryBlockedUntil = Date.now() + LARGE_PAYLOAD_RETRY_BACKOFF_MS;
+        logSync(`backing off retries for ${LARGE_PAYLOAD_RETRY_BACKOFF_MS / 1000}s — payload is too large to ever succeed as-is`);
       }
       setSyncStatus("error", "동기화 실패");
       // Same reasoning as the success branch above — a newer edit deferred
       // by the pushInFlight guard while THIS push was failing would
       // otherwise leave pushPending stuck true with nothing left to ever
-      // retry it (the poller's retry branch needs !pushPending).
-      if (pushPending) {
+      // retry it (the poller's retry branch needs !pushPending). Skipped
+      // when oversized: an immediate retry would just fail the same way:
+      // the poller picks it up again once the backoff window passes.
+      if (pushPending && !isOversized) {
         logSync("retrying immediately — a newer change is also pending");
         pushToCloud();
       }
@@ -656,6 +685,7 @@
 
   function handleOfflineContinue() {
     logSync("user clicked offline-continue");
+    offlineContinueActive = true;
     setSyncStatus("offline", "오프라인");
     cleanupLegacyKeys();
     showApp();
@@ -721,8 +751,12 @@
         unsubscribeSnapshot = null;
       }
       if (user) {
-        showLoading();
-        armOfflineFallback();
+        // See offlineContinueActive's own comment — a late auth resolution
+        // must not cover the app the user already opted to use offline.
+        if (!offlineContinueActive) {
+          showLoading();
+          armOfflineFallback();
+        }
         startListening(user.uid);
       } else {
         showLogin();

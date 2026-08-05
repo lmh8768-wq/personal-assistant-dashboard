@@ -67,7 +67,16 @@ function buildSandbox() {
   );
   const code = fs.readFileSync(path.join(__dirname, "..", "..", "scripts", "store.js"), "utf8");
   const localStorage = createMemoryStorage();
-  const windowObj = {};
+  // store.js registers a "storage" listener (cross-tab cache invalidation)
+  // at load time now — capture it (instead of a bare no-op stub) so a test
+  // can fire a fake cross-tab storage event and verify the real listener
+  // body actually runs, not just simulate what it's supposed to do.
+  const storageListeners = [];
+  const windowObj = {
+    addEventListener: (type, fn) => {
+      if (type === "storage") storageListeners.push(fn);
+    },
+  };
   const sandbox = {
     localStorage,
     console,
@@ -83,6 +92,9 @@ function buildSandbox() {
   vm.createContext(sandbox);
   vm.runInContext(recurrenceCode, sandbox, { filename: "scripts/schedule-recurrence.js" });
   vm.runInContext(code, sandbox, { filename: "scripts/store.js" });
+  // Exposed for tests only (real app code never reads this) — see the
+  // addEventListener capture above.
+  windowObj.__testStorageListeners = storageListeners;
   return sandbox;
 }
 
