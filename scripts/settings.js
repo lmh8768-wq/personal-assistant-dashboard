@@ -533,8 +533,20 @@
     setTimeout(() => location.reload(), 1800);
   }
 
+  const OVERWRITE_CONFIRM_MESSAGE = "기존 데이터를 전부 덮어써요. 되돌릴 수 없어요 — 계속할까요?";
+
   function importDataFile(file) {
     const shouldMerge = document.getElementById("importMergeInput")?.checked;
+    // An earlier, not-yet-confirmed overwrite import's confirm toast would
+    // otherwise stay armed with a closure over THAT file's (now stale)
+    // data — if the user then picks a different file (merge or overwrite)
+    // before confirming, clicking the old toast would still fire and
+    // clobber whatever this newer import just did with the older file's
+    // contents. Only the most recent import attempt's confirm should ever
+    // be able to apply.
+    document.querySelectorAll(".toast").forEach((el) => {
+      if (el.dataset.toastMessage === OVERWRITE_CONFIRM_MESSAGE) el.remove();
+    });
     const reader = new FileReader();
     reader.onload = (e) => {
       let data;
@@ -562,7 +574,7 @@
       if (shouldMerge) {
         applyImportedData(data, true);
       } else {
-        window.Toast.show("기존 데이터를 전부 덮어써요. 되돌릴 수 없어요 — 계속할까요?", {
+        window.Toast.show(OVERWRITE_CONFIRM_MESSAGE, {
           type: "warning",
           duration: 10000,
           actionLabel: "덮어쓰기",

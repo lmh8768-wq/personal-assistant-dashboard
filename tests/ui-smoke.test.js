@@ -829,6 +829,59 @@ test("settings: an overwrite-mode import requires a confirm click before applyin
   }
 });
 
+test("settings: picking a second (merge) file dismisses an earlier unconfirmed overwrite's confirm toast — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    await page.evaluate((catKey) => {
+      window.ScheduleStore.add({ title: "원래일정", date: "2026-08-05", repeat: { type: "none" }, category: catKey });
+    }, catKey);
+
+    await page.evaluate(() => document.querySelector('[data-view="settings"]')?.click());
+    await page.waitForTimeout(150);
+
+    const result = await page.evaluate(async () => {
+      const pickFile = (backup) => {
+        const file = new File([JSON.stringify(backup)], "backup.json", { type: "application/json" });
+        document.getElementById("importDataInput").files = (() => {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          return dt.files;
+        })();
+        document.getElementById("importDataInput").dispatchEvent(new Event("change", { bubbles: true }));
+      };
+
+      // File A: overwrite mode, would wipe schedules — left UNCONFIRMED.
+      // Backup files store PARSED values (see settings.js exportData's
+      // `data[key] = JSON.parse(...)`), not pre-stringified JSON strings.
+      document.getElementById("importMergeInput").checked = false;
+      pickFile({ "assistant.schedules.v1": [] });
+      await new Promise((r) => setTimeout(r, 200));
+
+      // File B: merge mode, adds a second schedule — applies immediately.
+      document.getElementById("importMergeInput").checked = true;
+      pickFile({ "assistant.schedules.v1": [{ id: "sc_merged", title: "병합된일정", date: "2026-08-05", repeat: { type: "none" } }] });
+      await new Promise((r) => setTimeout(r, 300));
+
+      const afterMerge = window.ScheduleStore.getAll().length;
+      // File A's stale confirm toast must be gone — clicking any remaining
+      // toast action must NOT re-apply file A's (now stale) empty-schedules
+      // overwrite on top of what the merge just produced.
+      const staleToastGone = ![...document.querySelectorAll(".toast")].some((t) => t.textContent.includes("덮어써요"));
+      document.querySelector(".toast-action")?.click();
+      await new Promise((r) => setTimeout(r, 200));
+      const afterStaleClick = window.ScheduleStore.getAll().length;
+      return { afterMerge, staleToastGone, afterStaleClick };
+    });
+
+    assert.equal(result.afterMerge, 2, "merge should add to the existing schedule, not wait for confirmation");
+    assert.equal(result.staleToastGone, true, "file A's overwrite-confirm toast must be dismissed once file B was picked");
+    assert.equal(result.afterStaleClick, 2, "no stale confirm should be able to wipe what the merge just produced");
+  } finally {
+    await close();
+  }
+});
+
 test("practice: Alt+ArrowDown reorders a goal among its siblings via the keyboard — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {
