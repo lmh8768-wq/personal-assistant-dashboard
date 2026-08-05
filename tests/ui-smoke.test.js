@@ -1106,9 +1106,16 @@ test("schedule: selecting an item in bulk-select mode patches just that row, wit
   const { page, close } = await launchApp();
   try {
     const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    // Must be "today" — the schedule day panel defaults to today's date,
+    // and a date hardcoded to whatever day this test was written on would
+    // silently stop matching (and this test would time out finding zero
+    // rows) the moment the real calendar date moved past it.
     await page.evaluate((catKey) => {
-      window.ScheduleStore.add({ title: "일정A", date: "2026-08-04", repeat: { type: "none" }, category: catKey });
-      window.ScheduleStore.add({ title: "일정B", date: "2026-08-04", repeat: { type: "none" }, category: catKey });
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      window.ScheduleStore.add({ title: "일정A", date: today, repeat: { type: "none" }, category: catKey });
+      window.ScheduleStore.add({ title: "일정B", date: today, repeat: { type: "none" }, category: catKey });
     }, catKey);
     await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
     await page.waitForTimeout(200);

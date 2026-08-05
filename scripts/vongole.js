@@ -46,24 +46,46 @@
   // Single filter box (#vongoleFilterInput) narrows all three lists at once.
   let filterQuery = "";
 
+  // Every debounced save currently waiting on its timer, so a re-render
+  // triggered by something else (adding/deleting a recipe, changing the
+  // filter) can flush them all first — see flushPendingRecipeEdits() below
+  // for what this fixes.
+  const pendingRecipeFlushes = new Set();
+
   // Returns a wrapped fn that waits `delay` ms of silence before actually
   // running — plus a .flush(...args) to run it (and cancel the pending
-  // timer) immediately, used on blur so nothing's lost.
+  // timer) immediately, used on blur so nothing's lost. Also self-registers
+  // into pendingRecipeFlushes while a write is pending, so an external
+  // flush (no args) can still replay the last-typed value via `lastArgs`.
   function debounce(fn, delay) {
     let timer = null;
-    function debounced(...args) {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        timer = null;
-        fn(...args);
-      }, delay);
-    }
-    debounced.flush = (...args) => {
+    let lastArgs = null;
+    function flushImpl(...args) {
       clearTimeout(timer);
       timer = null;
-      fn(...args);
-    };
+      pendingRecipeFlushes.delete(flushImpl);
+      fn(...(args.length ? args : lastArgs));
+    }
+    function debounced(...args) {
+      lastArgs = args;
+      clearTimeout(timer);
+      pendingRecipeFlushes.add(flushImpl);
+      timer = setTimeout(flushImpl, delay);
+    }
+    debounced.flush = flushImpl;
     return debounced;
+  }
+
+  // A full re-render (renderRecipeSection below) tears down and rebuilds
+  // every card from whatever's currently in the store — if another card
+  // still had an unsaved debounced keystroke in flight, the rebuild used to
+  // show that card's stale pre-keystroke value (the just-typed text visibly
+  // reverting), while the orphaned timer then silently wrote the correct
+  // value moments later, leaving the screen and the store out of sync in
+  // between. Flushing everything pending right before any rebuild closes
+  // that window.
+  function flushPendingRecipeEdits() {
+    [...pendingRecipeFlushes].forEach((flush) => flush());
   }
 
   function pad2(n) {
@@ -229,6 +251,7 @@
   }
 
   function renderRecipeSection(kind) {
+    flushPendingRecipeEdits();
     const section = RECIPE_SECTIONS[kind];
     const list = document.getElementById(section.listId);
     if (!list) return;

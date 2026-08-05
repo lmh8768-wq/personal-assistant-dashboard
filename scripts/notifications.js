@@ -36,6 +36,7 @@
       return false;
     }
 
+    let subscription = null;
     try {
       const registration = await navigator.serviceWorker.register("/sw.js");
       const permission = await Notification.requestPermission();
@@ -44,7 +45,7 @@
         return false;
       }
 
-      const subscription = await registration.pushManager.subscribe({
+      subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
@@ -62,6 +63,19 @@
       return true;
     } catch (err) {
       console.error("enable notifications failed", err);
+      // The browser-level subscription can succeed even when the server
+      // save afterward fails (offline blip, non-OK response) — without
+      // this, the device was left with a live, unmanaged push subscription
+      // while ENABLED_KEY stayed "false" and the UI showed notifications as
+      // off, with no way to reach it again except by disabling from a state
+      // that already claims to be disabled.
+      if (subscription) {
+        try {
+          await subscription.unsubscribe();
+        } catch (unsubErr) {
+          console.error("cleanup unsubscribe after failed save also failed", unsubErr);
+        }
+      }
       window.Toast?.show("알림 설정에 실패했어요");
       return false;
     }

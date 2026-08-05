@@ -94,7 +94,10 @@
 
   const PracticeStore = {
     getAll() {
-      return loadEntries().sort((a, b) => (a.date < b.date ? 1 : -1));
+      // Must return 0 for equal dates — returning -1 for "a.date === b.date"
+      // (the old `a.date < b.date ? 1 : -1`) violates antisymmetry, so two
+      // same-day entries could flip order between renders.
+      return loadEntries().sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0));
     },
     getById(id) {
       return loadEntries().find((e) => e.id === id) || null;
@@ -179,7 +182,11 @@
     const label = input.value.trim();
     if (!label) return;
     const item = PracticeChecklistStore.add(label);
-    pendingChecked.add(item.id);
+    // Only auto-check a brand-new checklist item when creating today's
+    // entry — doing this unconditionally used to backdate a habit that
+    // didn't exist yet whenever the "+" was used while editing an older
+    // diary entry (e.g. fixing a typo in last month's log).
+    if (editingId === null) pendingChecked.add(item.id);
     input.value = "";
     renderChecklistItems();
     renderDashboardPractice();
@@ -382,101 +389,31 @@
     window.safeSetLocalStorage(CURRICULUM_KEY, JSON.stringify(goals));
   }
 
+  // Thin wrappers over scripts/goal-tree-logic.js's shared implementation
+  // (identical to study.js's goal tree — this used to be a hand-copied
+  // second implementation that could silently drift from that one whenever
+  // only one side got a bug fix). Every existing call site below is
+  // unchanged; only the logic underneath is now shared.
   function findGoalNode(list, id) {
-    for (const node of list) {
-      if (node.id === id) return node;
-      const found = findGoalNode(node.children || [], id);
-      if (found) return found;
-    }
-    return null;
+    return window.GoalTreeLogic.findNode(list, id);
   }
-
   function extractGoalNode(list, id) {
-    const idx = list.findIndex((n) => n.id === id);
-    if (idx !== -1) {
-      const [node] = list.splice(idx, 1);
-      return node;
-    }
-    for (const node of list) {
-      const found = extractGoalNode(node.children || [], id);
-      if (found) return found;
-    }
-    return null;
+    return window.GoalTreeLogic.extractNode(list, id);
   }
-
   function setGoalDoneRecursive(node, done) {
-    node.done = done;
-    (node.children || []).forEach((child) => setGoalDoneRecursive(child, done));
+    return window.GoalTreeLogic.setDoneRecursive(node, done);
   }
-
   function findGoalParentId(list, childId) {
-    function search(nodes, parentId) {
-      for (const n of nodes) {
-        if (n.id === childId) return parentId;
-        const found = search(n.children || [], n.id);
-        if (found !== undefined) return found;
-      }
-      return undefined;
-    }
-    const found = search(list, null);
-    return found === undefined ? null : found;
+    return window.GoalTreeLogic.findParentId(list, childId);
   }
-
   function recomputeGoalNodeAndAncestors(list, nodeId) {
-    let currentId = nodeId;
-    while (currentId) {
-      const node = findGoalNode(list, currentId);
-      if (!node) break;
-      const kids = node.children || [];
-      if (kids.length > 0) {
-        node.done = kids.every((c) => c.done);
-      } else if (node.done) {
-        // This node just lost its last child (this function is only ever
-        // entered from a structural change — see callers). Its `done` was
-        // a derived aggregate of children that no longer exist, not
-        // something the user actually checked off as a standalone item —
-        // leaving it `true` here would render it as a directly-togglable,
-        // already-checked leaf despite nobody having completed anything.
-        node.done = false;
-      }
-      currentId = findGoalParentId(list, currentId);
-    }
+    return window.GoalTreeLogic.recomputeNodeAndAncestors(list, nodeId);
   }
-
-  // Counts only LEAF goals as actual tasks — a parent's own `done` is
-  // always fully derived from its children (see recomputeGoalNodeAndAncestors,
-  // never independently set), not a real extra unit of work, but this used
-  // to add +1 to total (and +1 to done when the parent happened to be
-  // fully done) for every ancestor level on top of its leaves. That biased
-  // the displayed percentage toward "not yet fully done" the deeper a tree
-  // went: e.g. root with children A (both of A's 2 leaves done, so A itself
-  // reads done) and B (1 of 2 leaves done) is 3/4 = 75% real leaf
-  // completion, but used to compute 4/7 ≈ 57% by also counting A, B, and
-  // the root as extra not-really-tasks.
   function countGoalProgress(node) {
-    const kids = node.children || [];
-    if (kids.length === 0) {
-      return { total: 1, done: node.done ? 1 : 0 };
-    }
-    let total = 0;
-    let done = 0;
-    kids.forEach((child) => {
-      const c = countGoalProgress(child);
-      total += c.total;
-      done += c.done;
-    });
-    return { total, done };
+    return window.GoalTreeLogic.countProgress(node);
   }
-
-  // Copies get fresh ids top to bottom so a pasted subtree never collides
-  // with the goal(s) it was copied from (or with itself, pasted twice).
   function deepCloneGoalWithNewIds(node) {
-    return {
-      id: createId("curr"),
-      label: node.label,
-      done: !!node.done,
-      children: (node.children || []).map(deepCloneGoalWithNewIds),
-    };
+    return window.GoalTreeLogic.deepCloneWithNewIds(node, "curr", createId);
   }
 
   const CurriculumStore = {

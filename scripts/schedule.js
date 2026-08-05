@@ -865,6 +865,13 @@
     if (!pendingEditPayload || !editingId) return;
     const occurrenceDate = editingOccurrenceDate;
     const payload = pendingEditPayload;
+    const stored = window.ScheduleStore.getById(editingId);
+    // Any repeat-setting change is silently dropped a few lines below (this
+    // scope only ever patches this one occurrence's content, never the
+    // series' repeat rule) — the modal never disables/hides the repeat
+    // dropdown when "이 날짜만" is the scope actually being applied, so warn
+    // instead of letting the user believe a change they just made took effect.
+    const repeatChanged = stored?.repeat && payload.repeat.type !== stored.repeat.type;
 
     if (payload.date && payload.date !== occurrenceDate) {
       // Moving just this occurrence to a new date: pull it out of the series
@@ -879,6 +886,12 @@
     document.getElementById("editScopeModalOverlay").hidden = true;
     pendingEditPayload = null;
     finalizeEdit(payload, true);
+    if (repeatChanged) {
+      window.Toast?.show("반복 설정 변경은 '이 날짜만'에는 적용되지 않아요 — 반복 전체를 바꾸려면 '이후 일정 모두'를 선택해주세요", {
+        type: "warning",
+        duration: 6000,
+      });
+    }
   }
 
   function applyFollowingEdit() {
@@ -895,7 +908,19 @@
   function handleSubmit(e) {
     e.preventDefault();
     const payload = readPayloadFromForm();
-    if (!payload.title || !payload.date) return;
+    if (!payload.title || !payload.date) {
+      // A title of all spaces passes HTML5 `required` (it accepts any
+      // non-empty string) but readPayloadFromForm() trims it — the modal
+      // used to just sit there doing nothing with no explanation.
+      window.Toast?.show("제목을 입력해주세요", { type: "error" });
+      return;
+    }
+    if (payload.repeat.type !== "none" && payload.repeat.until && payload.repeat.until < payload.date) {
+      // An "until" earlier than the start date used to save fine but could
+      // never produce a single occurrence — a silent "empty" recurring item.
+      window.Toast?.show("반복 종료일이 시작일보다 빠를 수 없어요", { type: "error" });
+      return;
+    }
 
     if (editingId) {
       const stored = window.ScheduleStore.getById(editingId);
@@ -1004,12 +1029,19 @@
   }
 
   function handleBulkComplete() {
+    // Only the ones this action actually flipped to done get undone — an
+    // item that was already complete before the bulk action shouldn't get
+    // un-completed by an undo of a different action.
+    const justCompleted = [];
     scheduleSelectedIds.forEach((key) => {
       const [id, occurrenceDate] = splitKey(key);
       const item = window.ScheduleStore.getById(id);
       if (!item) return;
       const isDone = (item.completedDates || []).includes(occurrenceDate);
-      if (!isDone) window.ScheduleStore.toggleCompleted(id, occurrenceDate);
+      if (!isDone) {
+        window.ScheduleStore.toggleCompleted(id, occurrenceDate);
+        justCompleted.push({ id, occurrenceDate });
+      }
     });
     const count = scheduleSelectedIds.size;
     scheduleSelectedIds.clear();
@@ -1017,7 +1049,13 @@
     document.getElementById("scheduleSelectModeBtn").textContent = "선택";
     updateScheduleSelectToolbar();
     refreshAll();
-    window.Toast.show(`일정 ${count}개를 완료 처리했어요`);
+    window.Toast.show(`일정 ${count}개를 완료 처리했어요`, {
+      actionLabel: "실행취소",
+      onAction: () => {
+        justCompleted.forEach(({ id, occurrenceDate }) => window.ScheduleStore.toggleCompleted(id, occurrenceDate));
+        refreshAll();
+      },
+    });
   }
 
   function handleBulkDelete() {

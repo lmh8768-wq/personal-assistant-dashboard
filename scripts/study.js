@@ -67,103 +67,31 @@
     window.safeSetLocalStorage(GOALS_KEY, JSON.stringify(data));
   }
 
+  // Thin wrappers over scripts/goal-tree-logic.js's shared implementation
+  // (identical to practice.js's curriculum tree — this used to be a
+  // hand-copied second implementation that could silently drift from that
+  // one whenever only one side got a bug fix). Every existing call site
+  // below is unchanged; only the logic underneath is now shared.
   function findNode(list, id) {
-    for (const node of list) {
-      if (node.id === id) return node;
-      const found = findNode(node.children || [], id);
-      if (found) return found;
-    }
-    return null;
+    return window.GoalTreeLogic.findNode(list, id);
   }
-
-  // Removes the node with `id` from `list` (searching recursively) and
-  // returns it so the caller can offer undo.
   function extractNode(list, id) {
-    const idx = list.findIndex((n) => n.id === id);
-    if (idx !== -1) {
-      const [node] = list.splice(idx, 1);
-      return node;
-    }
-    for (const node of list) {
-      const found = extractNode(node.children || [], id);
-      if (found) return found;
-    }
-    return null;
+    return window.GoalTreeLogic.extractNode(list, id);
   }
-
   function setDoneRecursive(node, done) {
-    node.done = done;
-    (node.children || []).forEach((child) => setDoneRecursive(child, done));
+    return window.GoalTreeLogic.setDoneRecursive(node, done);
   }
-
   function findParentIdIn(list, childId) {
-    function search(nodes, parentId) {
-      for (const n of nodes) {
-        if (n.id === childId) return parentId;
-        const found = search(n.children || [], n.id);
-        if (found !== undefined) return found;
-      }
-      return undefined;
-    }
-    const found = search(list, null);
-    return found === undefined ? null : found;
+    return window.GoalTreeLogic.findParentId(list, childId);
   }
-
-  // Re-derives `done` for a node from its children (done only if it HAS
-  // children and every one of them is done), then walks up doing the same
-  // for each ancestor. Used whenever a subtree's completeness could have
-  // changed out from under an ancestor: a toggle, a new incomplete child, a
-  // removed/restored child.
   function recomputeNodeAndAncestors(list, nodeId) {
-    let currentId = nodeId;
-    while (currentId) {
-      const node = findNode(list, currentId);
-      if (!node) break;
-      const kids = node.children || [];
-      if (kids.length > 0) {
-        node.done = kids.every((c) => c.done);
-      } else if (node.done) {
-        // This node just lost its last child (this function is only ever
-        // entered from a structural change — see callers). Its `done` was
-        // a derived aggregate of children that no longer exist, not
-        // something the user actually checked off as a standalone item —
-        // leaving it `true` here would render it as a directly-togglable,
-        // already-checked leaf despite nobody having completed anything.
-        node.done = false;
-      }
-      currentId = findParentIdIn(list, currentId);
-    }
+    return window.GoalTreeLogic.recomputeNodeAndAncestors(list, nodeId);
   }
-
-  // Same fix as practice.js's countGoalProgress — counts only LEAF goals as
-  // actual tasks. A parent's own `done` is always fully derived from its
-  // children (never independently set), not a real extra unit of work; see
-  // that function's comment for a worked example of the percentage this
-  // used to distort.
   function countProgress(node) {
-    const kids = node.children || [];
-    if (kids.length === 0) {
-      return { total: 1, done: node.done ? 1 : 0 };
-    }
-    let total = 0;
-    let done = 0;
-    kids.forEach((child) => {
-      const c = countProgress(child);
-      total += c.total;
-      done += c.done;
-    });
-    return { total, done };
+    return window.GoalTreeLogic.countProgress(node);
   }
-
-  // Copies get fresh ids top to bottom so a pasted subtree never collides
-  // with the goal(s) it was copied from (or with itself, pasted twice).
   function deepCloneWithNewIds(node) {
-    return {
-      id: createId("goal"),
-      label: node.label,
-      done: !!node.done,
-      children: (node.children || []).map(deepCloneWithNewIds),
-    };
+    return window.GoalTreeLogic.deepCloneWithNewIds(node, "goal", createId);
   }
 
   function findYear(data, yearId) {
@@ -612,6 +540,7 @@
       input.type = "text";
       input.className = "goal-add-input";
       input.placeholder = placeholder;
+      input.maxLength = 200; // same cap as other single-line title fields (schedule/vongole title)
 
       let settled = false;
       function commit() {
@@ -678,6 +607,7 @@
       input.type = "text";
       input.className = "goal-title-input";
       input.value = currentLabel;
+      input.maxLength = 200; // same cap as other single-line title fields (schedule/vongole title)
 
       let committed = false;
       function commit() {

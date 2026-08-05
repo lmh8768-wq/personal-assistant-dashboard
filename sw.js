@@ -38,6 +38,7 @@ const PRECACHE_URLS = [
   "/scripts/calendar-fit.js",
   "/scripts/goal-label-editor.js",
   "/scripts/goal-tree-ui.js",
+  "/scripts/goal-tree-logic.js",
   "/scripts/deep-merge.js",
   "/scripts/store.js",
   "/scripts/schedule.js",

@@ -115,11 +115,19 @@
     const matchesAssistant =
       ASSISTANT_KEYWORDS.some((k) => q.includes(k)) ||
       (q.length >= 2 && ASSISTANT_KEYWORDS.some((k) => k.includes(q)));
-    if (matchesAssistant) {
-      addSection([{ type: "비서", label: "비서에게 묻기", view: "assistant" }]);
-    }
 
-    return sections.flat().slice(0, 10);
+    // Handled separately from addSection()/PER_CATEGORY_CAP above instead of
+    // being appended as just another section: being pushed last meant it
+    // was exactly the item most likely to get squeezed out by the final
+    // slice(0, 10) whenever enough earlier categories matched — the same
+    // "later category starved out" bug the per-category cap fixed, just for
+    // whichever category happens to be last. Reserving its slot up front
+    // guarantees it survives whenever it's a real match.
+    const flatResults = sections.flat();
+    if (matchesAssistant) {
+      return [...flatResults.slice(0, 9), { type: "비서", label: "비서에게 묻기", view: "assistant" }];
+    }
+    return flatResults.slice(0, 10);
   }
 
   // -1 means nothing is highlighted yet (just opened / results just

@@ -158,12 +158,12 @@
           return;
         }
         settled = true;
-        LearnedExerciseStore.add({
-          bodyPart,
-          name,
-          weight: weightInput.value ? Number(weightInput.value) : null,
-          sets: setsInput.value ? Number(setsInput.value) : null,
-        });
+        // min/max on a number input only constrain the spinner arrows, not
+        // typed/pasted values — clamp explicitly so e.g. "9999" doesn't save
+        // as a real-looking 9999kg record.
+        const weight = weightInput.value ? Math.min(500, Math.max(0, Number(weightInput.value))) : null;
+        const sets = setsInput.value ? Math.min(50, Math.max(1, Number(setsInput.value))) : null;
+        LearnedExerciseStore.add({ bodyPart, name, weight, sets });
         renderLearnedExercises();
         showButton();
       }
@@ -309,12 +309,27 @@
     renderDashboardExercise();
   }
 
+  // A number input's min/max attributes only apply to the spinner arrows —
+  // typing (or pasting) a value outside that range is accepted as-is by the
+  // browser. Without this, e.g. "-50" in 스쿼트 saved and displayed as a
+  // personal record.
+  function clampFieldValue(id, min, max) {
+    const el = document.getElementById(id);
+    const raw = el.value.trim();
+    if (raw === "") return "";
+    const num = Number(raw);
+    if (Number.isNaN(num)) return "";
+    const clamped = Math.min(max, Math.max(min, num));
+    if (clamped !== num) el.value = String(clamped);
+    return String(clamped);
+  }
+
   function handleRecordFieldChange() {
     ExerciseRecordStore.update({
-      runDistance: document.getElementById("exerciseRecordRunDistanceInput").value,
-      squat: document.getElementById("exerciseRecordSquatInput").value,
-      bench: document.getElementById("exerciseRecordBenchInput").value,
-      deadlift: document.getElementById("exerciseRecordDeadliftInput").value,
+      runDistance: clampFieldValue("exerciseRecordRunDistanceInput", 0, 500),
+      squat: clampFieldValue("exerciseRecordSquatInput", 0, 500),
+      bench: clampFieldValue("exerciseRecordBenchInput", 0, 500),
+      deadlift: clampFieldValue("exerciseRecordDeadliftInput", 0, 500),
     });
     renderDashboardExercise();
   }

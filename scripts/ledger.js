@@ -320,7 +320,19 @@
     // selected, so fall back to whatever's first rather than silently
     // discarding the category on the next save.
     const hasMatch = data?.categoryKey && categories.some((c) => c.key === data.categoryKey);
-    select.value = hasMatch ? data.categoryKey : categories[0]?.key || "";
+    const isOrphanedWithNoCategories = !hasMatch && data?.categoryKey && categories.length === 0;
+    if (isOrphanedWithNoCategories) {
+      // Every category of this type is gone (openModal still lets an EDIT
+      // reach this point in that case) — a <select> with zero <option>s
+      // can't represent "keep whatever this entry already had," so add one
+      // synthetic option for it instead of silently discarding the
+      // category the moment this entry is saved again.
+      const opt = document.createElement("option");
+      opt.value = data.categoryKey;
+      opt.textContent = "삭제된 카테고리";
+      select.appendChild(opt);
+    }
+    select.value = hasMatch || isOrphanedWithNoCategories ? data.categoryKey : categories[0]?.key || "";
     row.appendChild(select);
 
     const amount = document.createElement("input");
@@ -389,7 +401,13 @@
 
   function openModal(mode, data) {
     const type = mode === "edit" ? entryType(data) : "expense";
-    if (window.LedgerCategoryStore.getByType(type).length === 0) {
+    // Editing an existing entry must stay reachable even if every category
+    // of its type has since been deleted — otherwise those entries become
+    // permanently stuck (viewable and deletable, but not editable at all)
+    // until the user recreates a category first. Adding a brand-new entry
+    // genuinely can't proceed with nowhere to categorize it, so only that
+    // path redirects.
+    if (mode !== "edit" && window.LedgerCategoryStore.getByType(type).length === 0) {
       window.Toast?.show("먼저 카테고리를 추가해주세요", { type: "warning" });
       openCategoryManager();
       return;
