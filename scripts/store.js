@@ -42,7 +42,24 @@ window.safeSetLocalStorage = function (key, value) {
   // separate copy (see that file's history). parseDateStr/pad2 are reused
   // from there too rather than re-declared, so there's exactly one
   // definition of each.
-  const { matchesDate, getOccurrences, parseDateStr, pad2 } = window.ScheduleRecurrence;
+  //
+  // store.js is one <script> made of consecutive top-level IIFEs — if
+  // schedule-recurrence.js ever failed to load, destructuring straight off
+  // `undefined` here used to throw synchronously and abort every remaining
+  // statement in the file, silently taking down CategoryStore,
+  // LedgerCategoryStore, LedgerEntryStore, the vongole stores, and
+  // TemplateStore too, not just scheduling. Falling back to safe no-ops
+  // keeps the rest of the storage layer alive; only schedule features
+  // degrade (to "no occurrences") in that scenario.
+  if (!window.ScheduleRecurrence) {
+    console.error("store.js: window.ScheduleRecurrence is missing (schedule-recurrence.js failed to load) — schedule features will be broken, but the rest of the storage layer still loads.");
+  }
+  const {
+    matchesDate = () => false,
+    getOccurrences = () => [],
+    parseDateStr = (s) => new Date(s),
+    pad2 = (n) => String(n).padStart(2, "0"),
+  } = window.ScheduleRecurrence || {};
 
   function addDaysToDateStr(dateStr, delta) {
     const d = parseDateStr(dateStr);
@@ -89,7 +106,18 @@ window.safeSetLocalStorage = function (key, value) {
       return schedules[idx];
     },
     remove(id) {
-      saveSchedules(loadSchedules().filter((s) => s.id !== id));
+      // Matches the {item, index} shape createKeyedStore/createEntityStore's
+      // remove() already return elsewhere in this file, so a caller can
+      // implement position-preserving undo the same way for any store —
+      // schedule.js's own undo currently captures the item via getById()
+      // before calling this, so this was previously silently unusable for
+      // that purpose.
+      const schedules = loadSchedules();
+      const idx = schedules.findIndex((s) => s.id === id);
+      if (idx === -1) return null;
+      const [removed] = schedules.splice(idx, 1);
+      saveSchedules(schedules);
+      return { item: removed, index: idx };
     },
     toggleCompleted(id, occurrenceDate) {
       const schedules = loadSchedules();
@@ -396,7 +424,13 @@ function createKeyedStore(loadFn, saveFn) {
     // valid category to render, even for a schedule item whose category was
     // since deleted.
     getByKey(key) {
-      return loadCategories().find((c) => c.key === key) || DEFAULTS[DEFAULTS.length - 1];
+      // A copy, not the shared DEFAULTS array's actual element — every
+      // other read path in this file (loadCategories() itself included)
+      // is explicit about always returning a fresh copy for exactly this
+      // reason: a caller mutating the object it got back (instead of going
+      // through .update()) would otherwise permanently corrupt the "기타"
+      // fallback for every future lookup of any deleted category.
+      return loadCategories().find((c) => c.key === key) || { ...DEFAULTS[DEFAULTS.length - 1] };
     },
     add(label, color) {
       const categories = loadCategories();

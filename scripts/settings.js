@@ -419,41 +419,69 @@
     const top = withContent.slice(0, STORAGE_BREAKDOWN_TOP_N);
     const rest = withContent.slice(STORAGE_BREAKDOWN_TOP_N);
     const restBytes = rest.reduce((sum, item) => sum + item.bytes, 0);
-    const rows = top.map((item) => `<li><span>${item.label}</span><span>${formatBytes(item.bytes)}</span></li>`);
-    if (rest.length > 0) {
-      rows.push(`<li><span>기타 ${rest.length}개 항목</span><span>${formatBytes(restBytes)}</span></li>`);
-    }
 
+    // item.label falls back to the raw key when it's not in
+    // STORAGE_KEY_LABELS — and applyRemoteData() never validates that a
+    // synced key name is one this app actually recognizes, so a crafted
+    // remote payload could in principle land an arbitrary string here.
+    // Built with createElement/textContent (not innerHTML) so that can
+    // never become a stored-XSS path, matching every other list in this file.
     container.innerHTML = `
       <div class="storage-gauge"><div class="storage-gauge-fill" style="width:${percent}%"></div></div>
       <p class="storage-usage-text">${formatBytes(total)} / 약 ${formatBytes(STORAGE_ESTIMATE_BYTES)} 사용 중 (${percent}%)</p>
-      ${rows.length > 0 ? `<ul class="storage-usage-breakdown">${rows.join("")}</ul>` : ""}
     `;
+    if (top.length === 0) return;
+    const list = document.createElement("ul");
+    list.className = "storage-usage-breakdown";
+    top.forEach((item) => {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      label.textContent = item.label;
+      const size = document.createElement("span");
+      size.textContent = formatBytes(item.bytes);
+      li.append(label, size);
+      list.appendChild(li);
+    });
+    if (rest.length > 0) {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      label.textContent = `기타 ${rest.length}개 항목`;
+      const size = document.createElement("span");
+      size.textContent = formatBytes(restBytes);
+      li.append(label, size);
+      list.appendChild(li);
+    }
+    container.appendChild(list);
   }
 
   // ---------- Export / import ----------
   function exportData() {
-    const data = {};
-    for (const key in localStorage) {
-      if (!Object.prototype.hasOwnProperty.call(localStorage, key)) continue;
-      if (!key.startsWith("assistant.")) continue;
-      try {
-        data[key] = JSON.parse(localStorage.getItem(key));
-      } catch {
-        data[key] = localStorage.getItem(key);
+    try {
+      const data = {};
+      for (const key in localStorage) {
+        if (!Object.prototype.hasOwnProperty.call(localStorage, key)) continue;
+        if (!key.startsWith("assistant.")) continue;
+        try {
+          data[key] = JSON.parse(localStorage.getItem(key));
+        } catch {
+          data[key] = localStorage.getItem(key);
+        }
       }
-    }
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `assistant-backup-${dateStr}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    window.Toast.show("데이터를 내보냈어요");
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `assistant-backup-${dateStr}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      window.Toast.show("데이터를 내보냈어요");
+    } catch (err) {
+      console.error("data export failed:", err);
+      window.Toast.show("데이터를 내보내는 데 실패했어요", { type: "error" });
+    }
   }
 
   function mergeValue(existingRaw, incoming) {
@@ -514,6 +542,12 @@
       window.Toast.show(summary, { duration: 2500, type: failed === 0 ? undefined : "warning" });
       setTimeout(() => location.reload(), 1800);
     };
+    // Without this, a read failure (corrupted file handle, permission
+    // revoked mid-read) just meant onload never fired — the user clicks
+    // "가져오기", picks a file, and nothing happens with zero feedback.
+    reader.onerror = () => {
+      window.Toast.show("파일을 읽지 못했어요", { type: "error" });
+    };
     reader.readAsText(file);
   }
 
@@ -529,9 +563,20 @@
       }, 5000);
       return;
     }
-    Object.keys(localStorage)
-      .filter((key) => key.startsWith("assistant."))
-      .forEach((key) => localStorage.removeItem(key));
+    try {
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith("assistant."))
+        .forEach((key) => localStorage.removeItem(key));
+    } catch (err) {
+      // An exception partway through used to abort the loop silently —
+      // some keys deleted, some not, no toast, no reload, and the button
+      // left stuck on "정말 삭제할까요?" with resetArmed still true.
+      console.error("data reset failed partway through:", err);
+      resetArmed = false;
+      btn.textContent = "전체 데이터 초기화";
+      window.Toast.show("초기화 중 오류가 발생했어요. 일부만 삭제됐을 수 있어요.", { type: "error" });
+      return;
+    }
     window.Toast.show("모든 데이터를 초기화했어요. 새로고침합니다...", { duration: 1500 });
     setTimeout(() => location.reload(), 1000);
   }

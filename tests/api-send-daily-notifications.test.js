@@ -77,8 +77,8 @@ test("send-daily-notifications: parallel per-user/per-subscription sends still a
       id: "user-a",
       payload: JSON.stringify({ "assistant.schedules.v1": JSON.stringify([]) }),
       subscriptions: [
-        { id: "sub-ok", subscription: { endpoint: "https://push.example/ok" } },
-        { id: "sub-gone", subscription: { endpoint: "https://push.example/gone" } },
+        { id: "sub-ok", subscription: { endpoint: "https://push.example/ok", keys: { p256dh: "p", auth: "a" } } },
+        { id: "sub-gone", subscription: { endpoint: "https://push.example/gone", keys: { p256dh: "p", auth: "a" } } },
       ],
     },
     {
@@ -108,6 +108,43 @@ test("send-daily-notifications: parallel per-user/per-subscription sends still a
   assert.equal(res.body.removed, 1);
   assert.equal(res.body.failed, 1);
   assert.deepEqual(deletedSubIds, ["user-a:sub-gone"]);
+});
+
+test("send-daily-notifications: a malformed subscription (missing keys, saved before save-subscription.js validated them) is deleted without ever attempting a send — the actual bug fix", async () => {
+  // Before this fix, a subscription doc missing subscription.keys made
+  // webpush.sendNotification throw a plain validation error with no
+  // statusCode — the 404/410-only cleanup didn't recognize that as
+  // "gone", so it was never deleted and re-logged the same failure on
+  // every single daily cron run forever. This asserts it's caught and
+  // deleted proactively instead, without webpush ever being called for it.
+  const users = [
+    {
+      id: "user-legacy",
+      payload: JSON.stringify({ "assistant.schedules.v1": JSON.stringify([]) }),
+      subscriptions: [
+        { id: "sub-no-keys", subscription: { endpoint: "https://push.example/legacy" } },
+        { id: "sub-null", subscription: null },
+      ],
+    },
+  ];
+  const { deletedSubIds } = installFakeAdminWithUsers(users);
+  let sendAttempted = false;
+  installFakeWebPush(async () => {
+    sendAttempted = true;
+    return undefined;
+  });
+
+  delete require.cache[require.resolve("../api/send-daily-notifications.js")];
+  const handler = require("../api/send-daily-notifications.js");
+
+  const res = makeRes();
+  await handler({ method: "POST", headers: { authorization: "Bearer test-secret" } }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.sent, 0);
+  assert.equal(res.body.removed, 2);
+  assert.equal(sendAttempted, false, "a malformed subscription must never reach webpush.sendNotification");
+  assert.deepEqual(deletedSubIds.sort(), ["user-legacy:sub-no-keys", "user-legacy:sub-null"]);
 });
 
 test("send-daily-notifications: rejects requests without the correct CRON_SECRET", async () => {

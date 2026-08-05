@@ -8,7 +8,25 @@
     appId: "1:314496491668:web:fff2ce56c3fe49f0c5d481",
   };
 
-  const DEVICE_ID = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  // Persisted (not "assistant."-prefixed, so never synced/merged itself) so
+  // every tab of the same browser profile shares one id. A fresh id per TAB
+  // used to mean two tabs of the SAME device didn't recognize each other's
+  // pushes as "own" — an edit in tab A looked like a genuine remote change
+  // to tab B, triggering an unwanted merge + location.reload() that could
+  // discard whatever tab B had mid-typed in a form.
+  const DEVICE_ID_KEY = "__cloudSync.deviceId";
+  function resolveDeviceId() {
+    try {
+      const existing = localStorage.getItem(DEVICE_ID_KEY);
+      if (existing) return existing;
+      const fresh = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(DEVICE_ID_KEY, fresh);
+      return fresh;
+    } catch {
+      return `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    }
+  }
+  const DEVICE_ID = resolveDeviceId();
   const OFFLINE_TIMEOUT_MS = 8000;
   const PUSH_DEBOUNCE_MS = 800;
   const LISTEN_RETRY_DELAY_MS = 10000;
@@ -155,7 +173,7 @@
     checkForLocalChanges();
     // Retry a push that was queued before sign-in/initial sync finished
     // (e.g. changes made in the offline-continue fallback) once we're ready.
-    if (hasPendingLocalChanges() && !pushPending && auth && auth.currentUser && initialSyncDone) {
+    if (hasPendingLocalChanges() && !pushPending && !pushInFlight && auth && auth.currentUser && initialSyncDone) {
       pushPending = true;
       pushToCloud();
     }
@@ -170,10 +188,17 @@
   // changed while away, e.g. a remote push applied on reconnect).
   let pollTimer = setInterval(pollTick, POLL_INTERVAL_MS);
 
+  // Counts only "assistant."-prefixed keys, same scope as everything else
+  // that reasons about "the synced payload" — a stray non-prefixed field in
+  // the remote doc (a hand edit in the Firestore console, or some future
+  // bug) used to make this look non-empty even when zero real app keys were
+  // present, which would let the anomalous-empty-payload guard below wave
+  // through the exact wipe it exists to catch.
   function payloadKeyCount(payloadStr) {
     try {
       const parsed = JSON.parse(payloadStr || "{}");
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? Object.keys(parsed).length : 0;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return 0;
+      return Object.keys(parsed).filter(isAppKey).length;
     } catch {
       return 0;
     }
@@ -193,7 +218,11 @@
         if (!(key in data)) originalRemoveItem(key);
       });
     Object.keys(data).forEach((key) => {
-      if (isAppKey(key)) originalSetItem(key, data[key]);
+      // A non-string value (hand-edited Firestore doc, a future
+      // serialization bug) would otherwise get coerced to the literal
+      // "[object Object]" by localStorage.setItem and silently corrupt
+      // that key — skip it instead of writing garbage.
+      if (isAppKey(key) && typeof data[key] === "string") originalSetItem(key, data[key]);
     });
     applyingRemote = false;
     // The state we just wrote is already in sync — don't treat it as a
@@ -261,9 +290,10 @@
     allKeys.forEach((key) => {
       const existingRaw = localStorage.getItem(key);
       const incomingRaw = Object.prototype.hasOwnProperty.call(data, key) ? data[key] : null;
-      if (incomingRaw == null) {
-        // Remote doesn't have this key at all. Every store in this app
-        // always re-setItem's its key (even to an empty array), never
+      if (incomingRaw == null || typeof incomingRaw !== "string") {
+        // Remote doesn't have this key at all, or it's not the string every
+        // store always writes (hand-edited doc / bug). Every store in this
+        // app always re-setItem's its key (even to an empty array), never
         // removeItem's it — so a genuinely missing key here means the
         // *other* device just hasn't loaded whatever feature wrote this
         // key yet, not that it was deliberately cleared. Keep the local copy.
@@ -302,6 +332,14 @@
   }
 
   let pushPending = false;
+  // True from the moment a push's network write is issued until it
+  // resolves/rejects. Without this, a push slower than the 1.5s poll
+  // interval let pollTick's retry branch see "pending, and pushPending was
+  // already reset to false at pushToCloud's start" and fire a second,
+  // fully concurrent .set() to the same document — if the responses landed
+  // out of order, the one queued first could win and silently revert the
+  // newer local change.
+  let pushInFlight = false;
 
   function schedulePush() {
     if (applyingRemote) return;
@@ -327,7 +365,15 @@
       logSync("push deferred: initial sync not complete yet");
       return;
     }
+    if (pushInFlight) {
+      // A previous push is still waiting on the network (slow connection) —
+      // stay pending and let the poller retry once it resolves, instead of
+      // firing a second write that could race the first one.
+      logSync("push deferred: previous push still in flight");
+      return;
+    }
     pushPending = false;
+    pushInFlight = true;
     const payload = JSON.stringify(collectLocalState());
     logSync(`pushing to cloud... (${payload.length} chars)`);
     setSyncStatus("syncing", "동기화 중...");
@@ -355,10 +401,12 @@
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: DEVICE_ID,
     }).then(() => {
+      pushInFlight = false;
       logSync("push CONFIRMED by server");
       clearPending();
       setSyncStatus("synced", "동기화됨");
     }).catch((err) => {
+      pushInFlight = false;
       logSync(`push FAILED: ${err.code || err.message}`);
       console.error("cloud sync push failed:", err);
       // Leave the pending marker set so the next load retries instead of
@@ -587,9 +635,28 @@
       return;
     }
 
-    firebase.initializeApp(firebaseConfig);
-    auth = firebase.auth();
-    db = firebase.firestore();
+    try {
+      firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      db = firebase.firestore();
+    } catch (err) {
+      // A partial CDN hiccup (the base SDK loads but firebase-auth-compat.js
+      // or firebase-firestore-compat.js fails independently) used to leave
+      // `typeof firebase` defined — so the offline branch above never
+      // triggers — while firebase.auth()/firestore() throw because that
+      // module never registered itself. The exception was uncaught, so
+      // onAuthStateChanged never got wired up and window.initFeatures()
+      // never ran: the user was stuck on the loading spinner forever with
+      // no offline-fallback button. Boot offline the same way a fully
+      // missing SDK does instead.
+      logSync(`firebase partially loaded, booting offline: ${err.message}`);
+      setSyncStatus("offline", "오프라인");
+      cleanupLegacyKeys();
+      document.getElementById("appRoot").hidden = false;
+      document.getElementById("authGate").hidden = true;
+      window.initFeatures && window.initFeatures();
+      return;
+    }
     // Keep the session across restarts/reloads (this is Firebase's default,
     // but set it explicitly so a stale login never gets treated as "logged out").
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {

@@ -208,6 +208,15 @@ function setActiveView(viewName) {
   pageTitle.textContent = viewTitles[viewName] ?? "";
   showView(viewName);
   safeSetItem(CURRENT_VIEW_KEY, viewName);
+  // Nav clicks preventDefault() the real <a href="#view"> anchors, so the
+  // hash used to only ever reflect whatever it was at page load — open the
+  // app from a notification link (#schedule), switch to another tab, then
+  // reload, and it snapped back to #schedule instead of the tab actually
+  // last visited. replaceState (not pushState) so clicking around the app
+  // doesn't spam the browser's back-button history.
+  if (location.hash.slice(1) !== viewName) {
+    history.replaceState(null, "", `#${viewName}`);
+  }
 }
 
 navItems.forEach((item) => {

@@ -72,6 +72,19 @@ module.exports = async (req, res) => {
         const perSubResults = await Promise.all(
           subsSnap.docs.map(async (subDoc) => {
             const { subscription } = subDoc.data();
+            // save-subscription.js validates this shape now, but a doc
+            // saved before that validation existed can still have
+            // missing/malformed keys — webpush.sendNotification throws a
+            // plain validation error (no statusCode) for those, which used
+            // to fall through to the generic catch below and never get
+            // deleted, so it re-logged the same failure on every single
+            // daily cron run forever. Catch it here instead, before ever
+            // attempting a send.
+            if (!subscription || !subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+              console.error("removing malformed push subscription", userDoc.id, subDoc.id);
+              await subDoc.ref.delete();
+              return { sent: 0, removed: 1 };
+            }
             try {
               await webpush.sendNotification(subscription, payloadStr);
               return { sent: 1, removed: 0 };
