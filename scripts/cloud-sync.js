@@ -594,8 +594,25 @@
         // existing "pending local change found -> re-push" first-snapshot
         // path below, so both devices converge on the same merged copy
         // instead of the merge staying local-only.
-        logSync("merging remote update with local, then re-syncing");
+        //
+        // mergeRemoteData is a union/no-conflict merge, so once two
+        // devices that are both open at once have actually converged, it's
+        // a no-op — same bytes in, same bytes out. Without checking that,
+        // every remote echo (including the harmless one produced by THIS
+        // device's own push landing back down) still triggered
+        // markPending+reload+re-push, which the other device then saw as
+        // yet another "from another device" update and reacted to the same
+        // way — an infinite reload/push ping-pong between the two devices
+        // that never settles, even though neither has any real change left
+        // to send. Skip the push-back when the merge changed nothing.
+        const beforeMergeSnapshot = currentSnapshotStr();
         mergeRemoteData(d.payload);
+        if (currentSnapshotStr() === beforeMergeSnapshot) {
+          logSync("merge produced no local change -> already in sync, not re-pushing");
+          setSyncStatus("synced", "동기화됨");
+          return;
+        }
+        logSync("merging remote update with local, then re-syncing");
         markPending();
         location.reload();
       },

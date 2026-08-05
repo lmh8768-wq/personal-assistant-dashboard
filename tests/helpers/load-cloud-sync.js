@@ -67,6 +67,7 @@ function loadCloudSyncModuleWithFakeFirebase({ docExists, docPayload, seedLocalS
   let snapshotCallback = null;
   const setCalls = [];
   const toastMessages = [];
+  const reloadCalls = [];
   // Only populated when controlledPush is set — each entry is the
   // {resolve, reject} pair for one .set() call, left pending until the test
   // explicitly settles it, so a test can simulate a slow network write
@@ -136,7 +137,7 @@ function loadCloudSyncModuleWithFakeFirebase({ docExists, docPayload, seedLocalS
       return 0;
     },
     clearTimeout: () => {},
-    location: { reload: () => {} },
+    location: { reload: () => reloadCalls.push(true) },
   };
   vm.createContext(sandbox);
   vm.runInContext(deepMergeCode, sandbox, { filename: "scripts/deep-merge.js" });
@@ -151,7 +152,18 @@ function loadCloudSyncModuleWithFakeFirebase({ docExists, docPayload, seedLocalS
     metadata: { fromCache: false },
   });
 
-  return { window: sandbox.window, localStorage, setCalls, toastMessages, pendingPushes };
+  // Lets a test simulate a later snapshot arriving from a DIFFERENT device
+  // (real cloud-sync.js only skips "own echo" when updatedBy === its own
+  // DEVICE_ID) — used to exercise the merge/reload branch in the listener's
+  // non-first-snapshot path.
+  const triggerRemoteUpdate = (payload, updatedBy = "OTHER_DEVICE_ID") =>
+    snapshotCallback({
+      exists: true,
+      data: () => ({ payload, updatedBy }),
+      metadata: { fromCache: false },
+    });
+
+  return { window: sandbox.window, localStorage, setCalls, toastMessages, pendingPushes, reloadCalls, triggerRemoteUpdate };
 }
 
 module.exports = { loadCloudSyncModule, loadCloudSyncModuleWithFakeFirebase };

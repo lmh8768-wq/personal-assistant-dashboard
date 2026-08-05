@@ -317,3 +317,46 @@ test("pushToCloud: a local change that arrives while a previous push is still in
   await Promise.resolve();
   assert.equal(localStorage.getItem("__cloudSync.pendingPush"), null, "pending marker should clear once everything is actually confirmed");
 });
+
+test("snapshot(update) from another device: a no-op merge does not reload/re-push — the infinite ping-pong bug fix", () => {
+  // Two devices (or two browsers/tabs with different persisted DEVICE_IDs)
+  // signed into the same account, already holding identical data, used to
+  // ping-pong forever: this device's push landed as "from another device"
+  // on the other one, which unconditionally merged + markPending + reloaded
+  // + re-pushed regardless of whether the merge actually changed anything —
+  // which this device then saw as yet another "from another device" update,
+  // and reacted to the exact same way, forever. A merge that changes
+  // nothing must not reload or re-push.
+  const schedules = JSON.stringify([{ id: "sc1", title: "일정" }]);
+  const { localStorage, setCalls, reloadCalls, triggerRemoteUpdate } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({ "assistant.schedules.v1": schedules }),
+    seedLocalStorage: { "assistant.schedules.v1": schedules },
+  });
+  assert.equal(setCalls.length, 0, "sanity: first pull with matching local/remote data shouldn't push");
+
+  // A remote update from a different device, carrying the exact same data
+  // this device already has.
+  triggerRemoteUpdate(JSON.stringify({ "assistant.schedules.v1": schedules }));
+
+  assert.equal(reloadCalls.length, 0, "a no-op merge must not reload the page");
+  assert.equal(localStorage.getItem("__cloudSync.pendingPush"), null, "a no-op merge must not arm the pending-push marker");
+});
+
+test("snapshot(update) from another device: a genuine remote change still merges, marks pending, and reloads", () => {
+  const localSchedules = JSON.stringify([{ id: "sc1", title: "로컬 일정" }]);
+  const { localStorage, reloadCalls, triggerRemoteUpdate } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({ "assistant.schedules.v1": localSchedules }),
+    seedLocalStorage: { "assistant.schedules.v1": localSchedules },
+  });
+
+  // A remote update from a different device, adding a NEW schedule this
+  // device doesn't have yet.
+  const remoteSchedules = JSON.stringify([{ id: "sc1", title: "로컬 일정" }, { id: "sc2", title: "다른 기기 일정" }]);
+  triggerRemoteUpdate(JSON.stringify({ "assistant.schedules.v1": remoteSchedules }));
+
+  assert.equal(reloadCalls.length, 1, "a real merge change must still reload so every view re-renders");
+  assert.equal(localStorage.getItem("__cloudSync.pendingPush"), "1", "the merged result must be armed for re-push");
+  assert.equal(JSON.parse(localStorage.getItem("assistant.schedules.v1")).length, 2, "the merge itself must still have applied");
+});
