@@ -1,4 +1,15 @@
 (function () {
+  const LEAVE_ANIMATION_MS = 150;
+  // toast.js is the only place that ever removes a toast, so (unlike the
+  // modal exit-animation trick) this can just wrap the removal directly
+  // instead of intercepting a setter — play the exit animation, then
+  // actually remove once it's done.
+  function removeToast(toast) {
+    if (toast.classList.contains("toast-leaving")) return;
+    toast.classList.add("toast-leaving");
+    setTimeout(() => toast.remove(), LEAVE_ANIMATION_MS);
+  }
+
   function ensureContainer() {
     let container = document.getElementById("toastContainer");
     if (!container) {
@@ -73,7 +84,7 @@
       btn.addEventListener("click", () => {
         clearTimeout(timer);
         action.onAction();
-        toast.remove();
+        removeToast(toast);
       });
       toast.appendChild(btn);
     });
@@ -97,7 +108,7 @@
       container.appendChild(toast);
     }
     if (duration > 0) {
-      timer = setTimeout(() => toast.remove(), duration);
+      timer = setTimeout(() => removeToast(toast), duration);
     }
   }
 

@@ -43,7 +43,7 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
 
 .schedule-item:hover {
@@ -230,7 +230,7 @@
    the outgoing month slides out over it — this rule just supplies the
    transition so both animate instead of jumping. */
 .calendar-grid.month-nav-animating {
-  transition: transform 0.28s ease, opacity 0.28s ease;
+  transition: transform var(--dur-panel) var(--ease-standard), opacity var(--dur-panel) var(--ease-standard);
 }
 
 .calendar-grid-ghost {
@@ -238,7 +238,7 @@
   top: 0;
   left: 0;
   right: 0;
-  transition: transform 0.28s ease, opacity 0.28s ease;
+  transition: transform var(--dur-panel) var(--ease-standard), opacity var(--dur-panel) var(--ease-standard);
   pointer-events: none;
 }
 

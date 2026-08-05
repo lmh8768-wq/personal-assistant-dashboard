@@ -100,4 +100,37 @@
   document.querySelectorAll(".modal-overlay").forEach((el) => {
     restoreObserver.observe(el, { attributes: true, attributeFilter: ["hidden"] });
   });
+
+  // ---------- Exit animation ----------
+  // Every closeXModal() across scripts/*.js just sets overlay.hidden = true
+  // directly — components.css gives every modal an entrance animation (see
+  // ".modal-overlay:not([hidden])"), but nothing plays on the way out since
+  // [hidden] applies display:none !important the instant it's set, with no
+  // chance for a transition to run. Intercepting the `hidden` property
+  // setter itself (same technique cloud-sync.js already uses for
+  // localStorage.setItem) means every existing close call gets an exit
+  // animation for free — no call site needs to change.
+  const MODAL_CLOSE_ANIMATION_MS = 150;
+  document.querySelectorAll(".modal-overlay").forEach((overlay) => {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "hidden");
+    if (!descriptor || !descriptor.set || !descriptor.get) return;
+    Object.defineProperty(overlay, "hidden", {
+      configurable: true,
+      get() {
+        return descriptor.get.call(overlay);
+      },
+      set(value) {
+        if (value && !descriptor.get.call(overlay) && !overlay.classList.contains("modal-closing")) {
+          overlay.classList.add("modal-closing");
+          setTimeout(() => {
+            overlay.classList.remove("modal-closing");
+            descriptor.set.call(overlay, true);
+          }, MODAL_CLOSE_ANIMATION_MS);
+        } else if (!value) {
+          overlay.classList.remove("modal-closing");
+          descriptor.set.call(overlay, value);
+        }
+      },
+    });
+  });
 })();

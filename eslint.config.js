@@ -41,6 +41,7 @@ const browserGlobals = {
   Event: "readonly",
   MutationObserver: "readonly",
   getComputedStyle: "readonly",
+  HTMLElement: "readonly",
   firebase: "readonly", // loaded from the Firebase compat <script> CDN tags
 };
 

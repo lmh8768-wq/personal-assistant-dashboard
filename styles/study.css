@@ -6,7 +6,7 @@
 .collapse-region {
   display: grid;
   grid-template-rows: 1fr;
-  transition: grid-template-rows 0.22s ease;
+  transition: grid-template-rows var(--dur-panel) var(--ease-standard);
 }
 
 .collapse-region.collapsed {
@@ -148,6 +148,21 @@
   padding: 3px 8px;
   color: var(--text);
   outline: none;
+  /* Fires automatically on insert — the double-click-to-rename swap
+     (goal-label-editor.js) used to replace the static label with this
+     input via a synchronous innerHTML swap with no transition at all. */
+  animation: goal-title-input-in 0.12s ease;
+}
+
+@keyframes goal-title-input-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .goal-item-label-input {

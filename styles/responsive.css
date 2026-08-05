@@ -18,26 +18,57 @@
     z-index: 30;
     transform: translateX(-100%);
     box-shadow: var(--shadow);
+    transition: transform 0.25s ease;
   }
   .sidebar.mobile-open {
     transform: translateX(0);
+  }
+  /* Sibling of #sidebar in index.html, so it reacts to .mobile-open via a
+     plain CSS sibling selector — no JS toggle needed. Unlike a modal's
+     dimmed backdrop, this used to be entirely absent, so the sliding panel
+     had nothing separating it from the page content it covers. Clicks on
+     it already close the sidebar via main.js's existing "click outside
+     .sidebar" handler, since this element isn't a descendant of #sidebar. */
+  .sidebar-backdrop {
+    display: none;
+  }
+  .sidebar.mobile-open ~ .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+    background: rgba(0, 0, 0, 0.35);
+    animation: sidebar-backdrop-in 0.2s ease;
+  }
+  @keyframes sidebar-backdrop-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   .mobile-menu-btn {
     display: inline-flex;
   }
   .search-box {
-    display: none;
-  }
-  .icon-btn.mobile-search-btn {
-    display: inline-flex;
-  }
-  .search-box.mobile-open {
-    display: flex;
+    /* Was display:none, which can't be transitioned at all. Taken out of
+       the topbar's normal flow (position:absolute) even at rest — same
+       position the .mobile-open state uses — so opacity/visibility alone
+       can fade it in/out without display switches, and without affecting
+       the other topbar items' layout while closed. */
     position: absolute;
     top: 100%;
     left: 16px;
     right: 16px;
     margin-top: 8px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+  }
+  .icon-btn.mobile-search-btn {
+    display: inline-flex;
+  }
+  .search-box.mobile-open {
+    opacity: 1;
+    visibility: visible;
+    display: flex;
     background: var(--bg-elevated);
     box-shadow: var(--shadow);
     z-index: 40;

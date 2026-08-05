@@ -679,7 +679,7 @@ test("modals: every add/edit modal has a working top-right close button", { skip
     await page.evaluate(() => window.ScheduleView.openAddModal());
     await page.waitForTimeout(150);
     await page.click("#closeScheduleModalBtn");
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(220); // modal close now plays a ~150ms exit animation before hidden actually flips
     assert.equal(await page.evaluate(() => document.getElementById("scheduleModalOverlay").hidden), true);
 
     await page.evaluate(() => document.querySelector('[data-view="practice"]')?.click());
@@ -687,7 +687,7 @@ test("modals: every add/edit modal has a working top-right close button", { skip
     await page.click("#addPracticeBtn");
     await page.waitForTimeout(150);
     await page.click("#closePracticeModalBtn");
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(220); // modal close now plays a ~150ms exit animation before hidden actually flips
     assert.equal(await page.evaluate(() => document.getElementById("practiceModalOverlay").hidden), true);
 
     await page.evaluate(() => document.querySelector('[data-view="vongole"]')?.click());
@@ -695,7 +695,7 @@ test("modals: every add/edit modal has a working top-right close button", { skip
     await page.click("#addVongoleLogBtn");
     await page.waitForTimeout(150);
     await page.click("#closeVongoleLogModalBtn");
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(220); // modal close now plays a ~150ms exit animation before hidden actually flips
     assert.equal(await page.evaluate(() => document.getElementById("vongoleLogModalOverlay").hidden), true);
 
     await page.evaluate(() => document.querySelector('[data-view="ledger"]')?.click());
@@ -703,13 +703,13 @@ test("modals: every add/edit modal has a working top-right close button", { skip
     await page.click("#addLedgerEntryBtn");
     await page.waitForTimeout(150);
     await page.click("#closeLedgerModalBtn");
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(220); // modal close now plays a ~150ms exit animation before hidden actually flips
     assert.equal(await page.evaluate(() => document.getElementById("ledgerModalOverlay").hidden), true);
 
     await page.evaluate(() => { document.getElementById("ledgerCategoryModalOverlay").hidden = false; });
     await page.waitForTimeout(150);
     await page.click("#closeLedgerCategoryModalTopBtn");
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(220); // modal close now plays a ~150ms exit animation before hidden actually flips
     assert.equal(await page.evaluate(() => document.getElementById("ledgerCategoryModalOverlay").hidden), true);
   } finally {
     await close();

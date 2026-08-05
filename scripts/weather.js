@@ -210,6 +210,7 @@
   }
 
   function render(weather, note) {
+    const bodyEl = document.getElementById("weatherBody");
     const iconEl = document.getElementById("weatherIcon");
     const tempEl = document.getElementById("weatherTemp");
     const descEl = document.getElementById("weatherDesc");
@@ -234,6 +235,11 @@
       }
     }
     noteEl.textContent = note || "";
+    // Dims slightly whenever what's showing isn't confirmed-fresh (a stale
+    // cached reading during a background refresh, or a failure) — a soft
+    // stand-in for a real crossfade, since the temp/desc/range text just
+    // gets replaced in place with no transition of its own to hook into.
+    bodyEl?.classList.toggle("weather-stale", !!note);
   }
 
   async function refreshDashboard() {
@@ -244,6 +250,12 @@
       return;
     }
     if (cache) render(cache.weather, "업데이트 중…");
+    // First-ever load (no cache at all yet) previously showed nothing but
+    // the static "—" placeholder for however long geolocation + the fetch
+    // took (up to several seconds) with zero indication anything was
+    // happening — at least a text cue now, and .weather-stale's dim from
+    // render() applies here too.
+    else render(null, "날씨 정보를 불러오는 중…");
 
     if (!tryAcquireFetchLock()) {
       // Another tab already grabbed the lock and is fetching right now —

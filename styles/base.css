@@ -33,9 +33,32 @@
   --success: #17c964;
 }
 
+:root {
+  /* Shared timing for every "a panel/card/modal appears" animation — used
+     to be 4 different duration/easing pairs across base/components/
+     schedule/study.css (0.22s ease, 0.24s cubic-bezier(...), 0.28s ease,
+     0.22s ease) with no token tying them together, so new ones kept
+     picking a slightly different value instead of matching an existing one. */
+  --dur-panel: 0.22s;
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 * { box-sizing: border-box; }
 
 [hidden] { display: none !important; }
+
+/* No animation/transition in the app was gated on this OS-level
+   accessibility preference — collapsing every one to near-zero here
+   (rather than hunting down and gating each individually) means a future
+   animation added anywhere automatically respects it too. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* Switching sidebar tabs used to just swap which .view has [hidden] —
    instant, no transition. This fades/rises the newly-shown one in instead;
@@ -52,7 +75,7 @@
 }
 
 .view.view-enter {
-  animation: view-enter 0.22s ease;
+  animation: view-enter var(--dur-panel) var(--ease-standard);
 }
 
 /* A handful of inputs set outline:none directly (see their rules below) to
@@ -394,6 +417,21 @@ button.nav-item {
   z-index: 50;
 }
 
+.search-results:not([hidden]) {
+  animation: search-results-in 0.15s ease;
+}
+
+@keyframes search-results-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .search-result-item {
   display: flex;
   align-items: center;
@@ -558,6 +596,15 @@ button.nav-item {
   display: flex;
   align-items: center;
   gap: 14px;
+  transition: opacity 0.25s ease;
+}
+
+/* WeatherView.render() adds this while showing stale cached data during a
+   background refresh (or on final failure) — text used to just snap
+   between old/new values on every 30-min refresh with no visual cue that
+   anything changed at all. */
+.weather-body.weather-stale {
+  opacity: 0.55;
 }
 
 .weather-icon {

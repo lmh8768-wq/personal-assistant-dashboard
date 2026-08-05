@@ -32,6 +32,64 @@
   font-weight: 700;
 }
 
+/* Every modal in the app used to appear/disappear with a hard cut — only
+   the ledger category modal (further down) had its own bespoke entrance.
+   Applying the same fade/rise to every .modal-overlay by default means
+   every existing openXModal() (which all just do overlay.hidden = false)
+   gets it for free — animation (not transition) restarts automatically
+   whenever the element re-enters the render tree, no JS needed. The exit
+   side (.modal-closing) is toggled by modal-focus-trap.js intercepting the
+   `hidden` setter, since [hidden]'s display:none!important gives a plain
+   CSS transition no time to run otherwise. */
+.modal-overlay:not([hidden]) {
+  animation: modal-overlay-enter var(--dur-panel) var(--ease-standard);
+}
+
+.modal-overlay:not([hidden]) .modal {
+  animation: modal-enter var(--dur-panel) var(--ease-standard);
+}
+
+.modal-overlay.modal-closing {
+  animation: modal-overlay-exit 0.15s ease forwards;
+  pointer-events: none;
+}
+
+.modal-overlay.modal-closing .modal {
+  animation: modal-exit 0.15s ease forwards;
+}
+
+@keyframes modal-overlay-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-overlay-exit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
 /* Every modal previously relied on its own "취소"/"완료" button at the
    bottom to close — a top-right × is the more common convention and means
    closing doesn't require reading the whole form first. Each one is wired
@@ -231,11 +289,11 @@
 }
 
 #ledgerCategoryModalOverlay:not([hidden]) {
-  animation: ledger-settings-overlay-enter 0.18s ease;
+  animation: ledger-settings-overlay-enter var(--dur-panel) var(--ease-standard);
 }
 
 #ledgerCategoryModalOverlay:not([hidden]) .ledger-category-modal {
-  animation: ledger-settings-modal-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: ledger-settings-modal-enter var(--dur-panel) var(--ease-standard);
 }
 
 .delete-scope-actions {
@@ -326,6 +384,37 @@
   font-size: 13px;
   max-width: 320px;
   box-shadow: var(--shadow);
+  /* Plays automatically the moment toast.js appends a new toast — neighbors
+     used to just snap into the gap a removed one left with no motion at all
+     on either end. */
+  animation: toast-in 0.18s var(--ease-standard);
+}
+
+.toast.toast-leaving {
+  animation: toast-out 0.15s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(12px);
+  }
 }
 
 /* Every toast used the same neutral/accent border regardless of whether it
