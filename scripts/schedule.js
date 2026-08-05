@@ -512,6 +512,17 @@
     }
   }
 
+  // Changing which items are even visible while a bulk selection is active
+  // used to leave scheduleSelectedIds untouched — items that scrolled out
+  // of view via a category filter or "완료 항목 숨기기" stayed silently
+  // armed, so a later 완료 처리/삭제 could act on items the user could no
+  // longer see and hadn't consciously re-selected.
+  function clearSelectionIfActive() {
+    if (!scheduleSelectMode || scheduleSelectedIds.size === 0) return;
+    scheduleSelectedIds.clear();
+    updateScheduleSelectToolbar();
+  }
+
   // ---------- Filter bar ----------
   function renderScheduleFilterBar() {
     const bar = document.getElementById("scheduleFilterBar");
@@ -524,6 +535,7 @@
     allChip.textContent = "전체";
     allChip.addEventListener("click", () => {
       categoryFilter = null;
+      clearSelectionIfActive();
       renderScheduleFilterBar();
       renderDayList();
     });
@@ -542,6 +554,7 @@
 
       chip.addEventListener("click", () => {
         categoryFilter = categoryFilter === cat.key ? null : cat.key;
+        clearSelectionIfActive();
         renderScheduleFilterBar();
         renderDayList();
       });
@@ -828,8 +841,19 @@
       opt.textContent = cat.label;
       select.appendChild(opt);
     });
-    const hasDesired = categories.some((c) => c.key === desiredValue);
-    select.value = hasDesired ? desiredValue : categories[0]?.key || "";
+    // The item's saved category may since have been deleted — same fix as
+    // ledger.js's buildEntryRow: add a synthetic option for it instead of
+    // silently reassigning the item to whichever category happens to be
+    // first the next time it's saved.
+    const hasDesired = !!desiredValue && categories.some((c) => c.key === desiredValue);
+    const isOrphaned = !hasDesired && !!desiredValue;
+    if (isOrphaned) {
+      const opt = document.createElement("option");
+      opt.value = desiredValue;
+      opt.textContent = "삭제된 카테고리";
+      select.appendChild(opt);
+    }
+    select.value = hasDesired || isOrphaned ? desiredValue : categories[0]?.key || "";
     updateCategorySelectDot();
   }
 
@@ -930,7 +954,8 @@
       stored?.repeat &&
       (payload.repeat.type !== stored.repeat.type || payload.repeat.until !== (stored.repeat.until || null));
 
-    if (payload.date && payload.date !== occurrenceDate) {
+    const dateChanged = payload.date && payload.date !== occurrenceDate;
+    if (dateChanged) {
       // Moving just this occurrence to a new date: pull it out of the series
       // and add it as a standalone one-off item on the new date.
       window.ScheduleStore.excludeOccurrence(editingId, occurrenceDate);
@@ -944,10 +969,14 @@
     pendingEditPayload = null;
     finalizeEdit(payload, true);
     if (repeatChanged) {
-      window.Toast?.show("반복 설정 변경은 '이 날짜만'에는 적용되지 않아요 — 반복 전체를 바꾸려면 '이후 일정 모두'를 선택해주세요", {
-        type: "warning",
-        duration: 6000,
-      });
+      // The date-changed branch above already forces this occurrence into
+      // a standalone, non-repeating item — a much bigger change than "your
+      // repeat edit was ignored," so say that instead of the generic
+      // message, which reads as misleading when both were changed together.
+      const message = dateChanged
+        ? "날짜를 바꿔서 이 일정은 반복 없는 별도 항목으로 분리됐어요 — 선택한 반복 설정은 적용되지 않았어요"
+        : "반복 설정 변경은 '이 날짜만'에는 적용되지 않아요 — 반복 전체를 바꾸려면 '이후 일정 모두'를 선택해주세요";
+      window.Toast?.show(message, { type: "warning", duration: 6000 });
     }
   }
 
@@ -1088,6 +1117,7 @@
     document.getElementById("toggleHideCompletedBtn").textContent = hideCompleted
       ? "완료 항목 보기"
       : "완료 항목 숨기기";
+    clearSelectionIfActive();
     refreshAll();
   }
 

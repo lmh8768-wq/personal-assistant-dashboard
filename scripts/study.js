@@ -847,11 +847,18 @@
           node.label,
           depth === 0 ? "대목표 이름" : "하위 목표 이름",
           (value) => {
+            // This can now run after a click elsewhere already discarded
+            // this goal (see goal-label-editor.js's deferred blur-commit,
+            // needed so that click isn't itself swallowed) — only act if
+            // this is still the actual pending goal, not one some other
+            // action already cleaned up/superseded.
+            if (!pendingNewGoal || pendingNewGoal.id !== node.id) return;
             GoalStore.renameGoal(yearId, periodId, node.id, value);
             pendingNewGoal = null;
             onChange();
           },
           () => {
+            if (!pendingNewGoal || pendingNewGoal.id !== node.id) return;
             GoalStore.removeGoal(yearId, periodId, node.id);
             pendingNewGoal = null;
             onChange();

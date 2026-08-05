@@ -693,5 +693,19 @@
     });
   }
 
-  window.SettingsView = { init, refreshStorage: renderStorageUsage, refreshCategories: renderCategoryEditor };
+  window.SettingsView = {
+    init,
+    refreshStorage: renderStorageUsage,
+    refreshCategories: renderCategoryEditor,
+    // Same reasoning as refreshCategories above — profile name/avatar and
+    // custom shortcuts can also change from outside this tab (cloud sync
+    // pulling in another device's edit), but only refreshCategories was
+    // ever wired to the tab-switch refresh, leaving these two stale in the
+    // Settings form/dashboard greeting until a full page reload.
+    refreshProfile: () => {
+      populateSettingsForm();
+      applyProfile();
+    },
+    refreshShortcuts: renderCustomShortcuts,
+  };
 })();

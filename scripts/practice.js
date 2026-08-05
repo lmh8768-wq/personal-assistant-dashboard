@@ -207,9 +207,16 @@
     if (template.length > 0) {
       const checkedIds = new Set(entry.checkedIds || []);
       const doneLabels = template.filter((t) => checkedIds.has(t.id)).map((t) => t.label);
+      // The denominator is the checklist size AT THE TIME this entry was
+      // saved (entry.checklistTotal), not today's — otherwise adding a new
+      // checklist item retroactively changes every past entry's ratio (e.g.
+      // a historical "5/5 완료" silently becomes "5/6") even though nothing
+      // about that entry changed. Older entries saved before this field
+      // existed fall back to today's template size, same as before.
+      const total = entry.checklistTotal != null ? entry.checklistTotal : template.length;
       const summary = document.createElement("p");
       summary.className = "practice-card-checklist";
-      summary.textContent = `✓ ${doneLabels.length}/${template.length} 완료` +
+      summary.textContent = `✓ ${doneLabels.length}/${total} 완료` +
         (doneLabels.length > 0 ? ` · ${doneLabels.join(", ")}` : "");
       card.appendChild(summary);
     }
@@ -325,6 +332,7 @@
       date: document.getElementById("practiceDateInput").value,
       text: document.getElementById("practiceTextInput").value.trim(),
       checkedIds: [...pendingChecked],
+      checklistTotal: PracticeChecklistStore.getAll().length,
     };
     if (!payload.date) return;
 
@@ -903,11 +911,18 @@
           node.label,
           depth === 0 ? "대목표 이름" : "하위 목표 이름",
           (value) => {
+            // This can now run after a click elsewhere already discarded
+            // this goal (see goal-label-editor.js's deferred blur-commit,
+            // needed so that click isn't itself swallowed) — only act if
+            // this is still the actual pending goal, not one some other
+            // action already cleaned up/superseded.
+            if (!pendingNewGoal || pendingNewGoal.id !== node.id) return;
             CurriculumStore.renameGoal(node.id, value);
             pendingNewGoal = null;
             renderCurriculum();
           },
           () => {
+            if (!pendingNewGoal || pendingNewGoal.id !== node.id) return;
             CurriculumStore.removeGoal(node.id);
             pendingNewGoal = null;
             renderCurriculum();
@@ -1093,6 +1108,7 @@
     init,
     refreshDashboard: renderDashboardPractice,
     onShow: () => {
+      feedVisibleCount = FEED_PAGE_SIZE;
       renderFeed();
       renderStreak();
       renderCurriculum();

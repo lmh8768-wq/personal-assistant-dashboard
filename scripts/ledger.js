@@ -525,17 +525,25 @@
   }
 
   function openModal(mode, data) {
-    const type = mode === "edit" ? entryType(data) : "expense";
+    let type = mode === "edit" ? entryType(data) : "expense";
     // Editing an existing entry must stay reachable even if every category
     // of its type has since been deleted — otherwise those entries become
     // permanently stuck (viewable and deletable, but not editable at all)
     // until the user recreates a category first. Adding a brand-new entry
-    // genuinely can't proceed with nowhere to categorize it, so only that
-    // path redirects.
-    if (mode !== "edit" && window.LedgerCategoryStore.getByType(type).length === 0) {
-      window.Toast?.show("먼저 카테고리를 추가해주세요", { type: "warning" });
-      openCategoryManager();
-      return;
+    // genuinely can't proceed with nowhere to categorize it — but the add
+    // modal itself has both 지출/수입 tabs, so a user with zero expense
+    // categories but real income categories can still add an income entry;
+    // only redirect when BOTH types are empty, and default to whichever
+    // type actually has something to pick from.
+    if (mode !== "edit") {
+      const hasExpense = window.LedgerCategoryStore.getByType("expense").length > 0;
+      const hasIncome = window.LedgerCategoryStore.getByType("income").length > 0;
+      if (!hasExpense && !hasIncome) {
+        window.Toast?.show("먼저 카테고리를 추가해주세요", { type: "warning" });
+        openCategoryManager();
+        return;
+      }
+      if (!hasExpense && hasIncome) type = "income";
     }
     editingId = mode === "edit" ? data.id : null;
     document.getElementById("ledgerModalTitle").textContent = mode === "edit" ? "내역 수정" : "내역 추가";

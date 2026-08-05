@@ -191,6 +191,8 @@ function showView(viewName) {
     // was never actually wired to anything, so this editor only ever
     // reflected whatever categories existed at app startup.
     window.SettingsView.refreshCategories();
+    window.SettingsView.refreshProfile();
+    window.SettingsView.refreshShortcuts();
   }
   if (viewName === "settings" && window.CloudSync) {
     window.CloudSync.renderDebugLog();
@@ -287,7 +289,11 @@ document.querySelectorAll(".open-claude-btn").forEach((btn) => {
 // ---------- Keyboard shortcuts ----------
 document.addEventListener("keydown", (e) => {
   const tag = document.activeElement?.tagName;
-  const isTyping = tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable;
+  // A <select> counts as "typing" too — without this, pressing "n" while,
+  // say, the schedule modal's own category <select> has focus force-opens a
+  // brand-new add-schedule modal, discarding whatever edit was in progress.
+  const isTyping =
+    tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || document.activeElement?.isContentEditable;
 
   if (e.key === "/" && !isTyping) {
     e.preventDefault();

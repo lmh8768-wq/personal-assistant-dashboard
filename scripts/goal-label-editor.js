@@ -41,7 +41,18 @@ window.GoalLabelEditor = {
         cancel();
       }
     });
-    input.addEventListener("blur", commit);
+    // blur fires synchronously the instant focus moves — including from the
+    // mousedown that STARTS a click on some other element (e.g. a
+    // different row's own "+" button, which is exactly how a second
+    // still-blank goal gets created while this one is abandoned). Calling
+    // commit() synchronously here — which, for a still-empty input, means
+    // onCancelDelete() deleting this goal and rebuilding the whole tree —
+    // used to finish before that click event even fired, detaching the
+    // very element the user just pressed down on and silently swallowing
+    // their click. Deferring lets that click's own handler run first; the
+    // caller's onCancelDelete is expected to no-op if something else (like
+    // that click) already superseded this goal in the meantime.
+    input.addEventListener("blur", () => setTimeout(commit, 0));
     input.addEventListener("click", (e) => e.stopPropagation());
 
     return input;
