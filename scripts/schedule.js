@@ -7,7 +7,6 @@
   let editingId = null;
   let editingOccurrenceDate = null;
   let categoryFilter = null;
-  let scheduleTextFilter = "";
   let scheduleSelectMode = false;
   let scheduleSelectedIds = new Set();
 
@@ -102,12 +101,6 @@
   function applyCategoryFilter(items) {
     if (!categoryFilter) return items;
     return items.filter((item) => (item.category || "etc") === categoryFilter);
-  }
-
-  function applyTextFilter(items) {
-    const q = scheduleTextFilter.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((item) => `${item.title} ${item.memo || ""}`.toLowerCase().includes(q));
   }
 
   // Applies the day's saved manual order, if any; otherwise (or for items
@@ -575,12 +568,9 @@
     let items = applyCustomOrder(dateStr, window.ScheduleStore.getOccurrences(dateStr));
     items = applyCategoryFilter(items);
     items = applyHideCompleted(items);
-    items = applyTextFilter(items);
 
     if (items.length === 0) {
-      list.innerHTML = scheduleTextFilter.trim()
-        ? `<li class="schedule-empty"><span class="empty-icon">🔍</span>검색 결과가 없어요</li>`
-        : `<li class="schedule-empty"><span class="empty-icon">🗓️</span>이 날에는 일정이 없어요</li>`;
+      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon">🗓️</span>이 날에는 일정이 없어요</li>`;
       return;
     }
 
@@ -1119,7 +1109,6 @@
     let items = applyCustomOrder(dateStr, window.ScheduleStore.getOccurrences(dateStr));
     items = applyCategoryFilter(items);
     items = applyHideCompleted(items);
-    items = applyTextFilter(items);
     items.forEach((item) => scheduleSelectedIds.add(`${item.id}::${item.occurrenceDate}`));
     updateScheduleSelectToolbar();
     renderDayList();
@@ -1188,10 +1177,6 @@
       ? "완료 항목 보기"
       : "완료 항목 숨기기";
     document.getElementById("toggleHideCompletedBtn").addEventListener("click", toggleHideCompleted);
-    document.getElementById("scheduleTextFilterInput")?.addEventListener("input", (e) => {
-      scheduleTextFilter = e.target.value;
-      renderDayList();
-    });
     document.getElementById("duplicateScheduleBtn").addEventListener("click", handleDuplicate);
     document.getElementById("saveAsTemplateBtn")?.addEventListener("click", handleSaveAsTemplate);
 
