@@ -46,11 +46,11 @@
 }
 
 .ledger-calendar-day-expense {
-  color: #f31260;
+  color: var(--danger);
 }
 
 .ledger-calendar-day-income {
-  color: #17c964;
+  color: var(--success);
 }
 
 .ledger-day-summary {
@@ -62,11 +62,11 @@
 }
 
 .ledger-day-summary-expense {
-  color: #f31260;
+  color: var(--danger);
 }
 
 .ledger-day-summary-income {
-  color: #17c964;
+  color: var(--success);
 }
 
 .ledger-category-manager-subheading {
@@ -81,7 +81,7 @@
 }
 
 .ledger-entry-amount.income {
-  color: #17c964;
+  color: var(--success);
 }
 
 .ledger-total-row {
@@ -197,6 +197,7 @@
   line-height: 1;
   cursor: pointer;
   opacity: 0.7;
+  transition: background 0.15s ease, opacity 0.15s ease;
 }
 
 .ledger-settings-btn:hover {
@@ -240,7 +241,7 @@
 }
 
 .ledger-total-budget-fill.over {
-  background: #f31260;
+  background: var(--danger);
 }
 
 .ledger-expand-btn {
@@ -259,11 +260,15 @@
   background: var(--bg-elevated-2);
   color: var(--text-muted);
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .ledger-expand-btn:hover {
-  background: var(--bg-elevated-2);
-  color: var(--text);
+  /* Was re-declaring the same background as rest above (dead CSS — hover
+     only ever changed the text color) — accent-soft matches the hover
+     treatment every other icon-style button in the app already uses. */
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .ledger-expand-icon {
@@ -301,8 +306,8 @@
 
 .ledger-category-dot {
   flex-shrink: 0;
-  width: 9px;
-  height: 9px;
+  width: 8px; /* matches the other category color dots in the app — was 9px */
+  height: 8px;
   border-radius: 50%;
 }
 
@@ -347,7 +352,7 @@
 }
 
 .ledger-progress-fill.over {
-  background: #f31260 !important;
+  background: var(--danger) !important;
 }
 
 .ledger-progress-pct {

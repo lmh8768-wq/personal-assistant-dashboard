@@ -10,6 +10,12 @@
   --accent: #7c9cff;
   --accent-soft: rgba(124, 156, 255, 0.12);
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  /* Was 3-4 unrelated hardcoded reds (#f31260/#e5687a/#f43f5e/#f87171) and
+     2 unrelated greens (#17c964/#22c55e) scattered across files for the
+     same "negative/danger" and "positive/success" meanings — consolidated
+     to the two values already used most (ledger expense/income). */
+  --danger: #f31260;
+  --success: #17c964;
 }
 
 :root[data-theme="light"] {
@@ -23,6 +29,8 @@
   --accent: #4a63e0;
   --accent-soft: rgba(74, 99, 224, 0.08);
   --shadow: 0 8px 24px rgba(20, 20, 30, 0.06);
+  --danger: #f31260;
+  --success: #17c964;
 }
 
 * { box-sizing: border-box; }
@@ -243,7 +251,7 @@ input[type="checkbox"]:checked {
 }
 
 .sync-status-synced .sync-status-dot {
-  background: #22c55e;
+  background: var(--success);
 }
 
 .sync-status-syncing .sync-status-dot {
@@ -256,7 +264,7 @@ input[type="checkbox"]:checked {
 }
 
 .sync-status-error .sync-status-dot {
-  background: #f31260;
+  background: var(--danger);
 }
 
 @keyframes sync-status-pulse {
@@ -411,6 +419,7 @@ button.nav-item {
   font-size: 11px;
   color: var(--accent);
   background: var(--accent-soft);
+  border: 1px solid transparent; /* matches the other pill badges' (weather alert, vongole attempt count) border box model — transparent so the accent-soft fill still reads as borderless */
   border-radius: 999px;
   padding: 2px 8px;
 }
@@ -528,7 +537,7 @@ button.nav-item {
 }
 
 .completion-rate-fill.over {
-  background: #f31260;
+  background: var(--danger);
 }
 
 /* Two rows of three equal-width panels: 오늘의 날씨/오늘의 일정/다가오는
@@ -638,7 +647,7 @@ button.nav-item {
 
 .panel-header h2 {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px; /* matches .calendar-header h2/.goal-year-label — same "card/section heading" role, was 15px */
   font-weight: 700;
 }
 

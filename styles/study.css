@@ -79,9 +79,9 @@
 .goal-year-remove.confirm-armed {
   font-size: 12px;
   font-weight: 700;
-  color: #e5687a;
+  color: var(--danger);
   padding: 2px 8px;
-  border: 1px solid #e5687a;
+  border: 1px solid var(--danger);
   border-radius: 999px;
 }
 
@@ -103,6 +103,7 @@
   font-size: 12px;
   cursor: pointer;
   flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .goal-toggle-btn:hover {
@@ -130,6 +131,7 @@
   font-size: 11px;
   cursor: pointer;
   flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .goal-edit-btn:hover {

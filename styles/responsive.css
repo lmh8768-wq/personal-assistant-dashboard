@@ -60,6 +60,16 @@
   .panel-header {
     margin-bottom: 8px;
   }
+  /* Same "card" pattern as .panel above (own background/border/radius, a
+     fixed min-height meant for desktop's multi-column layouts) — these
+     used to keep full desktop padding on mobile since only .panel itself
+     got the narrow-viewport treatment. */
+  .calendar-panel,
+  .day-panel,
+  .practice-column {
+    min-height: auto;
+    padding: 14px 16px;
+  }
 }
 
 /* ---------- iOS standalone (Add to Home Screen) safe areas ---------- */

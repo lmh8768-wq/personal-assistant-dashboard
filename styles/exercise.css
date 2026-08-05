@@ -109,3 +109,8 @@
   min-width: 100px;
 }
 
+.learned-exercise-add-row.expanded input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+

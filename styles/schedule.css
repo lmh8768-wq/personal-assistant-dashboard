@@ -211,7 +211,7 @@
 }
 
 .calendar-weekdays .weekday-sat {
-  color: #3b82f6;
+  color: var(--accent); /* was a separate hardcoded blue, clashing visually with the app's own accent blue elsewhere on the same calendar */
 }
 
 .calendar-grid-viewport {
@@ -303,7 +303,7 @@
 }
 
 .calendar-day.weekday-sat {
-  color: #3b82f6;
+  color: var(--accent); /* was a separate hardcoded blue, clashing visually with the app's own accent blue elsewhere on the same calendar */
 }
 
 .calendar-day.outside {
@@ -361,7 +361,7 @@
 
 .day-panel-header h2 {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px; /* matches .calendar-header h2/.goal-year-label — same "card/section heading" role, was 15px */
   font-weight: 700;
 }
 
@@ -384,6 +384,7 @@
   background: var(--bg-elevated-2);
   color: var(--text);
   cursor: pointer;
+  transition: background 0.15s ease;
 }
 
 .template-chip:hover {
@@ -450,6 +451,7 @@
   background: var(--bg-elevated-2);
   color: var(--text-muted);
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
 
 .schedule-filter-chip:hover {
@@ -465,8 +467,8 @@
 }
 
 .schedule-filter-chip-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px; /* matches the other category color dots in the app — was 7px */
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -561,6 +563,10 @@
   outline: none;
 }
 
+.checklist-add-row input:focus {
+  border-color: var(--accent);
+}
+
 .checklist-add-row select {
   flex-shrink: 0;
   font-family: inherit;
@@ -601,7 +607,7 @@
 .schedule-item-delete:hover,
 .schedule-item-delete:focus-visible {
   background: rgba(229, 104, 122, 0.15);
-  color: #e5687a;
+  color: var(--danger);
 }
 
 .modal-actions-secondary {
