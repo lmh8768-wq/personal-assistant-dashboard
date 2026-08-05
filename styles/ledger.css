@@ -427,17 +427,23 @@
 
 .ledger-entry-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
 .ledger-entry-row .ledger-row-category {
-  flex: 1;
+  flex: 1 1 90px;
+  min-width: 0;
+}
+
+.ledger-entry-row .ledger-row-name {
+  flex: 2 1 140px;
   min-width: 0;
 }
 
 .ledger-entry-row .ledger-row-amount {
-  flex: 1;
+  flex: 1 1 90px;
   min-width: 0;
 }
 

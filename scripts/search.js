@@ -79,9 +79,16 @@
     if (window.LedgerEntryStore && window.LedgerCategoryStore) {
       addSection(
         window.LedgerEntryStore.getAll()
-          .map((entry) => ({ entry, label: window.LedgerCategoryStore.getByKey(entry.categoryKey)?.label || "" }))
-          .filter(({ label }) => label.toLowerCase().includes(q))
-          .map(({ entry, label }) => ({ type: "가계부", label: `${label} · ${entry.date}`, view: "ledger" }))
+          .map((entry) => ({
+            entry,
+            categoryLabel: window.LedgerCategoryStore.getByKey(entry.categoryKey)?.label || "",
+          }))
+          .filter(({ entry, categoryLabel }) => `${categoryLabel} ${entry.memo || ""}`.toLowerCase().includes(q))
+          .map(({ entry, categoryLabel }) => ({
+            type: "가계부",
+            label: entry.memo ? `${entry.memo} · ${entry.date}` : `${categoryLabel} · ${entry.date}`,
+            view: "ledger",
+          }))
       );
     }
     const vongoleRecipes = [];

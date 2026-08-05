@@ -284,12 +284,17 @@
 
       const title = document.createElement("div");
       title.className = "schedule-item-title";
-      title.textContent = getCategoryLabel(entry.categoryKey);
+      title.textContent = entry.memo || getCategoryLabel(entry.categoryKey);
       body.appendChild(title);
 
       const meta = document.createElement("div");
       meta.className = "ledger-entry-meta";
-      meta.textContent = entryType(entry) === "income" ? "수입" : "지출";
+      // Once the item name is the title, the category still needs to show
+      // up somewhere — folded into the meta line alongside 지출/수입 instead
+      // of getting its own line, so entries stay a compact two-line row.
+      meta.textContent = entry.memo
+        ? `${getCategoryLabel(entry.categoryKey)} · ${entryType(entry) === "income" ? "수입" : "지출"}`
+        : entryType(entry) === "income" ? "수입" : "지출";
       body.appendChild(meta);
 
       li.appendChild(body);
@@ -444,6 +449,15 @@
     select.value = hasMatch || isOrphaned ? data.categoryKey : categories[0]?.key || "";
     row.appendChild(select);
 
+    const name = document.createElement("input");
+    name.type = "text";
+    name.className = "ledger-row-name";
+    name.placeholder = "항목 이름 (선택)";
+    name.maxLength = 60;
+    name.setAttribute("aria-label", "항목 이름");
+    if (data?.memo) name.value = data.memo;
+    row.appendChild(name);
+
     const amount = document.createElement("input");
     bindLiveAmountFormatting(amount);
     amount.className = "ledger-row-amount";
@@ -530,7 +544,7 @@
 
     const rowsContainer = document.getElementById("ledgerEntryRows");
     rowsContainer.innerHTML = "";
-    rowsContainer.appendChild(buildEntryRow(mode === "edit" ? { categoryKey: data.categoryKey, amount: data.amount } : null));
+    rowsContainer.appendChild(buildEntryRow(mode === "edit" ? { categoryKey: data.categoryKey, amount: data.amount, memo: data.memo } : null));
     updateRowRemoveVisibility();
 
     // Adding several entries at once only makes sense when creating new
@@ -563,6 +577,7 @@
         date,
         amount,
         categoryKey: row.querySelector(".ledger-row-category").value,
+        memo: row.querySelector(".ledger-row-name").value.trim(),
         type: modalType,
       });
       window.Toast?.show("내역을 수정했어요");
@@ -578,6 +593,7 @@
         date,
         amount: parseAmountInput(row.querySelector(".ledger-row-amount")),
         categoryKey: row.querySelector(".ledger-row-category").value,
+        memo: row.querySelector(".ledger-row-name").value.trim(),
         type: modalType,
       }))
       .filter((entry) => entry.amount > 0);
