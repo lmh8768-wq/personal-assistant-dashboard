@@ -403,6 +403,21 @@
     }).then(() => {
       pushInFlight = false;
       logSync("push CONFIRMED by server");
+      // A newer edit that arrived WHILE this push was in flight hit the
+      // `pushInFlight` guard above, returned early, and — critically —
+      // left pushPending stuck at true without scheduling any retry of its
+      // own (the poller's retry branch requires !pushPending, which never
+      // becomes true again on its own). Unconditionally clearing the
+      // durable PENDING_KEY here used to mean: that newer edit's data was
+      // never uploaded, but the marker saying "there's unsynced local data"
+      // was gone anyway — a reload before any further edit would pull the
+      // remote copy (missing that edit) and silently overwrite it locally.
+      // Retrying immediately instead closes that window.
+      if (pushPending) {
+        logSync("a newer change arrived mid-flight — pushing it now instead of clearing pending");
+        pushToCloud();
+        return;
+      }
       clearPending();
       setSyncStatus("synced", "동기화됨");
     }).catch((err) => {
@@ -421,6 +436,14 @@
         });
       }
       setSyncStatus("error", "동기화 실패");
+      // Same reasoning as the success branch above — a newer edit deferred
+      // by the pushInFlight guard while THIS push was failing would
+      // otherwise leave pushPending stuck true with nothing left to ever
+      // retry it (the poller's retry branch needs !pushPending).
+      if (pushPending) {
+        logSync("retrying immediately — a newer change is also pending");
+        pushToCloud();
+      }
     });
   }
 

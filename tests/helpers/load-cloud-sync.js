@@ -45,7 +45,7 @@ function loadCloudSyncModule() {
 // needed to test the first-pull anomalous-empty-payload guard, which lives
 // inside the onSnapshot callback wiring itself. setCall()/getSetCalls()
 // let a test inspect what startListening pushed back to "the server".
-function loadCloudSyncModuleWithFakeFirebase({ docExists, docPayload, seedLocalStorage } = {}) {
+function loadCloudSyncModuleWithFakeFirebase({ docExists, docPayload, seedLocalStorage, controlledPush } = {}) {
   const deepMergeCode = fs.readFileSync(path.join(__dirname, "..", "..", "scripts", "deep-merge.js"), "utf8");
   const code = fs.readFileSync(path.join(__dirname, "..", "..", "scripts", "cloud-sync.js"), "utf8");
   const localStorage = createMemoryStorage();
@@ -67,6 +67,11 @@ function loadCloudSyncModuleWithFakeFirebase({ docExists, docPayload, seedLocalS
   let snapshotCallback = null;
   const setCalls = [];
   const toastMessages = [];
+  // Only populated when controlledPush is set — each entry is the
+  // {resolve, reject} pair for one .set() call, left pending until the test
+  // explicitly settles it, so a test can simulate a slow network write
+  // (push A still "in flight" when a second local change tries to push).
+  const pendingPushes = [];
 
   const fakeDocRef = {
     onSnapshot: (onNext) => {
@@ -75,7 +80,15 @@ function loadCloudSyncModuleWithFakeFirebase({ docExists, docPayload, seedLocalS
     },
     set: (data) => {
       setCalls.push(data);
-      return Promise.resolve();
+      if (!controlledPush) return Promise.resolve();
+      let resolve;
+      let reject;
+      const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      pendingPushes.push({ resolve, reject });
+      return promise;
     },
     collection: () => ({}),
   };
@@ -138,7 +151,7 @@ function loadCloudSyncModuleWithFakeFirebase({ docExists, docPayload, seedLocalS
     metadata: { fromCache: false },
   });
 
-  return { window: sandbox.window, localStorage, setCalls, toastMessages };
+  return { window: sandbox.window, localStorage, setCalls, toastMessages, pendingPushes };
 }
 
 module.exports = { loadCloudSyncModule, loadCloudSyncModuleWithFakeFirebase };

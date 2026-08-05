@@ -932,7 +932,13 @@
     // series' repeat rule) — the modal never disables/hides the repeat
     // dropdown when "이 날짜만" is the scope actually being applied, so warn
     // instead of letting the user believe a change they just made took effect.
-    const repeatChanged = stored?.repeat && payload.repeat.type !== stored.repeat.type;
+    // Checks both fields that make up `repeat` — the patch below drops the
+    // whole object regardless of which one changed, but this used to only
+    // compare .type, so changing just .until (e.g. adding an end date to an
+    // endless weekly series) was silently discarded with no warning at all.
+    const repeatChanged =
+      stored?.repeat &&
+      (payload.repeat.type !== stored.repeat.type || payload.repeat.until !== (stored.repeat.until || null));
 
     if (payload.date && payload.date !== occurrenceDate) {
       // Moving just this occurrence to a new date: pull it out of the series
@@ -1139,7 +1145,11 @@
         justCompleted.push({ id, occurrenceDate });
       }
     });
-    const count = scheduleSelectedIds.size;
+    // justCompleted.length, not scheduleSelectedIds.size — some selected
+    // items may already have been done and gotten skipped above, so the
+    // full selection count would overstate how many actually changed (and
+    // disagree with what undo actually reverts, which is only this set).
+    const count = justCompleted.length;
     scheduleSelectedIds.clear();
     scheduleSelectMode = false;
     document.getElementById("scheduleSelectModeBtn").textContent = "선택";

@@ -24,7 +24,11 @@
   // The budget bar (refreshDashboard) only ever warned passively — visible
   // only if the ledger tab happened to be open. Nagging on every single add
   // past the threshold would be worse than the silence it replaces, so each
-  // threshold only ever fires once per session.
+  // threshold only ever fires once per *month* — tracked against
+  // budgetAlertMonthKey so a session that survives a month rollover (a PWA
+  // tab left open for days) still gets a fresh warning for the new month
+  // instead of staying silenced by last month's flags forever.
+  let budgetAlertMonthKey = null;
   let budgetAlert80Shown = false;
   let budgetAlert100Shown = false;
   // Persisted (device-local UI state, not synced) — used to reset to
@@ -422,22 +426,22 @@
     });
     // The entry's saved category may since have been deleted — setting
     // select.value to a key with no matching <option> just leaves nothing
-    // selected, so fall back to whatever's first rather than silently
-    // discarding the category on the next save.
+    // selected, so add a synthetic option for it instead of silently
+    // reassigning the entry to whatever category happens to be first the
+    // next time it's saved. This used to only kick in when EVERY category
+    // of the type was gone; the far more common case (deleting just one of
+    // several categories, then editing an entry that used it) fell through
+    // to the "pick categories[0]" fallback instead, silently re-tagging the
+    // entry to an unrelated category the moment any other field was edited.
     const hasMatch = data?.categoryKey && categories.some((c) => c.key === data.categoryKey);
-    const isOrphanedWithNoCategories = !hasMatch && data?.categoryKey && categories.length === 0;
-    if (isOrphanedWithNoCategories) {
-      // Every category of this type is gone (openModal still lets an EDIT
-      // reach this point in that case) — a <select> with zero <option>s
-      // can't represent "keep whatever this entry already had," so add one
-      // synthetic option for it instead of silently discarding the
-      // category the moment this entry is saved again.
+    const isOrphaned = !hasMatch && !!data?.categoryKey;
+    if (isOrphaned) {
       const opt = document.createElement("option");
       opt.value = data.categoryKey;
       opt.textContent = "삭제된 카테고리";
       select.appendChild(opt);
     }
-    select.value = hasMatch || isOrphanedWithNoCategories ? data.categoryKey : categories[0]?.key || "";
+    select.value = hasMatch || isOrphaned ? data.categoryKey : categories[0]?.key || "";
     row.appendChild(select);
 
     const amount = document.createElement("input");
@@ -598,6 +602,11 @@
     const totalBudget = window.LedgerCategoryStore.getByType("expense").reduce((sum, c) => sum + (c.budget || 0), 0);
     if (totalBudget === 0) return;
     const mKey = toDateStr(new Date()).slice(0, 7);
+    if (mKey !== budgetAlertMonthKey) {
+      budgetAlertMonthKey = mKey;
+      budgetAlert80Shown = false;
+      budgetAlert100Shown = false;
+    }
     const totalSpent = window.LedgerEntryStore.getAll()
       .filter((e) => e.date.slice(0, 7) === mKey && entryType(e) === "expense")
       .reduce((sum, e) => sum + e.amount, 0);
@@ -750,7 +759,13 @@
     expandBtn.innerHTML = `<span class="ledger-expand-icon${categoryProgressExpanded ? " expanded" : ""}">▾</span>`;
     expandBtn.addEventListener("click", () => {
       categoryProgressExpanded = !categoryProgressExpanded;
-      localStorage.setItem(CATEGORY_PROGRESS_EXPANDED_KEY, String(categoryProgressExpanded));
+      // safeSetLocalStorage, not a bare setItem — every other persisted
+      // write in this app goes through it specifically because a bare
+      // setItem throws under quota-exceeded/Safari-private-mode; this one
+      // used to be the one exception, which would abort this handler before
+      // ever reaching renderCategoryProgress() below, leaving the arrow
+      // icon and the variable disagreeing about the expanded state.
+      window.safeSetLocalStorage(CATEGORY_PROGRESS_EXPANDED_KEY, String(categoryProgressExpanded));
       renderCategoryProgress();
     });
     trackRow.appendChild(expandBtn);

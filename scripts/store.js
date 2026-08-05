@@ -54,8 +54,16 @@ window.__resetStoreCaches = [];
   }
 
   function saveSchedules(schedules) {
-    schedulesCache = schedules;
-    window.safeSetLocalStorage(SCHEDULE_KEY, JSON.stringify(schedules));
+    // Only cache what actually made it to localStorage — safeSetLocalStorage
+    // returns false (without throwing) on quota-exceeded/Safari-private-mode
+    // instead of throwing, so updating the cache unconditionally used to let
+    // a failed write still look successful to every subsequent read for the
+    // rest of the session (getAll() serving a "saved" item that was never
+    // actually persisted, silently diverging from what cloud-sync.js's
+    // collectLocalState() reads straight from localStorage).
+    if (window.safeSetLocalStorage(SCHEDULE_KEY, JSON.stringify(schedules))) {
+      schedulesCache = schedules;
+    }
   }
 
   function createId() {
@@ -460,8 +468,11 @@ function createKeyedStore(loadFn, saveFn) {
   }
 
   function saveCategories(categories) {
-    categoriesCache = categories;
-    window.safeSetLocalStorage(CATEGORIES_KEY, JSON.stringify(categories));
+    // Same reasoning as saveSchedules above — only cache what actually
+    // persisted, not what we merely attempted to write.
+    if (window.safeSetLocalStorage(CATEGORIES_KEY, JSON.stringify(categories))) {
+      categoriesCache = categories;
+    }
   }
 
   window.CategoryStore = {
@@ -562,8 +573,11 @@ function createKeyedStore(loadFn, saveFn) {
   }
 
   function save(categories) {
-    cache = categories;
-    window.safeSetLocalStorage(KEY, JSON.stringify(categories));
+    // Same reasoning as the other stores' cache — only cache what actually
+    // persisted, not what we merely attempted to write.
+    if (window.safeSetLocalStorage(KEY, JSON.stringify(categories))) {
+      cache = categories;
+    }
   }
 
   window.LedgerCategoryStore = {
@@ -621,8 +635,11 @@ function createEntityStore(key, idPrefix) {
   }
 
   function save(items) {
-    cache = items;
-    window.safeSetLocalStorage(key, JSON.stringify(items));
+    // Same reasoning as the other stores' cache — only cache what actually
+    // persisted, not what we merely attempted to write.
+    if (window.safeSetLocalStorage(key, JSON.stringify(items))) {
+      cache = items;
+    }
   }
 
   return {

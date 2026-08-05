@@ -272,3 +272,48 @@ test("startListening: sweeps the orphaned assistant.weatherCache.v1/weatherLocat
   );
   assert.equal(JSON.parse(pushedPayload["assistant.schedules.v1"])[0].id, "sc_remote", "real data survives the cleanup");
 });
+
+test("pushToCloud: a local change that arrives while a previous push is still in flight is not lost — the actual bug fix", async () => {
+  // The pushInFlight guard defers a second push attempt while the first is
+  // still on the network, but used to leave pushPending stuck at true and
+  // then have the FIRST push's success handler unconditionally clear the
+  // durable pending marker anyway — the second (newer) change's data was
+  // never uploaded, and nothing was left to ever retry it once the pending
+  // marker was gone. A reload right after would silently pull the server's
+  // copy (missing the second change) over the top of it.
+  const { localStorage, setCalls, pendingPushes } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({ "assistant.schedules.v1": JSON.stringify([]) }),
+    seedLocalStorage: {},
+    controlledPush: true,
+  });
+
+  // Edit A: triggers push A, which stays pending (network hasn't "responded" yet).
+  localStorage.setItem("assistant.schedules.v1", JSON.stringify([{ id: "a" }]));
+  assert.equal(pendingPushes.length, 1, "edit A should have started one push");
+
+  // Edit B arrives while push A is still in flight — its own push attempt
+  // must defer (pushInFlight), not fire a second concurrent write.
+  localStorage.setItem("assistant.schedules.v1", JSON.stringify([{ id: "a" }, { id: "b" }]));
+  assert.equal(pendingPushes.length, 1, "edit B's push must defer instead of racing push A");
+
+  // Push A "resolves" (server confirms). The success handler runs as a
+  // microtask, not synchronously — wait for it.
+  pendingPushes[0].resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(pendingPushes.length, 2, "edit B must be pushed immediately once push A clears, not silently dropped");
+  const secondPayload = JSON.parse(pendingPushes.length > 1 ? setCalls[1].payload : "{}");
+  assert.deepEqual(
+    JSON.parse(secondPayload["assistant.schedules.v1"]),
+    [{ id: "a" }, { id: "b" }],
+    "the retried push must carry edit B's data, not stale data from before it"
+  );
+
+  // Resolve push B too, and confirm the durable pending marker finally clears.
+  pendingPushes[1].resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(localStorage.getItem("__cloudSync.pendingPush"), null, "pending marker should clear once everything is actually confirmed");
+});
