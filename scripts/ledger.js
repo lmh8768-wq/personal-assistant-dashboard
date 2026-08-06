@@ -190,6 +190,14 @@
       selectedDate = d;
       // Selecting a day outside the shown month brings that month into view.
       if (isOutside) calendarViewDate = new Date(d.getFullYear(), d.getMonth(), 1);
+      // Switching days while a bulk selection is active used to leave it
+      // silently armed on the PREVIOUS day's entries — a later "전체 선택"
+      // then 삭제 could delete entries from two different days at once with
+      // no visual cue the older selection was still armed.
+      if (ledgerSelectMode && ledgerSelectedIds.size > 0) {
+        ledgerSelectedIds.clear();
+        updateLedgerSelectToolbar();
+      }
       renderCalendar();
       renderDayPanel();
     });
@@ -655,6 +663,11 @@
       window.Toast?.show("내역을 수정했어요");
       closeModal();
       renderAll();
+      // Was only checked on the add-new path — correcting an existing
+      // entry's amount upward (e.g. fixing a typo'd 10,000 into 100,000)
+      // could push the month over budget with no warning at all, even
+      // though a brand-new entry doing the same thing triggers one.
+      if (modalType === "expense") checkBudgetAlert();
       return;
     }
 
@@ -720,10 +733,24 @@
   // pattern for its own edit modal.
   function handleDuplicateEntry() {
     if (!editingId) return;
-    const original = window.LedgerEntryStore.getAll().find((e) => e.id === editingId);
-    if (!original) return;
-    const { id, ...rest } = original;
-    window.LedgerEntryStore.add(rest);
+    // Reads the CURRENTLY-open form fields, not the last-saved entry — a
+    // user who edited a field and clicked 복제 instead of 저장 used to have
+    // that edit silently discarded (the duplicate copied the pre-edit data,
+    // and the original was never saved either).
+    const row = document.querySelector("#ledgerEntryRows .ledger-entry-row");
+    if (!row) return;
+    const amount = parseAmountInput(row.querySelector(".ledger-row-amount"));
+    if (!amount || amount <= 0) {
+      window.Toast?.show("금액을 입력해주세요", { type: "warning" });
+      return;
+    }
+    window.LedgerEntryStore.add({
+      date: document.getElementById("ledgerDateInput").value,
+      amount,
+      categoryKey: row.querySelector(".ledger-row-category").value,
+      memo: row.querySelector(".ledger-row-name").value.trim(),
+      type: modalType,
+    });
     closeModal();
     renderAll();
     window.Toast?.show("내역을 복제했어요");
@@ -1333,5 +1360,15 @@
       applyLedgerCalendarFit();
     },
     refreshDashboard,
+    // Used by global search (search.js) — a result used to only switch to
+    // this tab, landing on whatever month/date happened to already be
+    // selected rather than the found entry's actual date.
+    goToDate: (dateStr) => {
+      const [y, m, d] = dateStr.split("-").map(Number);
+      const target = new Date(y, m - 1, d);
+      calendarViewDate = new Date(y, m - 1, 1);
+      selectedDate = target;
+      renderAll();
+    },
   };
 })();

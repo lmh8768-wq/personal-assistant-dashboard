@@ -30,7 +30,7 @@
       addSection(
         window.ScheduleStore.getAll()
           .filter((item) => `${item.title} ${item.memo || ""}`.toLowerCase().includes(q))
-          .map((item) => ({ type: "일정", label: item.title, view: "schedule" }))
+          .map((item) => ({ type: "일정", label: item.title, view: "schedule", date: item.date }))
       );
     }
     if (window.PracticeStore) {
@@ -88,6 +88,7 @@
             type: "가계부",
             label: entry.memo ? `${entry.memo} · ${entry.date}` : `${categoryLabel} · ${entry.date}`,
             view: "ledger",
+            date: entry.date,
           }))
       );
     }
@@ -146,6 +147,13 @@
     const container = document.getElementById("searchResults");
     const input = document.getElementById("globalSearchInput");
     document.querySelector(`.nav-item[data-view="${r.view}"]`)?.click();
+    // Used to just switch tabs, landing on whichever date was already
+    // selected — a search for an old ledger entry or past schedule item
+    // dropped you on today's view with no indication where the match
+    // actually was.
+    if (r.date) {
+      ({ schedule: window.ScheduleView, ledger: window.LedgerView })[r.view]?.goToDate?.(r.date);
+    }
     if (input) {
       input.value = "";
       input.setAttribute("aria-expanded", "false");

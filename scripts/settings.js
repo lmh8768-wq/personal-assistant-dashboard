@@ -149,12 +149,6 @@
       row.className = "category-edit-row";
       row.dataset.key = cat.key;
 
-      const colorInput = document.createElement("input");
-      colorInput.type = "hidden";
-      colorInput.value = cat.color;
-      colorInput.dataset.field = "color";
-      row.appendChild(colorInput);
-
       const swatchGroup = document.createElement("div");
       swatchGroup.className = "category-color-swatches";
       // The category's current color always gets a swatch, even if it's a
@@ -169,9 +163,15 @@
         swatch.style.background = color;
         swatch.setAttribute("aria-label", `색상 ${color}`);
         swatch.addEventListener("click", () => {
-          colorInput.value = color;
           swatchGroup.querySelectorAll(".category-color-swatch").forEach((s) => s.classList.remove("active"));
           swatch.classList.add("active");
+          // Auto-saves immediately, matching ledger.js's category manager —
+          // this used to stay batched behind the "카테고리 저장" submit
+          // button, an inconsistency where the two near-identical category
+          // editors behaved differently: navigating away from 설정 after
+          // editing a schedule category silently lost the edit.
+          window.CategoryStore.update(cat.key, { color });
+          if (window.ScheduleView) window.ScheduleView.refreshAll();
         });
         swatchGroup.appendChild(swatch);
       });
@@ -180,12 +180,19 @@
       labelInput.value = cat.label;
       labelInput.dataset.field = "label";
       labelInput.maxLength = 10;
+      labelInput.addEventListener("change", () => {
+        const label = labelInput.value.trim();
+        if (!label) {
+          labelInput.value = cat.label; // an empty name shouldn't silently apply
+          return;
+        }
+        window.CategoryStore.update(cat.key, { label });
+        if (window.ScheduleView) window.ScheduleView.refreshAll();
+      });
       row.appendChild(labelInput);
       row.appendChild(swatchGroup);
 
-      // Removal is immediate (with undo), unlike label/color which stay
-      // batched behind the "카테고리 저장" submit button below — deleting a
-      // category isn't something you'd want to accidentally leave pending.
+      // Removal is immediate (with undo), same as label/color now.
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "checklist-item-remove";
@@ -238,33 +245,6 @@
         input.select();
       }
     });
-  }
-
-  function handleCategorySubmit(e) {
-    e.preventDefault();
-    let skippedLabelCount = 0;
-    document.querySelectorAll("#categoryEditRows .category-edit-row").forEach((row) => {
-      const key = row.dataset.key;
-      const color = row.querySelector('[data-field="color"]').value;
-      const label = row.querySelector('[data-field="label"]').value.trim();
-      if (label) {
-        window.CategoryStore.update(key, { color, label });
-      } else {
-        // An empty name shouldn't also throw away a color pick made in the
-        // same row — apply just the color instead of skipping the whole
-        // row silently.
-        window.CategoryStore.update(key, { color });
-        skippedLabelCount += 1;
-      }
-    });
-    window.Toast.show(
-      skippedLabelCount > 0
-        ? `카테고리를 저장했어요 (이름이 비어있는 ${skippedLabelCount}개는 이름을 바꾸지 않았어요)`
-        : "카테고리를 저장했어요",
-      skippedLabelCount > 0 ? { type: "warning" } : undefined
-    );
-    renderCategoryEditor();
-    if (window.ScheduleView) window.ScheduleView.refreshAll();
   }
 
   // ---------- Custom shortcuts ----------
@@ -677,7 +657,6 @@
 
     document.getElementById("settingsForm").addEventListener("submit", handleSettingsSubmit);
     document.getElementById("profileForm").addEventListener("submit", handleProfileSubmit);
-    document.getElementById("categoryForm").addEventListener("submit", handleCategorySubmit);
     document.getElementById("addScheduleCategoryBtn")?.addEventListener("click", addScheduleCategory);
     document.getElementById("customShortcutForm").addEventListener("submit", handleAddCustomShortcut);
 

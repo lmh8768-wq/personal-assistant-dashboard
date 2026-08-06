@@ -449,6 +449,10 @@
       if (d.getMonth() !== viewDate.getMonth()) {
         viewDate = new Date(d.getFullYear(), d.getMonth(), 1);
       }
+      // Switching days while a bulk selection is active used to leave it
+      // silently armed on the PREVIOUS day's items — a later 완료 처리/삭제
+      // could act on items from a day the user isn't even looking at anymore.
+      clearSelectionIfActive();
       renderCalendarArea();
       renderDayList();
     });
@@ -1121,13 +1125,20 @@
 
   function handleDuplicate() {
     if (!editingId) return;
-    const original = window.ScheduleStore.getById(editingId);
-    if (!original) return;
-    const { id, completedDates, excludedDates, overrides, ...rest } = original;
-    window.ScheduleStore.add(rest);
+    // Reads the CURRENTLY-open form fields (same as handleSubmit/
+    // handleSaveAsTemplate), not the last-saved item — a user who edited a
+    // field and clicked 복제 instead of 저장 used to have that edit
+    // silently discarded (the duplicate copied the pre-edit data, and the
+    // original was never saved either).
+    const payload = readPayloadFromForm();
+    if (!payload.title || !payload.date) {
+      window.Toast?.show("제목을 입력해주세요", { type: "error" });
+      return;
+    }
+    window.ScheduleStore.add(payload);
     closeModal();
     refreshAll();
-    window.Toast.show(`"${original.title}" 일정을 복제했어요`);
+    window.Toast.show(`"${payload.title}" 일정을 복제했어요`);
   }
 
   // The template-chip row (renderTemplateChips) has always existed, but
@@ -1365,6 +1376,16 @@
       const now = new Date();
       viewDate = new Date(now.getFullYear(), now.getMonth(), 1);
       selectedDate = now;
+      renderCalendarArea();
+      renderDayList();
+    },
+    // Used by global search (search.js) — a result used to only switch to
+    // this tab, landing on whatever date happened to already be selected
+    // rather than the found item's actual date.
+    goToDate: (dateStr) => {
+      const d = parseDateStr(dateStr);
+      viewDate = new Date(d.getFullYear(), d.getMonth(), 1);
+      selectedDate = d;
       renderCalendarArea();
       renderDayList();
     },

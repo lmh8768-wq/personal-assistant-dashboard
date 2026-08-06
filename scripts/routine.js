@@ -188,6 +188,16 @@
       saveAll(data);
       return item;
     },
+    // Fixing a typo used to mean delete + re-add, which also permanently
+    // discarded that item's completion history unless undone immediately.
+    renameItem(type, id, label) {
+      const data = loadAll();
+      const item = data[type].items.find((i) => i.id === id);
+      if (!item) return null;
+      item.label = label;
+      saveAll(data);
+      return item;
+    },
     removeItem(type, id) {
       const data = loadAll();
       const idx = data[type].items.findIndex((i) => i.id === id);
@@ -285,9 +295,14 @@
       });
       li.appendChild(checkbox);
 
-      const span = document.createElement("span");
-      span.textContent = item.label;
-      li.appendChild(span);
+      // Reuses the goal tree's shared rename-in-place editor (double-click
+      // or Enter to edit) — fixing a typo used to mean delete + re-add.
+      li.appendChild(
+        window.GoalLabelEditor.makeDblClickEditable(item.label, (value) => {
+          RoutineStore.renameItem(type, item.id, value);
+          renderAll();
+        })
+      );
 
       const remove = document.createElement("span");
       remove.className = "checklist-item-remove";
