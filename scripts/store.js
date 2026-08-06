@@ -521,6 +521,13 @@ function createKeyedStore(loadFn, saveFn) {
       if (idx === -1) return null;
       const [removed] = items.splice(idx, 1);
       saveFn(items);
+      // These items are keyed by `key`, not `id` — DeletionTombstones/
+      // cloud-sync's stripTombstoned don't care which field the identity
+      // value came from, only that the same value gets recorded here and
+      // recognized there (see stripTombstoned's use of
+      // DeepMerge.identityField for the "id, or key when there's no id"
+      // check).
+      window.DeletionTombstones.record([key]);
       return { item: removed, index: idx };
     },
     restore(item, index) {
@@ -534,6 +541,7 @@ function createKeyedStore(loadFn, saveFn) {
       const at = Math.min(Math.max(0, index), items.length);
       items.splice(at, 0, item);
       saveFn(items);
+      window.DeletionTombstones.forget([item.key]);
     },
   };
 }
@@ -657,6 +665,7 @@ function createKeyedStore(loadFn, saveFn) {
       const item = { key: createKey(), label, color };
       categories.push(item);
       saveCategories(categories);
+      window.DeletionTombstones.forget([item.key]);
       return item;
     },
   };
@@ -759,6 +768,7 @@ function createKeyedStore(loadFn, saveFn) {
       const item = { key: createKey(), label, color, budget: 0, type: type === "income" ? "income" : "expense" };
       categories.push(item);
       save(categories);
+      window.DeletionTombstones.forget([item.key]);
       return item;
     },
   };

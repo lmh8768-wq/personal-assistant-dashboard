@@ -11,6 +11,14 @@
 // object/array structure just falls through to "incoming wins", same as
 // before).
 window.DeepMerge = {
+  // Exposed so cloud-sync.js's tombstone-stripping pass can recognize the
+  // same "id, or key when there's no id" identity used here — without
+  // this, a tombstoned CategoryStore/LedgerCategoryStore/BodyPartStore
+  // item (keyed by `key`, not `id`) would never actually match during
+  // stripping, since checking `.id` alone is always undefined for those.
+  identityField(item) {
+    return identityField(item);
+  },
   mergeValues(existing, incoming) {
     // A field explicitly synced as null/undefined shouldn't be able to
     // wipe out real nested data — incoming being "absent" isn't the same

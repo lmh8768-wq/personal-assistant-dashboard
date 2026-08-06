@@ -131,6 +131,10 @@
       const year = { id: createId("year"), label, periods: defaultPeriodList() };
       data.years.push(year);
       saveGoals(data);
+      // A no-op for a genuinely brand-new id (never tombstoned); clears the
+      // tombstone when this is actually an undo restoring a deleted year's
+      // original id — see DeletionTombstones' own comment in store.js.
+      window.DeletionTombstones.forget([year.id]);
       return year;
     },
     removeYear(yearId) {
@@ -139,6 +143,17 @@
       if (idx === -1) return null;
       const [removed] = data.years.splice(idx, 1);
       saveGoals(data);
+      // This tree got NO tombstone protection at all until now — cloud-
+      // sync's per-key merge only ever knew how to strip a tombstoned id
+      // out of a top-level array, but this store's whole payload is
+      // {years: [...]}, not an array itself, so nothing here was ever
+      // filtered — a deleted year (periods and goals included) could get
+      // silently unioned right back in by a stale remote snapshot, same
+      // bug the flat stores (schedules, ledger entries, ...) already had
+      // fixed. Tombstoning just the year's id is enough — cloud-sync's
+      // recursive stripTombstoned removes the whole year (and everything
+      // nested in it) from wherever it sits in the incoming payload.
+      window.DeletionTombstones.record([yearId]);
       return { year: removed, index: idx };
     },
     restoreYear(year, index) {
@@ -148,6 +163,7 @@
       const at = Math.min(Math.max(0, index), data.years.length);
       data.years.splice(at, 0, year);
       saveGoals(data);
+      window.DeletionTombstones.forget([year.id]);
     },
     getPeriods(yearId) {
       const year = findYear(loadGoals(), yearId);
@@ -160,6 +176,7 @@
       const period = { id: createId("period"), label, goals: [] };
       year.periods.push(period);
       saveGoals(data);
+      window.DeletionTombstones.forget([period.id]);
       return period;
     },
     renamePeriod(yearId, periodId, label) {
@@ -177,6 +194,8 @@
       if (idx === -1) return null;
       const [removed] = year.periods.splice(idx, 1);
       saveGoals(data);
+      // Same tombstone gap as removeYear above — see its comment.
+      window.DeletionTombstones.record([periodId]);
       return { period: removed, index: idx };
     },
     restorePeriod(yearId, period, index) {
@@ -188,6 +207,7 @@
       const at = Math.min(Math.max(0, index), year.periods.length);
       year.periods.splice(at, 0, period);
       saveGoals(data);
+      window.DeletionTombstones.forget([period.id]);
     },
     getGoals(yearId, periodId) {
       const period = findPeriod(findYear(loadGoals(), yearId), periodId);
@@ -210,6 +230,7 @@
         recomputeNodeAndAncestors(period.goals, parentId);
       }
       saveGoals(data);
+      window.DeletionTombstones.forget([node.id]);
       return node;
     },
     // Returns true if the toggle actually applied, false if it was rejected
@@ -241,6 +262,12 @@
       if (!removed) return null;
       if (parentId) recomputeNodeAndAncestors(period.goals, parentId);
       saveGoals(data);
+      // Same tombstone gap as removeYear/removePeriod above — see
+      // removeYear's comment for the full reasoning. Tombstoning just this
+      // one id is enough even for a deleted subtree, since cloud-sync's
+      // recursive stripTombstoned removes the whole node (children
+      // included) from wherever it sits in the incoming payload.
+      window.DeletionTombstones.record([id]);
       return removed;
     },
     restoreGoal(yearId, periodId, parentId, node) {
@@ -259,6 +286,7 @@
         }
       }
       saveGoals(data);
+      window.DeletionTombstones.forget([node.id]);
     },
     findParentId(yearId, periodId, childId) {
       return findParentIdIn(GoalStore.getGoals(yearId, periodId), childId);

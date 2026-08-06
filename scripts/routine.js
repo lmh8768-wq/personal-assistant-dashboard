@@ -232,6 +232,7 @@
       const item = { id: createId("rt"), label };
       data[type].items.push(item);
       saveAll(data);
+      window.DeletionTombstones.forget([item.id]);
       return item;
     },
     // Fixing a typo used to mean delete + re-add, which also permanently
@@ -262,6 +263,12 @@
         data[type].history[date] = data[type].history[date].filter((did) => did !== id);
       });
       saveAll(data);
+      // This store's payload is {routine: {items, history}, life: {items,
+      // history}} — not a top-level array — so it had the same tombstone
+      // gap as study.js's GoalStore until now (see removeGoal's comment in
+      // study.js for the full reasoning); cloud-sync's recursive
+      // stripTombstoned now reaches into `items` wherever it's nested.
+      window.DeletionTombstones.record([id]);
       return { item: removed, index: idx, dates: removedDates };
     },
     restoreItem(type, item, index, dates) {
@@ -275,6 +282,7 @@
         if (!data[type].history[date].includes(item.id)) data[type].history[date].push(item.id);
       });
       saveAll(data);
+      window.DeletionTombstones.forget([item.id]);
     },
     isDone(type, id) {
       const routine = loadAll()[type];

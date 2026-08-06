@@ -394,3 +394,114 @@ test("snapshot(update) from another device: a deleted item is not resurrected by
   const merged = JSON.parse(localStorage.getItem("assistant.schedules.v1"));
   assert.equal(merged.length, 0, "a tombstoned id must not be resurrected by a stale remote copy");
 });
+
+test("snapshot(update): a tombstoned NESTED node (buried inside a surviving parent's own children) is not resurrected — the actual bug fix", () => {
+  // The real reported bug: practice.js's 커리큘럼 and study.js's 학업 목표
+  // are trees (a goal can have children, which can have their own
+  // children), not a flat list — the old tombstone filter only ever
+  // stripped a matching id out of the TOP-LEVEL array, so deleting a
+  // nested goal (buried inside a parent that itself survives) did nothing
+  // to protect it: a stale remote copy that still had the parent's
+  // children array un-pruned merged the deleted goal right back in.
+  const tombstones = JSON.stringify([{ id: "curr_child", deletedAt: Date.now() }]);
+  const localCurriculum = JSON.stringify([
+    { id: "curr_parent", label: "부모", done: false, children: [] },
+  ]);
+  const { localStorage, triggerRemoteUpdate } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({
+      "assistant.practiceCurriculum.v1": localCurriculum,
+      "assistant.deletionTombstones.v1": tombstones,
+    }),
+    seedLocalStorage: {
+      "assistant.practiceCurriculum.v1": localCurriculum,
+      "assistant.deletionTombstones.v1": tombstones,
+    },
+  });
+
+  // A remote update carrying a STALE copy where the parent still has the
+  // deleted child nested inside it — e.g. another device that hasn't
+  // pulled the deletion yet.
+  const staleRemoteCurriculum = JSON.stringify([
+    {
+      id: "curr_parent",
+      label: "부모",
+      done: false,
+      children: [{ id: "curr_child", label: "삭제된 자식", done: false, children: [] }],
+    },
+  ]);
+  triggerRemoteUpdate(
+    JSON.stringify({
+      "assistant.practiceCurriculum.v1": staleRemoteCurriculum,
+      "assistant.deletionTombstones.v1": tombstones,
+    })
+  );
+
+  const merged = JSON.parse(localStorage.getItem("assistant.practiceCurriculum.v1"));
+  assert.equal(merged.length, 1, "the surviving parent must not be dropped");
+  assert.equal(merged[0].children.length, 0, "a tombstoned nested child must not be resurrected by a stale remote copy");
+});
+
+test("snapshot(update): a tombstoned item is stripped even when the whole payload isn't a top-level array — the actual bug fix (study.js's {years: [...]} shape)", () => {
+  // study.js's GoalStore stores {years: [...]}, not an array at the top
+  // level — the old filter's `Array.isArray(incoming)` check meant it
+  // never even looked at this store's data at all, so NOTHING in it was
+  // ever tombstone-protected, not even a deleted top-level year.
+  const tombstones = JSON.stringify([{ id: "year_2026", deletedAt: Date.now() }]);
+  const localGoals = JSON.stringify({ years: [] });
+  const { localStorage, triggerRemoteUpdate } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({
+      "assistant.academicGoals.v1": localGoals,
+      "assistant.deletionTombstones.v1": tombstones,
+    }),
+    seedLocalStorage: {
+      "assistant.academicGoals.v1": localGoals,
+      "assistant.deletionTombstones.v1": tombstones,
+    },
+  });
+
+  const staleRemoteGoals = JSON.stringify({
+    years: [{ id: "year_2026", label: "2026", periods: [] }],
+  });
+  triggerRemoteUpdate(
+    JSON.stringify({
+      "assistant.academicGoals.v1": staleRemoteGoals,
+      "assistant.deletionTombstones.v1": tombstones,
+    })
+  );
+
+  const merged = JSON.parse(localStorage.getItem("assistant.academicGoals.v1"));
+  assert.equal(merged.years.length, 0, "a tombstoned year must not be resurrected by a stale remote copy");
+});
+
+test("snapshot(update): a tombstoned key-identified item (CategoryStore's {key,...} shape, no id field) is stripped too — the actual bug fix", () => {
+  // CategoryStore/LedgerCategoryStore/BodyPartStore items have no `id`
+  // field at all, only `key` — the old filter checked `item.id` exclusively
+  // (always undefined for these), so a deleted category could never match
+  // a tombstone no matter what.
+  const tombstones = JSON.stringify([{ id: "cat_old", deletedAt: Date.now() }]);
+  const localCategories = JSON.stringify([]);
+  const { localStorage, triggerRemoteUpdate } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({
+      "assistant.categories.v1": localCategories,
+      "assistant.deletionTombstones.v1": tombstones,
+    }),
+    seedLocalStorage: {
+      "assistant.categories.v1": localCategories,
+      "assistant.deletionTombstones.v1": tombstones,
+    },
+  });
+
+  const staleRemoteCategories = JSON.stringify([{ key: "cat_old", label: "삭제된 카테고리", color: "#000" }]);
+  triggerRemoteUpdate(
+    JSON.stringify({
+      "assistant.categories.v1": staleRemoteCategories,
+      "assistant.deletionTombstones.v1": tombstones,
+    })
+  );
+
+  const merged = JSON.parse(localStorage.getItem("assistant.categories.v1"));
+  assert.equal(merged.length, 0, "a tombstoned key-identified item must not be resurrected by a stale remote copy");
+});

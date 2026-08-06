@@ -86,6 +86,7 @@
       const item = { key: createBodyPartKey(), label };
       parts.push(item);
       saveBodyParts(parts);
+      window.DeletionTombstones.forget([item.key]);
       return item;
     },
   };

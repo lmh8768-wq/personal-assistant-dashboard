@@ -269,6 +269,38 @@
   // bespoke merge rule per store. It's still not a full CRDT — two devices
   // editing the *same* item's *same* field at the same time still has one
   // side win — but that's a much narrower window than before.
+  // Recursively strips any tombstoned {id,...} or {key,...} object out of
+  // `value`, at EVERY level of nesting — not just a top-level array. A flat
+  // store like schedules/ledger entries only ever needed the top level
+  // filtered, but a tree-shaped store (practice.js's curriculum, study.js's
+  // years -> periods -> goals) can have a tombstoned node buried inside a
+  // surviving ancestor's own children/goals/periods array, and the old
+  // top-level-only filter never looked there — a deleted nested goal, or an
+  // entire academic-goals payload (which isn't even an array at the top
+  // level; it's {years: [...]}), sailed straight through untouched and got
+  // unioned right back in by a stale remote copy. identityField() (also
+  // used by deep-merge.js's own array merge) checks `key` too, not just
+  // `id` — CategoryStore/LedgerCategoryStore/BodyPartStore items have no
+  // `id` field at all, and checking `.id` alone would never match them.
+  function stripTombstoned(value, tombstonedIds) {
+    if (Array.isArray(value)) {
+      return value
+        .filter((item) => {
+          const field = window.DeepMerge.identityField(item);
+          return !(field && tombstonedIds.has(item[field]));
+        })
+        .map((item) => stripTombstoned(item, tombstonedIds));
+    }
+    if (value && typeof value === "object") {
+      const out = {};
+      Object.keys(value).forEach((key) => {
+        out[key] = stripTombstoned(value[key], tombstonedIds);
+      });
+      return out;
+    }
+    return value;
+  }
+
   // tombstonedIds, when given, strips any {id,...} item the CURRENT device
   // knows was deliberately deleted out of `incoming` before merging — a
   // union-by-id merge otherwise can't tell "deleted" apart from "the other
@@ -289,8 +321,8 @@
       incoming = undefined;
     }
 
-    if (tombstonedIds && tombstonedIds.size > 0 && Array.isArray(incoming)) {
-      incoming = incoming.filter((item) => !(item && typeof item === "object" && tombstonedIds.has(item.id)));
+    if (tombstonedIds && tombstonedIds.size > 0 && incoming !== undefined) {
+      incoming = stripTombstoned(incoming, tombstonedIds);
     }
 
     const bothMergeable =

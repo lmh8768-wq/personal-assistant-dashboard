@@ -76,10 +76,12 @@
       const item = { id: createId("pc"), label };
       items.push(item);
       saveChecklist(items);
+      window.DeletionTombstones.forget([item.id]);
       return item;
     },
     remove(id) {
       saveChecklist(loadChecklist().filter((c) => c.id !== id));
+      window.DeletionTombstones.record([id]);
     },
     update(id, patch) {
       const items = loadChecklist();
@@ -503,6 +505,10 @@
         recomputeGoalNodeAndAncestors(goals, parentId);
       }
       saveCurriculum(goals);
+      // A no-op for a genuinely brand-new id (never tombstoned); clears the
+      // tombstone when this is actually an undo restoring a deleted goal's
+      // original id — see DeletionTombstones' own comment in store.js.
+      window.DeletionTombstones.forget([node.id]);
       return node;
     },
     // Returns false (rejected) if the goal has sub-goals that aren't all
@@ -527,6 +533,17 @@
       if (!removed) return null;
       if (parentId) recomputeGoalNodeAndAncestors(goals, parentId);
       saveCurriculum(goals);
+      // The curriculum tree got NO tombstone protection at all until now —
+      // cloud-sync's per-key merge only ever knew this store's top-level
+      // array shape, so a deleted goal (whether top-level or buried inside
+      // a surviving parent's own children) could get silently unioned right
+      // back in by a stale remote snapshot, same bug the flat stores
+      // (schedules, ledger entries, ...) already had fixed. Tombstoning
+      // just this one id is enough even for a deleted subtree — cloud-sync's
+      // recursive stripTombstoned removes the whole node (children
+      // included) from wherever it sits in the incoming payload, so its
+      // descendants never need their own separate tombstones.
+      window.DeletionTombstones.record([id]);
       return { node: removed, parentId };
     },
     restoreGoal(parentId, node) {
@@ -543,6 +560,7 @@
         }
       }
       saveCurriculum(goals);
+      window.DeletionTombstones.forget([node.id]);
     },
     // Reorders `draggedId` next to `targetId` within their shared sibling
     // list. A no-op if they don't share a parent — dragging only ever

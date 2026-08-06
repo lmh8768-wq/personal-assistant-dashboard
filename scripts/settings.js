@@ -280,6 +280,7 @@
           remove.textContent = "삭제";
           remove.addEventListener("click", () => {
             saveCustomShortcuts(loadCustomShortcuts().filter((s) => s.id !== item.id));
+            window.DeletionTombstones.record([item.id]);
             renderCustomShortcuts();
           });
           // Every other delete span in the app (routine/practice/ledger/
@@ -319,8 +320,10 @@
     const url = document.getElementById("customShortcutUrlInput").value.trim();
     if (!name || !url) return;
     const list = loadCustomShortcuts();
-    list.push({ id: `cs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name, url });
+    const shortcut = { id: `cs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name, url };
+    list.push(shortcut);
     saveCustomShortcuts(list);
+    window.DeletionTombstones.forget([shortcut.id]);
     document.getElementById("customShortcutForm").reset();
     renderCustomShortcuts();
     window.Toast.show(`"${name}" 바로가기를 추가했어요`);
