@@ -560,7 +560,6 @@
       const input = document.createElement("input");
       input.type = "text";
       input.className = "body-part-routine-input";
-      input.placeholder = `${part.label} 루틴 (예: 벤치프레스 3세트, 딥스 3세트)`;
       input.setAttribute("aria-label", `${part.label} 루틴`);
       input.value = window.BodyPartRoutineStore.get(part.key);
       input.addEventListener("change", () => {

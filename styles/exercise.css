@@ -184,20 +184,18 @@
 
 .body-part-routine-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .body-part-routine-label {
-  flex-shrink: 0;
-  width: 48px;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-muted);
 }
 
 .body-part-routine-input {
-  flex: 1;
+  width: 100%;
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
