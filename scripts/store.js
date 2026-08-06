@@ -275,6 +275,31 @@ window.addEventListener("storage", (e) => {
       saveSchedules(schedules);
       return schedules[idx];
     },
+    // One load+save for the whole batch instead of one full array parse+
+    // find+stringify PER item — used by schedule.js's bulk-complete (sets
+    // `done` true) and its undo (sets it back false), which used to call
+    // toggleCompleted() once per selected item (O(k·n) instead of O(n) for
+    // k selected items out of n total schedules). Only touches entries
+    // whose current state differs from `done`, and returns just the ones
+    // actually changed, so a caller building an undo list doesn't have to
+    // separately filter out already-in-that-state items itself.
+    setCompletedMany(entries, done) {
+      const schedules = loadSchedules();
+      const byId = new Map(schedules.map((s) => [s.id, s]));
+      const changed = [];
+      entries.forEach(({ id, occurrenceDate }) => {
+        const item = byId.get(id);
+        if (!item) return;
+        const dates = new Set(item.completedDates || []);
+        if (dates.has(occurrenceDate) === done) return;
+        if (done) dates.add(occurrenceDate);
+        else dates.delete(occurrenceDate);
+        byId.set(id, { ...item, completedDates: [...dates] });
+        changed.push({ id, occurrenceDate });
+      });
+      if (changed.length > 0) saveSchedules(schedules.map((s) => byId.get(s.id)));
+      return changed;
+    },
     excludeOccurrence(id, occurrenceDate) {
       const schedules = loadSchedules();
       const idx = schedules.findIndex((s) => s.id === id);

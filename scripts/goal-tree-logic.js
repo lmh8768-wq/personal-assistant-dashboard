@@ -55,10 +55,23 @@
   // changed out from under an ancestor: a toggle, a new incomplete child, a
   // removed/restored child.
   function recomputeNodeAndAncestors(list, nodeId) {
-    let currentId = nodeId;
-    while (currentId) {
-      const node = findNode(list, currentId);
-      if (!node) break;
+    // A single O(N) descent that captures a direct reference to every
+    // ancestor along the way, instead of the old approach of re-searching
+    // the WHOLE tree from the root once per ancestor level (one findNode
+    // AND one findParentId walk each) — O(D·N) for a chain D levels deep
+    // is now one O(N) walk down plus a plain O(D) walk back up the
+    // already-captured path.
+    function findPathToNode(nodes) {
+      for (const node of nodes) {
+        if (node.id === nodeId) return [node];
+        const childPath = findPathToNode(node.children || []);
+        if (childPath) return [...childPath, node];
+      }
+      return null;
+    }
+    const path = findPathToNode(list); // [target, parent, grandparent, ...]
+    if (!path) return;
+    path.forEach((node) => {
       const kids = node.children || [];
       if (kids.length > 0) {
         node.done = kids.every((c) => c.done);
@@ -71,8 +84,7 @@
         // already-checked leaf despite nobody having completed anything.
         node.done = false;
       }
-      currentId = findParentId(list, currentId);
-    }
+    });
   }
 
   // Counts only LEAF goals as actual tasks — a parent's own `done` is always

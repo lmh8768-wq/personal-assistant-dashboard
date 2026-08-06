@@ -776,10 +776,16 @@
     if (!list) return;
 
     const today = new Date();
+    // One getAll() + one getOccurrences() match pass per day used to mean
+    // upcomingRangeDays separate full scans of every schedule (each
+    // matchesDate-ing every schedule against that one day) just to build
+    // this widget — loading the schedule list once and reusing it for every
+    // day in the loop turns that into a single fetch plus N cheap matches.
+    const schedules = window.ScheduleStore.getAll();
     const items = [];
     for (let i = 1; i <= upcomingRangeDays; i++) {
       const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-      items.push(...window.ScheduleStore.getOccurrences(toDateStr(d)));
+      items.push(...window.ScheduleRecurrence.getOccurrences(schedules, toDateStr(d)));
     }
 
     const importantItems = items.filter((item) => (item.importance || 0) >= 4);
@@ -1306,24 +1312,17 @@
   }
 
   function handleBulkComplete() {
-    // Only the ones this action actually flipped to done get undone — an
-    // item that was already complete before the bulk action shouldn't get
-    // un-completed by an undo of a different action.
-    const justCompleted = [];
-    scheduleSelectedIds.forEach((key) => {
+    // One load+save for the whole batch instead of one full array
+    // find/read/write per selected item (O(n) instead of O(k·n) for k
+    // selected items) — setCompletedMany also only returns the entries it
+    // actually flipped to done (an item already complete before this
+    // action is left alone and excluded), so justCompleted, not the full
+    // selection count, is still exactly what undo should revert.
+    const entries = [...scheduleSelectedIds].map((key) => {
       const [id, occurrenceDate] = splitKey(key);
-      const item = window.ScheduleStore.getById(id);
-      if (!item) return;
-      const isDone = (item.completedDates || []).includes(occurrenceDate);
-      if (!isDone) {
-        window.ScheduleStore.toggleCompleted(id, occurrenceDate);
-        justCompleted.push({ id, occurrenceDate });
-      }
+      return { id, occurrenceDate };
     });
-    // justCompleted.length, not scheduleSelectedIds.size — some selected
-    // items may already have been done and gotten skipped above, so the
-    // full selection count would overstate how many actually changed (and
-    // disagree with what undo actually reverts, which is only this set).
+    const justCompleted = window.ScheduleStore.setCompletedMany(entries, true);
     const count = justCompleted.length;
     scheduleSelectedIds.clear();
     scheduleSelectMode = false;
@@ -1333,7 +1332,7 @@
     window.Toast.show(`일정 ${count}개를 완료 처리했어요`, {
       actionLabel: "실행취소",
       onAction: () => {
-        justCompleted.forEach(({ id, occurrenceDate }) => window.ScheduleStore.toggleCompleted(id, occurrenceDate));
+        window.ScheduleStore.setCompletedMany(justCompleted, false);
         refreshAll();
       },
     });

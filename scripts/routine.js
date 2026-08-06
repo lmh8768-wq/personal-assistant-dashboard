@@ -117,7 +117,46 @@
     return { items: [], history: {} };
   }
 
+  // History grows by one key per calendar day, forever, with nothing ever
+  // removing old entries — after a year+ of daily use this list only ever
+  // gets bigger. A year of "on this day" lookback is more than any feature
+  // in this app actually uses (only today's rate and the current
+  // week/month views ever read history) — pruning past that bounds the
+  // growth without losing anything currently shown anywhere.
+  const HISTORY_RETENTION_DAYS = 400;
+  function pruneOldHistory(data) {
+    const cutoff = toDateStr(new Date(Date.now() - HISTORY_RETENTION_DAYS * 86400000));
+    let pruned = false;
+    TYPES.forEach((t) => {
+      const history = data[t.key]?.history;
+      if (!history) return;
+      Object.keys(history).forEach((date) => {
+        if (date < cutoff) {
+          delete history[date];
+          pruned = true;
+        }
+      });
+    });
+    return pruned;
+  }
+
+  // Every sibling store in the app caches its parsed value — this used to
+  // hand-roll a fresh localStorage.getItem+JSON.parse on every single call,
+  // and renderAll() alone calls into this 4 separate times per render.
+  // loadAll() hands back a deep copy (not the cached object itself): every
+  // mutating method below (addItem, toggleDone, ...) mutates its `data`
+  // in place before calling saveAll() — handing out the live cached
+  // reference would let those mutations corrupt the cache before a write
+  // even attempts, let alone confirms, matching the same class of bug
+  // fixed elsewhere for stores that skip this.
+  let routinesCache = null;
+  window.__resetStoreCaches.push(() => {
+    routinesCache = null;
+  });
+
   function loadAll() {
+    if (routinesCache) return JSON.parse(JSON.stringify(routinesCache));
+
     let data;
     try {
       const raw = localStorage.getItem(ROUTINES_KEY);
@@ -163,12 +202,19 @@
         changed = true;
       }
     });
+    if (pruneOldHistory(data)) changed = true;
     if (changed) saveAll(data);
-    return data;
+    // A copy either way — even on a failed save (saveAll only caches on
+    // confirmed success), so this call's own caller still sees the
+    // migrated/pruned shape without holding a reference to whatever data
+    // a future loadAll() might build fresh.
+    return JSON.parse(JSON.stringify(data));
   }
 
   function saveAll(data) {
-    window.safeSetLocalStorage(ROUTINES_KEY, JSON.stringify(data));
+    if (window.safeSetLocalStorage(ROUTINES_KEY, JSON.stringify(data))) {
+      routinesCache = data;
+    }
   }
 
   const RoutineStore = {

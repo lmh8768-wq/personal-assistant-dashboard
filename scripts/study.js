@@ -25,7 +25,21 @@
   }
 
   // ---------- Storage: years -> periods -> goal tree ----------
+  // Deep clone on every read, not a shallow copy — every mutation below
+  // (toggleGoalDone, reorderGoal, ... via goal-tree-logic.js's
+  // find/extract/setDoneRecursive) reaches arbitrarily deep into
+  // years[].periods[].goals and mutates in place, so a shallow copy
+  // wouldn't stop a caller's in-progress mutation from corrupting the
+  // cached original before a save even attempts, let alone confirms. Same
+  // reasoning as practice.js's mirrored curriculum store.
+  let goalsCache = null;
+  window.__resetStoreCaches.push(() => {
+    goalsCache = null;
+  });
+
   function loadGoals() {
+    if (goalsCache) return JSON.parse(JSON.stringify(goalsCache));
+
     let data;
     try {
       const raw = localStorage.getItem(GOALS_KEY);
@@ -60,11 +74,17 @@
       }
     });
     if (changed) saveGoals(data);
-    return data;
+    // A copy either way — even on a failed save (saveGoals only caches on
+    // confirmed success), so this call's own caller still sees the
+    // migrated shape without holding a reference a future loadGoals()
+    // might reuse.
+    return JSON.parse(JSON.stringify(data));
   }
 
   function saveGoals(data) {
-    window.safeSetLocalStorage(GOALS_KEY, JSON.stringify(data));
+    if (window.safeSetLocalStorage(GOALS_KEY, JSON.stringify(data))) {
+      goalsCache = data;
+    }
   }
 
   // Thin wrappers over scripts/goal-tree-logic.js's shared implementation
@@ -383,6 +403,17 @@
   // parent) instead of showing a before/after indicator for a drop that
   // silently does nothing — same fix already applied to practice.js's tree.
   let draggedGoalId = null;
+  // Set alongside draggedGoalId at dragstart — see renderGoalItem's own
+  // comment for why this avoids a full tree walk on every dragover.
+  let draggedGoalParentId = null;
+  // Which period the drag started in — a drag can be dropped over a row in
+  // a DIFFERENT year/period's list (dataTransfer is page-wide, not scoped
+  // to one period's tree), so parentId alone can't tell "genuine top-level
+  // goal in this period" apart from "not part of this period at all".
+  // Comparing these instead of re-deriving via findNode/getGoals on every
+  // dragover is what replaces the old full tree walk.
+  let draggedGoalYearId = null;
+  let draggedGoalPeriodId = null;
 
   function setGoalSelected(yearId, periodId, id, val) {
     if (val) selectedGoals.set(id, { yearId, periodId });
@@ -694,7 +725,16 @@
     });
   }
 
-  function renderGoalItem(yearId, periodId, node, depth, onChange) {
+  // nodeParentId is the id of `node`'s own parent (or null at the top
+  // level) — the caller (renderGoalList) already knows this from its own
+  // recursion, so passing it down here (together with draggedGoalYearId/
+  // draggedGoalPeriodId captured at dragstart) means the dragover handler
+  // below never needs a fresh GoalStore.getGoals() plus findNode/
+  // findParentIdIn tree walks at all: dragover fires continuously while the
+  // mouse moves, so what used to be a full tree parse and two recursive
+  // parent-searches on EVERY single one of those events is now a plain
+  // variable comparison.
+  function renderGoalItem(yearId, periodId, node, depth, onChange, nodeParentId) {
     const li = document.createElement("li");
     li.className = "goal-item";
 
@@ -707,22 +747,26 @@
     row.draggable = !studySelectMode;
     row.addEventListener("dragstart", (e) => {
       draggedGoalId = node.id;
+      // The tree's structure can't change mid-drag (nothing but the visual
+      // drag-over indicator updates until a drop lands), so this is safe to
+      // compute once here and reuse for the whole gesture, same reasoning
+      // as nodeParentId above.
+      draggedGoalParentId = nodeParentId;
+      draggedGoalYearId = yearId;
+      draggedGoalPeriodId = periodId;
       e.dataTransfer.setData("text/plain", node.id);
       e.dataTransfer.effectAllowed = "move";
     });
     row.addEventListener("dragend", () => {
       draggedGoalId = null;
+      draggedGoalParentId = null;
+      draggedGoalYearId = null;
+      draggedGoalPeriodId = null;
     });
     row.addEventListener("dragover", (e) => {
       e.preventDefault();
       if (draggedGoalId === null || draggedGoalId === node.id) return;
-      const goals = GoalStore.getGoals(yearId, periodId);
-      // Not just a parent-id comparison — a drag started in a DIFFERENT
-      // period (dataTransfer works across the whole page, not just this
-      // period's list) has no entry in this period's goals at all, and
-      // findParentIdIn would return null for that "not found" case same as
-      // a genuine top-level goal — findNode's presence check catches that.
-      if (!findNode(goals, draggedGoalId) || findParentIdIn(goals, draggedGoalId) !== findParentIdIn(goals, node.id)) {
+      if (draggedGoalYearId !== yearId || draggedGoalPeriodId !== periodId || draggedGoalParentId !== nodeParentId) {
         row.classList.remove("drag-over-before", "drag-over-after");
         return;
       }
@@ -761,8 +805,7 @@
         if (e.target !== row) return;
         e.preventDefault();
         const list = GoalStore.getGoals(yearId, periodId);
-        const parentId = findParentIdIn(list, node.id);
-        const siblings = parentId ? findNode(list, parentId)?.children || [] : list;
+        const siblings = nodeParentId ? findNode(list, nodeParentId)?.children || [] : list;
         const idx = siblings.findIndex((n) => n.id === node.id);
         const targetIdx = e.key === "ArrowUp" ? idx - 1 : idx + 1;
         if (idx === -1 || targetIdx < 0 || targetIdx >= siblings.length) return;
@@ -953,7 +996,7 @@
     if (nodes.length > 0) {
       const ul = document.createElement("ul");
       ul.className = "goal-list checklist-items";
-      nodes.forEach((node) => ul.appendChild(renderGoalItem(yearId, periodId, node, depth, onChange)));
+      nodes.forEach((node) => ul.appendChild(renderGoalItem(yearId, periodId, node, depth, onChange, parentId)));
       wrapper.appendChild(ul);
     }
 

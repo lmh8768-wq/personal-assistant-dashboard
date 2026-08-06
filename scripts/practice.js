@@ -39,17 +39,32 @@
   }
 
   // ---------- Checklist template (recurring daily items) ----------
+  // Neither this nor PracticeStore below shared store.js's in-memory-cache
+  // layer — every getAll()/add()/etc. re-parsed the whole value from
+  // localStorage from scratch, unlike every store.js-backed store in the
+  // app. A shallow copy on every read (matching store.js's own stores)
+  // keeps a caller's array mutations (push/splice) from corrupting the
+  // cache before a save confirms.
+  let checklistCache = null;
+  window.__resetStoreCaches.push(() => {
+    checklistCache = null;
+  });
+
   function loadChecklist() {
+    if (checklistCache) return [...checklistCache];
     try {
       const raw = localStorage.getItem(CHECKLIST_KEY);
-      return raw ? JSON.parse(raw) : DEFAULT_CHECKLIST;
+      checklistCache = raw ? JSON.parse(raw) : DEFAULT_CHECKLIST;
     } catch {
-      return DEFAULT_CHECKLIST;
+      checklistCache = DEFAULT_CHECKLIST;
     }
+    return [...checklistCache];
   }
 
   function saveChecklist(items) {
-    window.safeSetLocalStorage(CHECKLIST_KEY, JSON.stringify(items));
+    if (window.safeSetLocalStorage(CHECKLIST_KEY, JSON.stringify(items))) {
+      checklistCache = items;
+    }
   }
 
   const PracticeChecklistStore = {
@@ -79,17 +94,26 @@
 
   // ---------- Practice status (current song / monthly goal) ----------
   // ---------- Practice entries ----------
+  let entriesCache = null;
+  window.__resetStoreCaches.push(() => {
+    entriesCache = null;
+  });
+
   function loadEntries() {
+    if (entriesCache) return [...entriesCache];
     try {
       const raw = localStorage.getItem(PRACTICE_KEY);
-      return raw ? JSON.parse(raw) : [];
+      entriesCache = raw ? JSON.parse(raw) : [];
     } catch {
-      return [];
+      entriesCache = [];
     }
+    return [...entriesCache];
   }
 
   function saveEntries(entries) {
-    window.safeSetLocalStorage(PRACTICE_KEY, JSON.stringify(entries));
+    if (window.safeSetLocalStorage(PRACTICE_KEY, JSON.stringify(entries))) {
+      entriesCache = entries;
+    }
   }
 
   const PracticeStore = {
@@ -402,18 +426,37 @@
   // ---------- Curriculum (대목표 > 중목표 > 소목표 goal tree, same mechanic as 학업) ----------
   const CURRICULUM_KEY = "assistant.practiceCurriculum.v1";
 
+  // Every mutation below (findGoalNode/extractGoalNode/setGoalDoneRecursive/
+  // recomputeGoalNodeAndAncestors, all thin wrappers over goal-tree-logic.js)
+  // mutates whatever list/node it's given IN PLACE, arbitrarily deep into
+  // the tree — a shallow top-level copy (the pattern every flat-array store
+  // in this app uses) wouldn't stop those from reaching through to mutate
+  // the CACHED nested objects directly, before a save even attempts, let
+  // alone confirms. A deep clone on every read is the safe version of the
+  // same caching this app already gives every flat-array store, at the
+  // cost of the clone itself instead of a localStorage round-trip — still a
+  // net win since it's pure in-memory work either way.
+  let curriculumCache = null;
+  window.__resetStoreCaches.push(() => {
+    curriculumCache = null;
+  });
+
   function loadCurriculum() {
+    if (curriculumCache) return JSON.parse(JSON.stringify(curriculumCache));
     try {
       const raw = localStorage.getItem(CURRICULUM_KEY);
       const data = raw ? JSON.parse(raw) : [];
-      return Array.isArray(data) ? data : [];
+      curriculumCache = Array.isArray(data) ? data : [];
     } catch {
-      return [];
+      curriculumCache = [];
     }
+    return JSON.parse(JSON.stringify(curriculumCache));
   }
 
   function saveCurriculum(goals) {
-    window.safeSetLocalStorage(CURRICULUM_KEY, JSON.stringify(goals));
+    if (window.safeSetLocalStorage(CURRICULUM_KEY, JSON.stringify(goals))) {
+      curriculumCache = goals;
+    }
   }
 
   // Thin wrappers over scripts/goal-tree-logic.js's shared implementation
@@ -595,6 +638,9 @@
   // (see reorderGoal's "no-op if they don't share a parent" comment) instead
   // of showing a before/after indicator for a drop that silently does nothing.
   let draggedGoalId = null;
+  // Set alongside draggedGoalId at dragstart — see renderCurriculumItem's
+  // own comment for why this avoids a full tree walk on every dragover.
+  let draggedGoalParentId = null;
 
   function setGoalSelected(id, val) {
     if (val) selectedGoalIds.add(id);
@@ -764,7 +810,15 @@
     });
   }
 
-  function renderCurriculumItem(node, depth) {
+  // nodeParentId is the id of `node`'s own parent (or null at the top
+  // level) — the caller (renderCurriculumList) already knows this from its
+  // own recursion, so passing it down here means the dragover handler below
+  // never needs findGoalParentId's full recursive tree walk at all: dragover
+  // fires continuously while the mouse moves, so what used to be a fresh
+  // CurriculumStore.getGoals() (a full tree parse) plus two recursive
+  // parent-searches on EVERY single one of those events is now a plain
+  // variable comparison.
+  function renderCurriculumItem(node, depth, nodeParentId) {
     const li = document.createElement("li");
     li.className = "goal-item";
 
@@ -777,17 +831,22 @@
     row.draggable = !curriculumSelectMode;
     row.addEventListener("dragstart", (e) => {
       draggedGoalId = node.id;
+      // The tree's structure can't change mid-drag (nothing but the visual
+      // drag-over indicator updates until a drop lands), so this is safe to
+      // compute once here and reuse for the whole gesture, same reasoning
+      // as nodeParentId above.
+      draggedGoalParentId = nodeParentId;
       e.dataTransfer.setData("text/plain", node.id);
       e.dataTransfer.effectAllowed = "move";
     });
     row.addEventListener("dragend", () => {
       draggedGoalId = null;
+      draggedGoalParentId = null;
     });
     row.addEventListener("dragover", (e) => {
       e.preventDefault();
       if (draggedGoalId === null || draggedGoalId === node.id) return;
-      const goals = CurriculumStore.getGoals();
-      if (findGoalParentId(goals, draggedGoalId) !== findGoalParentId(goals, node.id)) {
+      if (draggedGoalParentId !== nodeParentId) {
         row.classList.remove("drag-over-before", "drag-over-after");
         return;
       }
@@ -827,8 +886,7 @@
         if (e.target !== row) return; // let a nested input/button handle its own keys
         e.preventDefault();
         const goals = CurriculumStore.getGoals();
-        const parentId = findGoalParentId(goals, node.id);
-        const siblings = parentId ? (findGoalNode(goals, parentId)?.children || []) : goals;
+        const siblings = nodeParentId ? (findGoalNode(goals, nodeParentId)?.children || []) : goals;
         const idx = siblings.findIndex((n) => n.id === node.id);
         const targetIdx = e.key === "ArrowUp" ? idx - 1 : idx + 1;
         if (idx === -1 || targetIdx < 0 || targetIdx >= siblings.length) return;
@@ -1017,7 +1075,7 @@
     if (nodes.length > 0) {
       const ul = document.createElement("ul");
       ul.className = "goal-list checklist-items";
-      nodes.forEach((node) => ul.appendChild(renderCurriculumItem(node, depth)));
+      nodes.forEach((node) => ul.appendChild(renderCurriculumItem(node, depth, parentId)));
       wrapper.appendChild(ul);
     }
 

@@ -7,17 +7,26 @@
   }
 
   // ---------- Personal records (러닝 / 삼대운동) ----------
+  let recordsCache = null;
+  window.__resetStoreCaches.push(() => {
+    recordsCache = null;
+  });
+
   function loadRecords() {
+    if (recordsCache) return { ...recordsCache };
     try {
       const raw = localStorage.getItem(RECORDS_KEY);
-      return raw ? JSON.parse(raw) : {};
+      recordsCache = raw ? JSON.parse(raw) : {};
     } catch {
-      return {};
+      recordsCache = {};
     }
+    return { ...recordsCache };
   }
 
   function saveRecords(records) {
-    window.safeSetLocalStorage(RECORDS_KEY, JSON.stringify(records));
+    if (window.safeSetLocalStorage(RECORDS_KEY, JSON.stringify(records))) {
+      recordsCache = records;
+    }
   }
 
   const ExerciseRecordStore = {
@@ -33,18 +42,27 @@
   window.ExerciseRecordStore = ExerciseRecordStore;
 
   // ---------- Learned exercises (grouped by body part) ----------
+  let learnedCache = null;
+  window.__resetStoreCaches.push(() => {
+    learnedCache = null;
+  });
+
   function loadLearned() {
+    if (learnedCache) return [...learnedCache];
     try {
       const raw = localStorage.getItem(LEARNED_KEY);
       const data = raw ? JSON.parse(raw) : [];
-      return Array.isArray(data) ? data : [];
+      learnedCache = Array.isArray(data) ? data : [];
     } catch {
-      return [];
+      learnedCache = [];
     }
+    return [...learnedCache];
   }
 
   function saveLearned(items) {
-    window.safeSetLocalStorage(LEARNED_KEY, JSON.stringify(items));
+    if (window.safeSetLocalStorage(LEARNED_KEY, JSON.stringify(items))) {
+      learnedCache = items;
+    }
   }
 
   const LearnedExerciseStore = {
@@ -101,19 +119,31 @@
     return `bp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
+  let bodyPartsCache = null;
+  window.__resetStoreCaches.push(() => {
+    bodyPartsCache = null;
+  });
+
   function loadBodyParts() {
+    if (bodyPartsCache) return bodyPartsCache.map((p) => ({ ...p }));
     try {
       const raw = localStorage.getItem(BODY_PART_KEY);
-      if (!raw) return DEFAULT_BODY_PARTS.map((p) => ({ ...p }));
+      if (!raw) {
+        bodyPartsCache = DEFAULT_BODY_PARTS.map((p) => ({ ...p }));
+        return bodyPartsCache.map((p) => ({ ...p }));
+      }
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : DEFAULT_BODY_PARTS.map((p) => ({ ...p }));
+      bodyPartsCache = Array.isArray(parsed) ? parsed : DEFAULT_BODY_PARTS.map((p) => ({ ...p }));
     } catch {
-      return DEFAULT_BODY_PARTS.map((p) => ({ ...p }));
+      bodyPartsCache = DEFAULT_BODY_PARTS.map((p) => ({ ...p }));
     }
+    return bodyPartsCache.map((p) => ({ ...p }));
   }
 
   function saveBodyParts(parts) {
-    window.safeSetLocalStorage(BODY_PART_KEY, JSON.stringify(parts));
+    if (window.safeSetLocalStorage(BODY_PART_KEY, JSON.stringify(parts))) {
+      bodyPartsCache = parts;
+    }
   }
 
   window.BodyPartStore = {
@@ -196,18 +226,31 @@
   // ---------- Per-body-part routine notes (keyed by BodyPartStore key) ----------
   const BODY_PART_ROUTINE_KEY = "assistant.bodyPartRoutines.v1";
 
+  let bodyPartRoutinesCache = null;
+  window.__resetStoreCaches.push(() => {
+    bodyPartRoutinesCache = null;
+  });
+
   function loadBodyPartRoutines() {
+    // A fresh copy every time — update() below writes directly onto
+    // whatever object it gets back (data[key] = text / delete data[key]),
+    // so returning the cache itself here would corrupt it before
+    // saveBodyPartRoutines() ever confirms the write persisted.
+    if (bodyPartRoutinesCache) return { ...bodyPartRoutinesCache };
     try {
       const raw = localStorage.getItem(BODY_PART_ROUTINE_KEY);
       const data = raw ? JSON.parse(raw) : {};
-      return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+      bodyPartRoutinesCache = data && typeof data === "object" && !Array.isArray(data) ? data : {};
     } catch {
-      return {};
+      bodyPartRoutinesCache = {};
     }
+    return { ...bodyPartRoutinesCache };
   }
 
   function saveBodyPartRoutines(data) {
-    window.safeSetLocalStorage(BODY_PART_ROUTINE_KEY, JSON.stringify(data));
+    if (window.safeSetLocalStorage(BODY_PART_ROUTINE_KEY, JSON.stringify(data))) {
+      bodyPartRoutinesCache = data;
+    }
   }
 
   const BodyPartRoutineStore = {

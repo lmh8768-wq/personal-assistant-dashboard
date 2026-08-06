@@ -517,6 +517,13 @@ test("practice: dragging a goal onto a row under a different parent shows no dro
         { id: "gA", label: "A", done: false, children: [{ id: "gA1", label: "A1", done: false, children: [] }] },
         { id: "gB", label: "B", done: false, children: [] },
       ]));
+      // A direct localStorage write like the one above bypasses
+      // CurriculumStore's own save(), which is the only thing that normally
+      // keeps its in-memory cache in sync — the storage event that would
+      // catch this doesn't fire on the same document that made the write,
+      // so the cache has to be invalidated explicitly here, same as
+      // settings.js's backup import does for a real direct write.
+      window.__resetStoreCaches.forEach((reset) => reset());
       window.PracticeView.onShow();
       await new Promise((r) => setTimeout(r, 50));
 

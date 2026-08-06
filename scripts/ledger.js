@@ -137,8 +137,34 @@
     return { expense, income };
   }
 
+  // Groups every entry by date once, in a single pass — buildCalendarCell
+  // used to call dayTotals()/entriesForDate() once per cell, and each of
+  // those calls did a fresh LedgerEntryStore.getAll() + full-array .filter()
+  // of its own, so rendering one month (42 cells) meant 42 separate full
+  // scans of every ledger entry ever recorded. Building this map once per
+  // renderCalendar() call and looking up each cell's date in it turns that
+  // into a single O(n) pass plus 42 O(1) map lookups.
+  function groupEntriesByDate(entries) {
+    const map = new Map();
+    entries.forEach((e) => {
+      if (!map.has(e.date)) map.set(e.date, []);
+      map.get(e.date).push(e);
+    });
+    return map;
+  }
+
+  function dayTotalsFromEntries(entries) {
+    let expense = 0;
+    let income = 0;
+    entries.forEach((e) => {
+      if (entryType(e) === "income") income += e.amount;
+      else expense += e.amount;
+    });
+    return { expense, income };
+  }
+
   // ---------- Calendar (the main view) ----------
-  function buildCalendarCell(d, isOutside) {
+  function buildCalendarCell(d, isOutside, entriesByDate) {
     const dStr = toDateStr(d);
     const todayStr = toDateStr(new Date());
     const selectedStr = toDateStr(selectedDate);
@@ -167,7 +193,7 @@
     topRow.appendChild(num);
     cell.appendChild(topRow);
 
-    const { expense, income } = dayTotals(dStr);
+    const { expense, income } = dayTotalsFromEntries(entriesByDate.get(dStr) || []);
     if (expense > 0 || income > 0) {
       const amounts = document.createElement("div");
       amounts.className = "ledger-calendar-day-amounts";
@@ -240,8 +266,9 @@
     }
 
     grid.innerHTML = "";
+    const entriesByDate = groupEntriesByDate(window.LedgerEntryStore.getAll());
     buildMonthGrid(year, month).forEach((d) => {
-      grid.appendChild(buildCalendarCell(d, d.getMonth() !== month));
+      grid.appendChild(buildCalendarCell(d, d.getMonth() !== month, entriesByDate));
     });
 
     if (ghost) {
