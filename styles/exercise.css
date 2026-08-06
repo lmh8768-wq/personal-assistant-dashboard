@@ -257,7 +257,12 @@
   font-size: 13px;
   color: var(--text);
   outline: none;
-  resize: vertical;
+  /* Height is driven entirely by growRoutineTextarea() (exercise.js) now —
+     a manual resize handle would just get overwritten on the next
+     keystroke, and letting it shrink smaller than the actual content is
+     exactly the "have to scroll to see it all" problem this is fixing. */
+  resize: none;
+  overflow: hidden;
   transition: border-color 0.15s ease;
 }
 

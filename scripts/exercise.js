@@ -575,13 +575,31 @@
       input.maxLength = 500;
       input.setAttribute("aria-label", `${part.label} 루틴`);
       input.value = window.BodyPartRoutineStore.get(part.key);
+      // Grows to fit whatever's typed instead of scrolling inside its own
+      // 2-row box — needs to be in the live DOM first (scrollHeight is 0
+      // on a detached/hidden element), so this runs after both appendChild
+      // calls below, not here where the textarea has no layout yet.
+      input.addEventListener("input", () => growRoutineTextarea(input));
       input.addEventListener("change", () => {
         window.BodyPartRoutineStore.update(part.key, input.value.trim());
       });
       li.appendChild(input);
 
       list.appendChild(li);
+      growRoutineTextarea(input);
     });
+  }
+
+  function growRoutineTextarea(el) {
+    el.style.height = "auto";
+    // scrollHeight never includes border, but this element is border-box
+    // (app-wide * { box-sizing: border-box }), where the height being set
+    // here DOES include it — without adding it back, the box always came
+    // out a couple pixels shorter than the content actually needs, leaving
+    // exactly the sliver of internal scroll this is meant to eliminate.
+    const borderHeight =
+      parseFloat(getComputedStyle(el).borderTopWidth || "0") + parseFloat(getComputedStyle(el).borderBottomWidth || "0");
+    el.style.height = `${el.scrollHeight + borderHeight}px`;
   }
 
   // "5'30\"" (분'초"/km) — minutes 1-2 digits, seconds 00-59.

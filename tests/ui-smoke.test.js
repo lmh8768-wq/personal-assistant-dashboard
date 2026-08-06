@@ -1448,6 +1448,36 @@ test("exercise: 부위별 운동 루틴's textarea keeps line breaks the old sin
   }
 });
 
+test("exercise: 부위별 운동 루틴's textarea grows to fit its content instead of scrolling internally — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => {
+      window.BodyPartRoutineStore.update(
+        "chest",
+        "벤치프레스 3세트\n인클라인 벤치프레스 3세트\n딥스 3세트\n케이블 크로스오버 3세트\n푸시업 마무리 세트"
+      );
+    });
+    await page.evaluate(() => document.querySelector('[data-view="exercise"]')?.click());
+    await page.waitForTimeout(200);
+
+    const chestTextarea = page.locator(".body-part-routine-row", { hasText: "가슴" }).locator(".body-part-routine-input");
+    const rendered = await chestTextarea.evaluate((el) => ({ scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }));
+    assert.ok(
+      rendered.clientHeight >= rendered.scrollHeight,
+      `a multi-line routine shouldn't need internal scroll, got clientHeight ${rendered.clientHeight} < scrollHeight ${rendered.scrollHeight}`
+    );
+
+    // Also grows live as more lines are typed in, not just on initial render.
+    await chestTextarea.evaluate((el) => (el.value = "한 줄"));
+    await chestTextarea.fill("첫줄\n둘째줄\n셋째줄\n넷째줄\n다섯째줄\n여섯째줄");
+    await page.waitForTimeout(100);
+    const afterTyping = await chestTextarea.evaluate((el) => ({ scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }));
+    assert.ok(afterTyping.clientHeight >= afterTyping.scrollHeight, "typing more lines in should grow the box too, live");
+  } finally {
+    await close();
+  }
+});
+
 test("exercise: the calendar button opens a 3-week view with logged days marked green, deletable by clicking the body part — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {
