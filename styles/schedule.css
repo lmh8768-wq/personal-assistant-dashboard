@@ -10,6 +10,18 @@
   flex: 1;
 }
 
+/* The dashboard's 오늘의 일정/다가오는 일정 panels sit in a 3-column CSS
+   grid row with no fixed row height (see .grid), so with no cap a busy day
+   grew the whole panel — and dragged the 날씨/베이스 연습 panel beside it
+   in the same row taller too. Capping at roughly 6 rows worth of height
+   (item height ~42px + 8px gap, minus one trailing gap) keeps the panel a
+   consistent size and lets .schedule-list's existing overflow-y: auto take
+   over for anything past that instead of growing further. */
+.panel-schedule .schedule-list,
+.panel-upcoming .schedule-list {
+  max-height: 300px;
+}
+
 .schedule-empty {
   flex: 1;
   display: flex;
