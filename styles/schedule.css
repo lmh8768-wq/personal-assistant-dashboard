@@ -635,3 +635,115 @@
   gap: 8px;
 }
 
+/* ---------- Schedule add/edit modal: date range picker ---------- */
+/* A single mini-calendar for picking both start and end date in one place,
+   instead of two separate native <input type="date"> pickers popping up
+   independently — click a day to start a range, click a second day to
+   complete it. */
+.schedule-date-range-field {
+  margin-bottom: 14px;
+}
+
+.schedule-date-range-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.schedule-date-range-field .field-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.date-range-summary {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.schedule-range-picker {
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.date-range-picker-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.date-range-picker-nav .icon-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+}
+
+.date-range-picker-nav .icon-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Scoped smaller/denser overrides of the main .calendar-grid/.calendar-day
+   rules for this compact, 380px-modal context — same classes, same base
+   look, just sized for a picker instead of a full page panel. */
+.schedule-range-picker .calendar-weekdays {
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.schedule-range-picker .calendar-grid {
+  gap: 2px;
+}
+
+.schedule-range-picker .calendar-day {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  padding: 2px;
+  font-size: 11px;
+  align-items: center;
+  justify-content: center;
+}
+
+.schedule-range-picker .calendar-day.in-range {
+  background: var(--accent-soft);
+  border-radius: 0;
+}
+
+.schedule-range-picker .calendar-day.range-start {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+
+.schedule-range-picker .calendar-day.range-end {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+.schedule-range-picker .calendar-day.range-start .day-number,
+.schedule-range-picker .calendar-day.range-end .day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 2px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+}
+
+.schedule-date-range-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+

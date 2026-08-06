@@ -900,6 +900,92 @@
     updateCategorySelectDot();
   }
 
+  // ---------- Date range picker (add/edit modal) ----------
+  // One mini-calendar for picking both the start and end date, instead of
+  // two separate native <input type="date"> pickers popping up
+  // independently — the first click sets a single-day "start", the second
+  // click extends (or moves) it into a range. Only meaningful for
+  // non-repeating items (see readPayloadFromForm/handleSubmit) — combining
+  // a multi-day span with a repeat rule isn't supported.
+  let rangePickerViewDate = new Date();
+  let rangeStart = null; // "YYYY-MM-DD"
+  let rangeEnd = null; // "YYYY-MM-DD"
+  let rangeSelectingEnd = false; // true right after the first click, until the second click completes the range
+
+  function updateDateRangeSummary() {
+    const summary = document.getElementById("scheduleDateRangeSummary");
+    if (!summary) return;
+    if (!rangeStart) {
+      summary.textContent = "";
+      return;
+    }
+    const startLabel = formatDayLabel(parseDateStr(rangeStart));
+    summary.textContent =
+      rangeEnd && rangeEnd !== rangeStart ? `${startLabel} ~ ${formatDayLabel(parseDateStr(rangeEnd))}` : startLabel;
+  }
+
+  function setDateRange(start, end) {
+    rangeStart = start;
+    rangeEnd = end;
+    updateDateRangeSummary();
+  }
+
+  function handleRangeDayClick(dateStr, month) {
+    // Clicking a padding day from the adjacent month brings that month into
+    // view, same as the main calendar's own day cells do.
+    if (month !== rangePickerViewDate.getMonth()) {
+      rangePickerViewDate = new Date(parseDateStr(dateStr).getFullYear(), parseDateStr(dateStr).getMonth(), 1);
+    }
+    if (!rangeSelectingEnd) {
+      setDateRange(dateStr, dateStr);
+      rangeSelectingEnd = true;
+    } else {
+      if (dateStr < rangeStart) setDateRange(dateStr, rangeStart);
+      else setDateRange(rangeStart, dateStr);
+      rangeSelectingEnd = false;
+    }
+    renderRangePicker();
+  }
+
+  function buildRangePickerCell(d, isOutside) {
+    const dStr = toDateStr(d);
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "calendar-day";
+    if (isOutside) cell.classList.add("outside");
+    if (toDateStr(d) === toDateStr(new Date())) cell.classList.add("today");
+    if (rangeStart && rangeEnd && dStr >= rangeStart && dStr <= rangeEnd) cell.classList.add("in-range");
+    if (dStr === rangeStart) cell.classList.add("range-start");
+    if (dStr === rangeEnd) cell.classList.add("range-end");
+    window.CalendarFit.applyWeekendClass(cell, d);
+
+    const num = document.createElement("span");
+    num.className = "day-number";
+    num.textContent = d.getDate();
+    cell.appendChild(num);
+
+    cell.setAttribute(
+      "aria-label",
+      `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일${dStr === rangeStart ? " (시작일)" : dStr === rangeEnd ? " (종료일)" : ""}`
+    );
+    cell.addEventListener("click", () => handleRangeDayClick(dStr, d.getMonth()));
+    return cell;
+  }
+
+  function renderRangePicker() {
+    const grid = document.getElementById("scheduleRangePickerGrid");
+    const title = document.getElementById("scheduleRangePickerTitle");
+    if (!grid || !title) return;
+    const year = rangePickerViewDate.getFullYear();
+    const month = rangePickerViewDate.getMonth();
+    title.textContent = `${year}년 ${month + 1}월`;
+    grid.innerHTML = "";
+    buildMonthGrid(year, month).forEach((d) => {
+      grid.appendChild(buildRangePickerCell(d, d.getMonth() !== month));
+    });
+    updateDateRangeSummary();
+  }
+
   function openModal(mode, data) {
     if (mode !== "edit" && window.CategoryStore.getAll().length === 0) {
       window.Toast?.show("먼저 카테고리를 추가해주세요", { type: "warning" });
@@ -909,7 +995,18 @@
     editingOccurrenceDate = mode === "edit" ? (data.occurrenceDate || data.date) : null;
     document.getElementById("modalTitle").textContent = mode === "edit" ? "일정 수정" : "일정 추가";
     document.getElementById("scheduleTitleInput").value = data?.title || "";
-    document.getElementById("scheduleDateInput").value = data?.occurrenceDate || data?.date || toDateStr(selectedDate);
+
+    // A ranged (non-repeating, multi-day) item always shows its TRUE stored
+    // start/end here, even when opened from editing a day partway through
+    // its span — occurrenceDate is which day the edit was triggered from,
+    // not the item's actual date range.
+    const initialStart = data?.endDate ? data.date : (data?.occurrenceDate || data?.date || toDateStr(selectedDate));
+    const initialEnd = data?.endDate || initialStart;
+    rangeSelectingEnd = false;
+    rangePickerViewDate = parseDateStr(initialStart);
+    setDateRange(initialStart, initialEnd);
+    renderRangePicker();
+
     document.getElementById("scheduleMemoInput").value = data?.memo || "";
     document.getElementById("scheduleRepeatInput").value = data?.repeat?.type || "none";
     const repeatUntilValue = data?.repeat?.until || "";
@@ -932,6 +1029,9 @@
     document.getElementById("scheduleForm").reset();
     updateRepeatFieldsVisibility();
     paintImportanceStars(DEFAULT_IMPORTANCE);
+    rangeStart = null;
+    rangeEnd = null;
+    rangeSelectingEnd = false;
     editingId = null;
     editingOccurrenceDate = null;
   }
@@ -942,7 +1042,13 @@
 
     return {
       title: document.getElementById("scheduleTitleInput").value.trim(),
-      date: document.getElementById("scheduleDateInput").value,
+      date: rangeStart,
+      // A multi-day span only makes sense for a non-repeating item — a
+      // recurring item's "date" is just the anchor each occurrence is
+      // computed from, not a literal span. Dropped here (rather than left
+      // in the picker's visual state) so a repeat type change doesn't leave
+      // a stale endDate silently unused by matchesDate.
+      endDate: repeatType === "none" && rangeEnd && rangeEnd !== rangeStart ? rangeEnd : null,
       memo: document.getElementById("scheduleMemoInput").value.trim(),
       repeat: {
         type: repeatType,
@@ -1272,6 +1378,15 @@
     }
 
     initDayListDropZone();
+
+    document.getElementById("scheduleRangePrevMonthBtn")?.addEventListener("click", () => {
+      rangePickerViewDate = new Date(rangePickerViewDate.getFullYear(), rangePickerViewDate.getMonth() - 1, 1);
+      renderRangePicker();
+    });
+    document.getElementById("scheduleRangeNextMonthBtn")?.addEventListener("click", () => {
+      rangePickerViewDate = new Date(rangePickerViewDate.getFullYear(), rangePickerViewDate.getMonth() + 1, 1);
+      renderRangePicker();
+    });
 
     document.getElementById("prevMonthBtn").addEventListener("click", () => {
       viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);

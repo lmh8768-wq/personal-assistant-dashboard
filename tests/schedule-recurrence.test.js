@@ -16,6 +16,35 @@ test("no-repeat item only occurs on its own date", () => {
   assert.equal(store.getOccurrences("2026-08-11").length, 0);
 });
 
+test("a ranged (endDate) item occurs on every day from date to endDate inclusive — the actual bug fix", () => {
+  const store = freshScheduleStore();
+  store.add({ title: "여행", date: "2026-08-10", endDate: "2026-08-12", repeat: { type: "none" } });
+
+  assert.equal(store.getOccurrences("2026-08-09").length, 0, "day before the range must not match");
+  assert.equal(store.getOccurrences("2026-08-10").length, 1, "range start must match");
+  assert.equal(store.getOccurrences("2026-08-11").length, 1, "a day in the middle of the range must match");
+  assert.equal(store.getOccurrences("2026-08-12").length, 1, "range end must match");
+  assert.equal(store.getOccurrences("2026-08-13").length, 0, "day after the range must not match");
+});
+
+test("occurrenceDate for a ranged item reflects the day being viewed, but date/endDate stay the item's true range", () => {
+  const store = freshScheduleStore();
+  store.add({ title: "여행", date: "2026-08-10", endDate: "2026-08-12", repeat: { type: "none" } });
+
+  const middleDay = store.getOccurrences("2026-08-11")[0];
+  assert.equal(middleDay.occurrenceDate, "2026-08-11");
+  assert.equal(middleDay.date, "2026-08-10", "the item's own stored start date must be unaffected by which day it's viewed from");
+  assert.equal(middleDay.endDate, "2026-08-12");
+});
+
+test("an item with no endDate still only occurs on its own date (backward compatible)", () => {
+  const store = freshScheduleStore();
+  store.add({ title: "단일", date: "2026-08-10", repeat: { type: "none" } });
+
+  assert.equal(store.getOccurrences("2026-08-10").length, 1);
+  assert.equal(store.getOccurrences("2026-08-11").length, 0);
+});
+
 test("daily repeat occurs every day from its anchor date onward, never before", () => {
   const store = freshScheduleStore();
   store.add({ title: "매일", date: "2026-08-10", repeat: { type: "daily" } });

@@ -90,7 +90,12 @@
         return anchor.getMonth() === target.getMonth() && anchor.getDate() === target.getDate();
       }
       default:
-        return dateStr === item.date;
+        // item.endDate, when set, means this is a single (non-repeating)
+        // item spanning multiple consecutive days — matches every day in
+        // [date, endDate] inclusive, not just the exact start date.
+        // Combining a multi-day span with a repeat rule isn't supported
+        // (every switch case above still only ever anchors off item.date).
+        return item.endDate ? dateStr >= item.date && dateStr <= item.endDate : dateStr === item.date;
     }
   }
 
