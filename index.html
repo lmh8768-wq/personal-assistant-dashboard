@@ -267,22 +267,7 @@
 
             <div class="panel panel-exercise-status">
               <div class="panel-header"><h2>운동 기록</h2></div>
-              <div class="practice-status-row">
-                <strong>러닝</strong>
-                <span id="dashboardExerciseRun"></span>
-              </div>
-              <div class="practice-status-row">
-                <strong>스쿼트</strong>
-                <span id="dashboardExerciseSquat"></span>
-              </div>
-              <div class="practice-status-row">
-                <strong>벤치프레스</strong>
-                <span id="dashboardExerciseBench"></span>
-              </div>
-              <div class="practice-status-row">
-                <strong>데드리프트</strong>
-                <span id="dashboardExerciseDeadlift"></span>
-              </div>
+              <div id="dashboardExerciseBodyPartStatus"></div>
             </div>
 
             <div class="panel panel-vongole-status">
@@ -465,6 +450,8 @@
         </div>
 
         <div class="view" id="view-exercise" hidden>
+          <div class="exercise-last-worked-summary" id="exerciseLastWorkedSummary"></div>
+
           <div class="exercise-records-panel" id="exerciseRecordsPanel">
             <div class="exercise-record-group">
               <span class="checklist-label">러닝</span>
@@ -514,10 +501,9 @@
           <ul class="checklist-items exercise-log-list" id="exerciseLogList"></ul>
 
           <div class="diary-header">
-            <h2>배운 운동 <span id="learnedExerciseAddRow"></span></h2>
-            <button type="button" class="icon-btn section-toggle-btn" id="toggleLearnedExerciseBtn" aria-expanded="true" aria-label="배운 운동 접기/펼치기">▾</button>
+            <h2>부위별 운동 루틴</h2>
           </div>
-          <div id="learnedExerciseGroups"></div>
+          <ul class="body-part-routine-list" id="bodyPartRoutineList"></ul>
         </div>
 
         <div class="view" id="view-ledger" hidden>

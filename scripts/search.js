@@ -69,13 +69,6 @@
       });
       addSection(goals.filter((g) => g.label.toLowerCase().includes(q)));
     }
-    if (window.LearnedExerciseStore) {
-      addSection(
-        window.LearnedExerciseStore.getAll()
-          .filter((item) => `${item.name || ""} ${item.bodyPart || ""}`.toLowerCase().includes(q))
-          .map((item) => ({ type: "운동", label: `${item.bodyPart} · ${item.name}`, view: "exercise" }))
-      );
-    }
     if (window.LedgerEntryStore && window.LedgerCategoryStore) {
       addSection(
         window.LedgerEntryStore.getAll()

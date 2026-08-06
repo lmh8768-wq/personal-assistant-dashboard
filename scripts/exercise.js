@@ -1,10 +1,5 @@
 (function () {
   const RECORDS_KEY = "assistant.exerciseRecords.v1";
-  const LEARNED_KEY = "assistant.learnedExercises.v1";
-
-  function createId(prefix) {
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  }
 
   // ---------- Personal records (러닝 / 삼대운동) ----------
   let recordsCache = null;
@@ -40,68 +35,6 @@
     },
   };
   window.ExerciseRecordStore = ExerciseRecordStore;
-
-  // ---------- Learned exercises (grouped by body part) ----------
-  let learnedCache = null;
-  window.__resetStoreCaches.push(() => {
-    learnedCache = null;
-  });
-
-  function loadLearned() {
-    if (learnedCache) return [...learnedCache];
-    try {
-      const raw = localStorage.getItem(LEARNED_KEY);
-      const data = raw ? JSON.parse(raw) : [];
-      learnedCache = Array.isArray(data) ? data : [];
-    } catch {
-      learnedCache = [];
-    }
-    return [...learnedCache];
-  }
-
-  function saveLearned(items) {
-    if (window.safeSetLocalStorage(LEARNED_KEY, JSON.stringify(items))) {
-      learnedCache = items;
-    }
-  }
-
-  const LearnedExerciseStore = {
-    getAll() {
-      return loadLearned();
-    },
-    add(entry) {
-      const items = loadLearned();
-      const item = { id: createId("lex"), ...entry };
-      items.push(item);
-      saveLearned(items);
-      return item;
-    },
-    update(id, patch) {
-      const items = loadLearned();
-      const idx = items.findIndex((i) => i.id === id);
-      if (idx === -1) return null;
-      items[idx] = { ...items[idx], ...patch };
-      saveLearned(items);
-      return items[idx];
-    },
-    remove(id) {
-      const items = loadLearned();
-      const idx = items.findIndex((i) => i.id === id);
-      if (idx === -1) return null;
-      const [removed] = items.splice(idx, 1);
-      saveLearned(items);
-      return { item: removed, index: idx };
-    },
-    restore(item, index) {
-      const items = loadLearned();
-      // Only the upper bound was clamped — see store.js's createKeyedStore/
-      // createEntityStore.restore for the same fix and why it matters.
-      const at = Math.min(Math.max(0, index), items.length);
-      items.splice(at, 0, item);
-      saveLearned(items);
-    },
-  };
-  window.LearnedExerciseStore = LearnedExerciseStore;
 
   // ---------- Body parts (a proper, manageable category — like ledger/
   // schedule categories, not free text) ----------
@@ -161,13 +94,13 @@
     return window.BodyPartStore.getByKey(key)?.label || "삭제된 부위";
   }
 
-  // Migration: 배운 운동/운동 기록's 부위 field used to be free text typed
-  // directly into an input, so an entry from before this change holds a
-  // label string (e.g. "가슴") instead of a real BodyPartStore key. Rewrites
-  // any such entry to reference a key instead — reusing a matching body
-  // part's key when the label happens to match one, minting a fresh one
-  // otherwise — so renaming a body part later actually updates everywhere
-  // it's used, which a plain string never could.
+  // Migration: 운동 기록's 부위 field used to be free text typed directly
+  // into an input, so an entry from before this change holds a label string
+  // (e.g. "가슴") instead of a real BodyPartStore key. Rewrites any such
+  // entry to reference a key instead — reusing a matching body part's key
+  // when the label happens to match one, minting a fresh one otherwise — so
+  // renaming a body part later actually updates everywhere it's used, which
+  // a plain string never could.
   //
   // Deliberately NOT gated behind a one-time-ever flag: this function is
   // naturally idempotent (it only ever touches a bodyPart value that ISN'T
@@ -180,12 +113,10 @@
     const existingKeys = new Set(window.BodyPartStore.getAll().map((p) => p.key));
     const existingByLabel = new Map(window.BodyPartStore.getAll().map((p) => [p.label, p.key]));
 
-    const learned = LearnedExerciseStore.getAll();
     const logs = window.ExerciseLogStore.getAll();
     const routines = loadBodyPartRoutines();
 
     const labelsToMigrate = new Set();
-    learned.forEach((item) => item.bodyPart && !existingKeys.has(item.bodyPart) && labelsToMigrate.add(item.bodyPart));
     logs.forEach((entry) => entry.bodyPart && !existingKeys.has(entry.bodyPart) && labelsToMigrate.add(entry.bodyPart));
     Object.keys(routines).forEach((label) => !existingKeys.has(label) && labelsToMigrate.add(label));
 
@@ -196,11 +127,6 @@
       labelToKey.set(label, existingByLabel.has(label) ? existingByLabel.get(label) : window.BodyPartStore.add(label).key);
     });
 
-    learned.forEach((item) => {
-      if (item.bodyPart && labelToKey.has(item.bodyPart)) {
-        LearnedExerciseStore.update(item.id, { bodyPart: labelToKey.get(item.bodyPart) });
-      }
-    });
     logs.forEach((entry) => {
       if (entry.bodyPart && labelToKey.has(entry.bodyPart)) {
         window.ExerciseLogStore.update(entry.id, { bodyPart: labelToKey.get(entry.bodyPart) });
@@ -266,25 +192,6 @@
   };
   window.BodyPartRoutineStore = BodyPartRoutineStore;
 
-  // ---------- Collapsible sections ----------
-  // `storageKey`, when given, persists the collapsed state (device-local UI
-  // state, not synced) — this section used to always reopen expanded on
-  // every reload regardless of what the user last chose.
-  function toggleSection(contentEl, btn, storageKey) {
-    const collapsing = !contentEl.hidden;
-    contentEl.hidden = collapsing;
-    btn.textContent = collapsing ? "▸" : "▾";
-    btn.setAttribute("aria-expanded", String(!collapsing));
-    if (storageKey) localStorage.setItem(storageKey, String(collapsing));
-  }
-
-  function applyStoredCollapse(contentEl, btn, storageKey) {
-    const collapsed = localStorage.getItem(storageKey) === "true";
-    contentEl.hidden = collapsed;
-    btn.textContent = collapsed ? "▸" : "▾";
-    btn.setAttribute("aria-expanded", String(!collapsed));
-  }
-
   // getFullYear/getMonth/getDate (local time), never toISOString (UTC) —
   // same local-time-only date convention the rest of the app uses (see
   // schedule-recurrence.js's parseDateStr for why).
@@ -304,6 +211,65 @@
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     return Math.round((today - then) / 86400000);
+  }
+
+  // Every registered body part, longest-idle first — a part with no record
+  // at all sorts last, since "never logged" isn't the same signal as "N
+  // days overdue" and shouldn't crowd out the parts that actually need
+  // attention soonest. Shared by the exercise tab's own top-of-tab summary
+  // and the dashboard panel mirroring it.
+  function sortedBodyPartsByLastWorked() {
+    const parts = window.BodyPartStore.getAll();
+    const lastWorked = lastWorkedDateByBodyPart();
+    return [...parts].sort((a, b) => {
+      const aDate = lastWorked[a.key];
+      const bDate = lastWorked[b.key];
+      if (!aDate && !bDate) return 0;
+      if (!aDate) return 1;
+      if (!bDate) return -1;
+      return daysSince(bDate) - daysSince(aDate);
+    });
+  }
+
+  // Every registered body part's days-since-last-worked, shown as a row of
+  // chips at the very top of the exercise tab — the per-group "며칠 전"
+  // badge inside 배운 운동 only ever showed up for a body part that already
+  // had a learned exercise registered under it, and only after scrolling
+  // past the log list to find its group, so at-a-glance "what's overdue"
+  // needed both data (every registered body part, not just ones with a
+  // 배운 운동 group) and placement (top of the tab, not buried mid-page).
+  function renderLastWorkedSummary() {
+    const container = document.getElementById("exerciseLastWorkedSummary");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const sorted = sortedBodyPartsByLastWorked();
+    if (sorted.length === 0) return;
+
+    const lastWorked = lastWorkedDateByBodyPart();
+    sorted.forEach((part) => {
+      const chip = document.createElement("div");
+      chip.className = "exercise-last-worked-chip";
+
+      const label = document.createElement("span");
+      label.className = "exercise-last-worked-chip-label";
+      label.textContent = part.label;
+      chip.appendChild(label);
+
+      const value = document.createElement("span");
+      value.className = "exercise-last-worked-chip-value";
+      const lastDate = lastWorked[part.key];
+      if (lastDate) {
+        const days = daysSince(lastDate);
+        value.textContent = days <= 0 ? "오늘" : `${days}일 전`;
+      } else {
+        value.textContent = "기록 없음";
+        chip.classList.add("no-record");
+      }
+      chip.appendChild(value);
+
+      container.appendChild(chip);
+    });
   }
 
   // Latest logged date per body part, for the "며칠 전" badge next to each
@@ -364,14 +330,14 @@
       remove.addEventListener("click", () => {
         const removed = window.ExerciseLogStore.remove(entry.id);
         renderExerciseLog();
-        renderLearnedExercises();
+        renderBodyPartRoutines();
         if (removed && window.Toast) {
           window.Toast.show(`"${label}" 기록을 삭제했어요`, {
             actionLabel: "실행취소",
             onAction: () => {
               window.ExerciseLogStore.restore(removed.item, removed.index);
               renderExerciseLog();
-              renderLearnedExercises();
+              renderBodyPartRoutines();
             },
           });
         }
@@ -402,7 +368,7 @@
     }
     window.ExerciseLogStore.add({ date, bodyPart });
     renderExerciseLog();
-    renderLearnedExercises();
+    renderBodyPartRoutines();
   }
 
   // ---------- Body part manager (add / rename / delete) ----------
@@ -437,7 +403,7 @@
         }
         window.BodyPartStore.update(part.key, { label });
         renderExerciseLog();
-        renderLearnedExercises();
+        renderBodyPartRoutines();
         populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
       });
       row.appendChild(labelInput);
@@ -466,7 +432,7 @@
         const removed = window.BodyPartStore.remove(part.key);
         renderBodyPartManager();
         renderExerciseLog();
-        renderLearnedExercises();
+        renderBodyPartRoutines();
         populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
         if (removed && window.Toast) {
           window.Toast.show(`"${part.label}" 부위를 삭제했어요`, {
@@ -475,7 +441,7 @@
               window.BodyPartStore.restore(removed.item, removed.index);
               renderBodyPartManager();
               renderExerciseLog();
-              renderLearnedExercises();
+              renderBodyPartRoutines();
               populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
             },
           });
@@ -515,228 +481,51 @@
     document.getElementById("exerciseRecordDeadliftInput").value = records.deadlift ?? "";
   }
 
-  // ---------- Learned exercises (grouped by body part) ----------
-  // Starts as a single compact "+" button; clicking it swaps in a small
-  // 부위/운동 이름/중량/세트 수 form (Enter or the 추가 button commits,
-  // Escape cancels back to the button). Lives next to the "배운 운동"
-  // heading (created once in init()), not inside the re-rendered group
-  // list, so it must reset itself back to button view after a commit.
-  function makeLearnedExerciseAddTrigger() {
-    const container = document.createElement("span");
-    container.className = "learned-exercise-add-row";
+  // ---------- Per-body-part routine list ----------
+  // One row per registered body part (not just ones with logged history),
+  // in BodyPartStore's own order — replaces the old 배운 운동 (name/weight/
+  // sets tracking, grouped by body part) with a plain "what's the routine
+  // for this part" note, which is all BodyPartRoutineStore ever stored
+  // anyway; 배운 운동's per-exercise tracking is gone, not folded in here.
+  function renderBodyPartRoutines() {
+    // Every call site that mutates the log, a body part, or a routine
+    // already calls this right alongside (or instead of) its own render —
+    // piggybacking here keeps the top summary in sync everywhere without
+    // having to thread a separate call into each of those sites.
+    renderLastWorkedSummary();
 
-    function showButton() {
-      container.innerHTML = "";
-      container.classList.remove("expanded");
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "ghost-btn goal-add-trigger-btn";
-      btn.textContent = "+";
-      btn.addEventListener("click", () => {
-        if (window.BodyPartStore.getAll().length === 0) {
-          window.Toast?.show("먼저 부위를 추가해주세요", { type: "warning" });
-          return;
-        }
-        showForm();
-      });
-      container.appendChild(btn);
+    const list = document.getElementById("bodyPartRoutineList");
+    if (!list) return;
+    list.innerHTML = "";
+
+    const parts = window.BodyPartStore.getAll();
+    if (parts.length === 0) {
+      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon" aria-hidden="true">📋</span>먼저 부위를 추가해주세요</li>`;
+      return;
     }
 
-    function showForm() {
-      container.innerHTML = "";
-      container.classList.add("expanded");
+    parts.forEach((part) => {
+      const li = document.createElement("li");
+      li.className = "body-part-routine-row";
 
-      const bodyPartInput = document.createElement("select");
-      bodyPartInput.setAttribute("aria-label", "부위");
-      populateBodyPartSelect(bodyPartInput);
+      const label = document.createElement("span");
+      label.className = "body-part-routine-label";
+      label.textContent = part.label;
+      li.appendChild(label);
 
-      const nameInput = document.createElement("input");
-      nameInput.type = "text";
-      nameInput.placeholder = "운동 이름 (예: 벤치프레스)";
-      nameInput.setAttribute("aria-label", "운동 이름");
-
-      const weightInput = document.createElement("input");
-      weightInput.type = "number";
-      weightInput.min = "0";
-      weightInput.max = "500";
-      weightInput.step = "0.5";
-      weightInput.placeholder = "중량 (kg)";
-      weightInput.setAttribute("aria-label", "중량 (kg)");
-
-      const setsInput = document.createElement("input");
-      setsInput.type = "number";
-      setsInput.min = "1";
-      setsInput.max = "50";
-      setsInput.step = "1";
-      setsInput.placeholder = "세트 수";
-      setsInput.setAttribute("aria-label", "세트 수");
-
-      const submitBtn = document.createElement("button");
-      submitBtn.type = "button";
-      submitBtn.className = "ghost-btn";
-      submitBtn.textContent = "추가";
-
-      let settled = false;
-      function commit() {
-        if (settled) return;
-        const bodyPart = bodyPartInput.value.trim();
-        const name = nameInput.value.trim();
-        if (!bodyPart || !name) {
-          if (window.Toast) window.Toast.show("부위와 운동 이름을 입력해주세요", { type: "warning" });
-          return;
-        }
-        settled = true;
-        // min/max on a number input only constrain the spinner arrows, not
-        // typed/pasted values — clamp explicitly so e.g. "9999" doesn't save
-        // as a real-looking 9999kg record.
-        const weight = weightInput.value ? Math.min(500, Math.max(0, Number(weightInput.value))) : null;
-        const sets = setsInput.value ? Math.min(50, Math.max(1, Number(setsInput.value))) : null;
-        LearnedExerciseStore.add({ bodyPart, name, weight, sets });
-        renderLearnedExercises();
-        showButton();
-      }
-      function cancel() {
-        if (settled) return;
-        settled = true;
-        showButton();
-      }
-
-      [bodyPartInput, nameInput, weightInput, setsInput].forEach((input) => {
-        input.addEventListener("keydown", (e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            commit();
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            cancel();
-          }
-        });
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "body-part-routine-input";
+      input.placeholder = `${part.label} 루틴 (예: 벤치프레스 3세트, 딥스 3세트)`;
+      input.setAttribute("aria-label", `${part.label} 루틴`);
+      input.value = window.BodyPartRoutineStore.get(part.key);
+      input.addEventListener("change", () => {
+        window.BodyPartRoutineStore.update(part.key, input.value.trim());
       });
-      submitBtn.addEventListener("click", commit);
+      li.appendChild(input);
 
-      container.appendChild(bodyPartInput);
-      container.appendChild(nameInput);
-      container.appendChild(weightInput);
-      container.appendChild(setsInput);
-      container.appendChild(submitBtn);
-      bodyPartInput.focus();
-    }
-
-    showButton();
-    return container;
-  }
-
-  function renderLearnedExercises() {
-    const container = document.getElementById("learnedExerciseGroups");
-    if (!container) return;
-    container.innerHTML = "";
-
-    const items = LearnedExerciseStore.getAll();
-
-    // Groups are derived from each entry's own 부위 field, which is a
-    // BodyPartStore key (not a raw label — see migrateBodyPartsToKeys),
-    // in first-seen order.
-    const groups = new Map();
-    items.forEach((item) => {
-      const key = item.bodyPart || "기타";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(item);
+      list.appendChild(li);
     });
-
-    const lastWorked = lastWorkedDateByBodyPart();
-
-    if (groups.size === 0) {
-      const empty = document.createElement("div");
-      empty.className = "empty-state";
-      empty.innerHTML = `<span class="empty-icon" aria-hidden="true">🏋️</span><p>아직 등록된 운동이 없어요</p>`;
-      container.appendChild(empty);
-    } else {
-      groups.forEach((groupItems, bodyPartKey) => {
-        const bodyPartLabel = bodyPartKey === "기타" ? "기타" : getBodyPartLabel(bodyPartKey);
-        const group = document.createElement("div");
-        group.className = "learned-exercise-group";
-
-        const headingRow = document.createElement("div");
-        headingRow.className = "learned-exercise-group-heading-row";
-
-        const heading = document.createElement("div");
-        heading.className = "learned-exercise-group-title";
-        heading.textContent = bodyPartLabel;
-        headingRow.appendChild(heading);
-
-        // Days since this body part was last logged via 운동 기록 above —
-        // lets you see at a glance which parts need a rest day and which
-        // are overdue.
-        const lastDate = lastWorked[bodyPartKey];
-        if (lastDate) {
-          const badge = document.createElement("span");
-          badge.className = "learned-exercise-last-worked";
-          const days = daysSince(lastDate);
-          badge.textContent = days <= 0 ? "오늘" : `${days}일 전`;
-          headingRow.appendChild(badge);
-        }
-        group.appendChild(headingRow);
-
-        const routineInput = document.createElement("input");
-        routineInput.type = "text";
-        routineInput.className = "learned-exercise-routine-input";
-        routineInput.placeholder = `${bodyPartLabel} 루틴 (예: 벤치프레스 3세트, 딥스 3세트)`;
-        routineInput.setAttribute("aria-label", `${bodyPartLabel} 루틴`);
-        routineInput.value = window.BodyPartRoutineStore.get(bodyPartKey);
-        routineInput.addEventListener("change", () => {
-          window.BodyPartRoutineStore.update(bodyPartKey, routineInput.value.trim());
-        });
-        group.appendChild(routineInput);
-
-        const list = document.createElement("ul");
-        list.className = "learned-exercise-list";
-        groupItems.forEach((item) => {
-          const li = document.createElement("li");
-          li.className = "learned-exercise-item";
-
-          const name = document.createElement("span");
-          name.className = "learned-exercise-name";
-          name.textContent = item.name;
-          li.appendChild(name);
-
-          // `!= null` (not truthy) — weight/sets are stored as `null` when
-          // never entered, but a real 0 (e.g. "0kg" for a bodyweight
-          // exercise) is a legitimate value the user explicitly typed in.
-          // A plain truthy check treated that 0 exactly like "never
-          // entered", silently dropping it from the display.
-          const detailParts = [];
-          if (item.weight != null) detailParts.push(`${item.weight}kg`);
-          if (item.sets != null) detailParts.push(`${item.sets}세트`);
-          const detail = document.createElement("span");
-          detail.className = "learned-exercise-detail";
-          detail.textContent = detailParts.join(" · ");
-          li.appendChild(detail);
-
-          const remove = document.createElement("span");
-          remove.className = "checklist-item-remove";
-          remove.textContent = "×";
-          remove.addEventListener("click", () => {
-            const removed = LearnedExerciseStore.remove(item.id);
-            renderLearnedExercises();
-            if (removed && window.Toast) {
-              window.Toast.show("운동을 삭제했어요", {
-                actionLabel: "실행취소",
-                onAction: () => {
-                  LearnedExerciseStore.restore(removed.item, removed.index);
-                  renderLearnedExercises();
-                },
-              });
-            }
-          });
-          window.makeKeyboardActivatable(remove, `${item.name} 삭제`);
-          li.appendChild(remove);
-
-          list.appendChild(li);
-        });
-        group.appendChild(list);
-        container.appendChild(group);
-      });
-    }
   }
 
   // "5'30\"" (분'초"/km) — minutes 1-2 digits, seconds 00-59.
@@ -783,43 +572,45 @@
   }
 
   // ---------- Dashboard panel ----------
+  // Mirrors the exercise tab's own top-of-tab summary (renderLastWorkedSummary)
+  // instead of the personal-records display this replaced — oldest-worked
+  // body part first, so it's visible at a glance without opening the tab.
   function renderDashboardExercise() {
-    const runEl = document.getElementById("dashboardExerciseRun");
-    const squatEl = document.getElementById("dashboardExerciseSquat");
-    const benchEl = document.getElementById("dashboardExerciseBench");
-    const deadliftEl = document.getElementById("dashboardExerciseDeadlift");
-    if (!runEl || !squatEl || !benchEl || !deadliftEl) return;
+    const container = document.getElementById("dashboardExerciseBodyPartStatus");
+    if (!container) return;
+    container.innerHTML = "";
 
-    const records = ExerciseRecordStore.get();
+    const sorted = sortedBodyPartsByLastWorked();
+    if (sorted.length === 0) {
+      container.innerHTML = `<div class="practice-status-row"><span>등록된 부위가 없어요</span></div>`;
+      return;
+    }
 
-    runEl.textContent =
-      records.runDistance && records.runPace
-        ? `${records.runDistance}km · ${records.runPace}/km`
-        : records.runDistance
-        ? `${records.runDistance}km`
-        : records.runPace
-        ? `${records.runPace}/km`
-        : "기록 없음";
+    const lastWorked = lastWorkedDateByBodyPart();
+    sorted.forEach((part) => {
+      const row = document.createElement("div");
+      row.className = "practice-status-row";
 
-    squatEl.textContent = records.squat ? `${records.squat}kg` : "기록 없음";
-    benchEl.textContent = records.bench ? `${records.bench}kg` : "기록 없음";
-    deadliftEl.textContent = records.deadlift ? `${records.deadlift}kg` : "기록 없음";
+      const label = document.createElement("strong");
+      label.textContent = part.label;
+      row.appendChild(label);
+
+      const value = document.createElement("span");
+      const lastDate = lastWorked[part.key];
+      if (lastDate) {
+        const days = daysSince(lastDate);
+        value.textContent = days <= 0 ? "오늘" : `${days}일 전`;
+      } else {
+        value.textContent = "기록 없음";
+      }
+      row.appendChild(value);
+
+      container.appendChild(row);
+    });
   }
 
   function init() {
     migrateBodyPartsToKeys();
-
-    const learnedToggleBtn = document.getElementById("toggleLearnedExerciseBtn");
-    const learnedGroupsEl = document.getElementById("learnedExerciseGroups");
-    if (learnedToggleBtn && learnedGroupsEl) {
-      applyStoredCollapse(learnedGroupsEl, learnedToggleBtn, "learnedExerciseGroupsCollapsed");
-      learnedToggleBtn.addEventListener("click", (e) => {
-        toggleSection(learnedGroupsEl, e.currentTarget, "learnedExerciseGroupsCollapsed");
-      });
-    }
-
-    const addRow = document.getElementById("learnedExerciseAddRow");
-    if (addRow) addRow.appendChild(makeLearnedExerciseAddTrigger());
 
     const bodyPartManageBtn = document.getElementById("exerciseBodyPartManageBtn");
     const bodyPartManager = document.getElementById("exerciseBodyPartManager");
@@ -849,7 +640,7 @@
     renderRecordsPanel();
     populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
     renderExerciseLog();
-    renderLearnedExercises();
+    renderBodyPartRoutines();
     renderDashboardExercise();
   }
 
@@ -864,7 +655,7 @@
       renderRecordsPanel();
       populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
       renderExerciseLog();
-      renderLearnedExercises();
+      renderBodyPartRoutines();
     },
   };
 })();

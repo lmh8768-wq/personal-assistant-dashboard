@@ -431,7 +431,7 @@ test("practice/study/vongole/exercise tabs reflect data changed while the tab wa
       window.PracticeCurriculumStore.addGoal(null, "실시간동기화테스트-연습");
       window.AcademicGoalStore.addYear("실시간동기화테스트-학업");
       window.VongoleRecipeStore.add({ title: "실시간동기화테스트-봉골레", content: "" });
-      window.LearnedExerciseStore.add({ bodyPart: "가슴", name: "실시간동기화테스트-운동" });
+      window.BodyPartStore.add("실시간동기화테스트-운동");
       return {
         practice: "실시간동기화테스트-연습",
         study: "실시간동기화테스트-학업",
@@ -1186,22 +1186,36 @@ test("practice: the progress percentage only counts leaf goals, not derived-done
   }
 });
 
-test("exercise: a learned exercise saved with weight 0 (bodyweight) still shows its weight — the actual bug fix", { skip: !RUN }, async () => {
+test("exercise: the top-of-tab summary lists every body part's days-since-last-worked, most overdue first — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {
-    await page.evaluate(() =>
-      window.LearnedExerciseStore.add({ bodyPart: "가슴", name: "맨몸 푸시업", weight: 0, sets: 3 })
-    );
+    await page.evaluate(() => {
+      const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      const tenDaysAgo = new Date();
+      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+      window.ExerciseLogStore.add({ date: fmt(threeDaysAgo), bodyPart: "chest" });
+      window.ExerciseLogStore.add({ date: fmt(tenDaysAgo), bodyPart: "back" });
+    });
     await page.evaluate(() => document.querySelector('[data-view="exercise"]')?.click());
     await page.waitForTimeout(200);
 
-    const detailText = await page.evaluate(() => {
-      const items = [...document.querySelectorAll(".learned-exercise-item")];
-      const item = items.find((el) => el.querySelector(".learned-exercise-name")?.textContent === "맨몸 푸시업");
-      return item?.querySelector(".learned-exercise-detail")?.textContent || "";
-    });
-    assert.ok(detailText.includes("0kg"), `expected "0kg" in the detail text, got "${detailText}"`);
-    assert.ok(detailText.includes("3세트"));
+    const chips = await page.evaluate(() =>
+      [...document.querySelectorAll("#exerciseLastWorkedSummary .exercise-last-worked-chip")].map((c) => ({
+        label: c.querySelector(".exercise-last-worked-chip-label")?.textContent,
+        value: c.querySelector(".exercise-last-worked-chip-value")?.textContent,
+      }))
+    );
+    // Every default body part shows up, not just ones with a 배운 운동 group.
+    assert.equal(chips.length, 6);
+    // Longest-idle first: 등 (10일 전) ahead of 가슴 (3일 전), both ahead of
+    // any never-logged body part.
+    assert.equal(chips[0].label, "등");
+    assert.equal(chips[0].value, "10일 전");
+    assert.equal(chips[1].label, "가슴");
+    assert.equal(chips[1].value, "3일 전");
+    assert.ok(chips.slice(2).every((c) => c.value === "기록 없음"));
   } finally {
     await close();
   }
@@ -1213,12 +1227,9 @@ test("exercise: pre-existing free-text 부위 data migrates to real BodyPartStor
     // Simulates data saved before 부위 became a managed category — the old
     // free-text input stored the label directly, not a key.
     await page.evaluate(() => {
-      localStorage.setItem("assistant.learnedExercises.v1", JSON.stringify([
-        { id: "lex_old1", bodyPart: "가슴", name: "벤치프레스", weight: 60, sets: 3 },
-        { id: "lex_old2", bodyPart: "커스텀부위", name: "특이운동", weight: 10, sets: 5 },
-      ]));
       localStorage.setItem("assistant.exerciseLog.v1", JSON.stringify([
         { id: "exlog_old1", date: "2026-08-01", bodyPart: "가슴" },
+        { id: "exlog_old2", date: "2026-08-02", bodyPart: "커스텀부위" },
       ]));
       localStorage.setItem("assistant.bodyPartRoutines.v1", JSON.stringify({ "가슴": "벤치프레스 3세트" }));
     });
@@ -1226,24 +1237,21 @@ test("exercise: pre-existing free-text 부위 data migrates to real BodyPartStor
     await bypassAuthGate(page);
 
     const result = await page.evaluate(() => {
-      const learned = window.LearnedExerciseStore.getAll();
       const parts = window.BodyPartStore.getAll();
       const logs = window.ExerciseLogStore.getAll();
       const chestPart = parts.find((p) => p.label === "가슴");
       const customPart = parts.find((p) => p.label === "커스텀부위");
       return {
-        chestMigrated: learned.find((l) => l.name === "벤치프레스")?.bodyPart === chestPart?.key,
         customPartCreated: !!customPart,
-        customMigrated: learned.find((l) => l.name === "특이운동")?.bodyPart === customPart?.key,
-        logMigrated: logs[0]?.bodyPart === chestPart?.key,
+        chestLogMigrated: logs.find((l) => l.id === "exlog_old1")?.bodyPart === chestPart?.key,
+        customLogMigrated: logs.find((l) => l.id === "exlog_old2")?.bodyPart === customPart?.key,
         routineMigrated: chestPart ? window.BodyPartRoutineStore.get(chestPart.key) : null,
       };
     });
 
-    assert.equal(result.chestMigrated, true, "a label matching a default body part must reuse its key");
     assert.equal(result.customPartCreated, true, "a non-default label must get its own new BodyPartStore entry");
-    assert.equal(result.customMigrated, true);
-    assert.equal(result.logMigrated, true, "ExerciseLogStore entries must migrate too, not just LearnedExerciseStore");
+    assert.equal(result.chestLogMigrated, true, "a label matching a default body part must reuse its key");
+    assert.equal(result.customLogMigrated, true, "a custom label's log entries must migrate to its new key too");
     assert.equal(result.routineMigrated, "벤치프레스 3세트", "BodyPartRoutineStore must be re-keyed, not left keyed by the old label");
 
     // Renaming the migrated body part must update the label everywhere it's
@@ -1260,11 +1268,11 @@ test("exercise: pre-existing free-text 부위 data migrates to real BodyPartStor
     await chestInput.asElement().evaluate((el) => el.blur());
     await page.waitForTimeout(150);
 
-    const groupHeadingText = await page.evaluate(() =>
-      [...document.querySelectorAll(".learned-exercise-group-title")].map((el) => el.textContent)
+    const routineLabels = await page.evaluate(() =>
+      [...document.querySelectorAll(".body-part-routine-label")].map((el) => el.textContent)
     );
-    assert.ok(groupHeadingText.includes("가슴근육"), `expected a "가슴근육" group after rename, got: ${groupHeadingText}`);
-    assert.ok(!groupHeadingText.includes("가슴"), "the old label must not still be showing after the rename");
+    assert.ok(routineLabels.includes("가슴근육"), `expected "가슴근육" in the routine list after rename, got: ${routineLabels}`);
+    assert.ok(!routineLabels.includes("가슴"), "the old label must not still be showing after the rename");
   } finally {
     await close();
   }

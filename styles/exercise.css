@@ -27,6 +27,50 @@
   border-color: var(--accent);
 }
 
+/* ---------- Last-worked summary (top of the exercise tab) ---------- */
+.exercise-last-worked-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.exercise-last-worked-summary:empty {
+  display: none;
+}
+
+.exercise-last-worked-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px 5px 14px;
+  font-size: 12px;
+}
+
+.exercise-last-worked-chip-label {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* An at-a-glance "what's overdue" read, not decorative text — same pill
+   treatment as other status chips in the app. */
+.exercise-last-worked-chip-value {
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.exercise-last-worked-chip.no-record .exercise-last-worked-chip-value {
+  color: var(--text-faint);
+  background: transparent;
+  padding: 2px 0;
+}
+
 /* ---------- Exercise personal records ---------- */
 .exercise-records-panel {
   display: flex;
@@ -73,126 +117,44 @@
   border-color: var(--accent);
 }
 
-/* ---------- Learned exercises (grouped by body part) ---------- */
-.learned-exercise-group {
-  margin-bottom: 16px;
-}
-
-.learned-exercise-group-heading-row {
+/* ---------- Per-body-part routine list ---------- */
+.body-part-routine-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 8px;
-  margin-bottom: 6px;
 }
 
-.learned-exercise-group-title {
+.body-part-routine-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.body-part-routine-label {
+  flex-shrink: 0;
+  width: 48px;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-muted);
 }
 
-/* Days since this body part was last logged via "오늘 운동한 부위" — informs
-   a decision (rest vs. train today), not decorative, so it gets the same
-   pill treatment as other at-a-glance status chips in the app rather than
-   fading into text-faint. */
-.learned-exercise-last-worked {
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-.learned-exercise-routine-input {
-  display: block;
-  width: 100%;
+.body-part-routine-input {
+  flex: 1;
   font-family: inherit;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 7px 10px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text);
   outline: none;
-  margin-bottom: 8px;
   transition: border-color 0.15s ease;
 }
 
-.learned-exercise-routine-input:focus {
+.body-part-routine-input:focus {
   border-color: var(--accent);
-}
-
-.learned-exercise-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.learned-exercise-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
-}
-
-.learned-exercise-name {
-  flex: 1;
-}
-
-.learned-exercise-detail {
-  flex-shrink: 0;
-  font-size: 12px;
-  /* This is the actual weight/set data, not a decorative caption —
-     text-faint (used elsewhere for genuinely secondary labels) falls well
-     under WCAG's 4.5:1 body-text contrast minimum. text-muted is what
-     this app already uses for other real data (e.g. practice.css's
-     .diary-card-date, .practice-status-row strong). */
-  color: var(--text-muted);
-}
-
-.learned-exercise-add-row {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  vertical-align: middle;
-}
-
-/* Same instant-innerHTML-swap-needs-an-entrance-cue fix already applied to
-   the goal-tree rename input and toasts — reuses that same keyframe
-   (study.css) rather than defining a near-identical one here. */
-.learned-exercise-add-row.expanded {
-  animation: goal-title-input-in 0.15s ease;
-}
-
-.learned-exercise-add-row.expanded input,
-.learned-exercise-add-row.expanded select {
-  font-family: inherit;
-  background: var(--bg-elevated-2);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 13px;
-  color: var(--text);
-  outline: none;
-  flex: 1;
-  min-width: 100px;
-}
-
-.learned-exercise-add-row.expanded select {
-  cursor: pointer;
-}
-
-.learned-exercise-add-row.expanded input:focus,
-.learned-exercise-add-row.expanded select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
