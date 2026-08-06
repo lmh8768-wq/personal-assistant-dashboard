@@ -115,14 +115,19 @@ if (mobileSearchBtn && searchBoxEl) {
 // 운동 기록/봉골레 파스타) used to size to their own natural content
 // height — a panel with more content (다가오는 일정 with several items,
 // 운동 기록 listing every body part) grew taller than its row-mates, and
-// the two ROWS never matched each other's height at all (CSS Grid only
+// the ROWS never matched each other's height at all (CSS Grid only
 // equalizes cells within the SAME row, not across rows). There was also no
-// reason for the page to scroll past the grid at all on a tall window.
-// This sizes both rows to fill whatever vertical space is actually
-// available below the completion-rate bars, so all 6 panels end up the
-// same size and the dashboard fits without scrolling once the window is
-// tall enough — mirrors calendar-fit.js's live-measurement approach rather
-// than hardcoding pixel heights for the greeting/bars above the grid.
+// reason for the page to scroll past the grid at all when the window is
+// tall enough for however many rows the current column count needs.
+// responsive.css switches the grid between 3/2/1 columns as the window
+// narrows (3 -> 2 at 1200px, 2 -> 1 at 960px) — this reads that same
+// column count back (so the two stay in lockstep without duplicating the
+// breakpoint value) and sizes however many rows that implies to fill
+// whatever vertical space is available below the completion-rate bars, so
+// every panel ends up the same size and nothing needs to scroll past the
+// grid once the window is tall enough — mirrors calendar-fit.js's
+// live-measurement approach rather than hardcoding pixel heights for the
+// greeting/bars above the grid.
 let dashboardFitResizeTimer = null;
 
 function fitDashboardGrid() {
@@ -132,12 +137,16 @@ function fitDashboardGrid() {
   if (!dashboardView || dashboardView.hidden || !grid || !contentEl) return;
 
   // Below this width .grid stacks to a single column (see responsive.css)
-  // — forcing a 2-row height here would fight that stacked layout's own
-  // natural (scrollable) sizing.
+  // — one panel per row already reads naturally top-to-bottom; forcing an
+  // explicit row height here would fight that stacked layout's own
+  // natural (scrollable) sizing instead of helping it.
   if (window.matchMedia("(max-width: 960px)").matches) {
     grid.style.gridTemplateRows = "";
     return;
   }
+
+  const columns = window.matchMedia("(max-width: 1200px)").matches ? 2 : 3;
+  const rows = Math.ceil(grid.children.length / columns);
 
   const MIN_PANEL_HEIGHT = 160; // matches .panel's own min-height
   const GRID_GAP = 14; // matches .grid's gap
@@ -154,14 +163,14 @@ function fitDashboardGrid() {
 
   const chromeHeight = gridRect.top - contentRect.top;
   const availableHeight = contentEl.clientHeight - chromeHeight - paddingBottom;
-  const rowHeight = (availableHeight - GRID_GAP) / 2;
+  const rowHeight = (availableHeight - (rows - 1) * GRID_GAP) / rows;
 
-  // Only force it when there's actually enough room for both rows to stay
+  // Only force it when there's actually enough room for every row to stay
   // usable — below that, falling back to natural (min-height-driven,
   // scrollable) sizing beats squashing every panel down to an unreadable
   // sliver.
   if (rowHeight >= MIN_PANEL_HEIGHT) {
-    grid.style.gridTemplateRows = `repeat(2, ${Math.floor(rowHeight)}px)`;
+    grid.style.gridTemplateRows = `repeat(${rows}, ${Math.floor(rowHeight)}px)`;
   }
 }
 

@@ -1188,6 +1188,34 @@ test("dashboard: a common laptop viewport height (768px) still avoids scrolling 
   }
 });
 
+test("dashboard: narrower windows drop to a 2-column grid (3 rows) and still fit without scrolling when tall enough — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    // Between the 1200px (3->2 columns) and 960px (2->1 column) breakpoints.
+    await page.setViewportSize({ width: 1100, height: 1000 });
+    await page.evaluate(() => document.querySelector('[data-view="dashboard"]')?.click());
+    await page.waitForTimeout(300);
+
+    const columns = await page.evaluate(
+      () => getComputedStyle(document.querySelector("#view-dashboard .grid")).gridTemplateColumns.split(" ").length
+    );
+    assert.equal(columns, 2, "1100px should be in the 2-column tier");
+
+    const heights = await page.evaluate(() =>
+      [...document.querySelectorAll("#view-dashboard .panel")].map((p) => Math.round(p.getBoundingClientRect().height))
+    );
+    assert.ok(heights.every((h) => h === heights[0]), `all 6 panels should still be equal height in 3-row layout, got ${JSON.stringify(heights)}`);
+
+    const scrollable = await page.evaluate(() => {
+      const c = document.querySelector(".content");
+      return c.scrollHeight > c.clientHeight + 2;
+    });
+    assert.equal(scrollable, false, "a tall enough window in the 2-column tier shouldn't need to scroll either");
+  } finally {
+    await close();
+  }
+});
+
 test("vongole: adding a recipe while a filter is active also refreshes the other section and the attempt log — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {

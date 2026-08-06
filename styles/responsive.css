@@ -1,4 +1,15 @@
 /* ---------- Responsive ---------- */
+/* Dashboard grid: 3 columns by default, 2 in this middle range (3 would
+   squeeze each panel below a comfortable reading width before 960px's
+   full 1-column stack is actually necessary), 1 below that — see
+   main.js's fitDashboardGrid() for the matching row-height logic, which
+   reads its column count from this same 1200px breakpoint. */
+@media (max-width: 1200px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 960px) {
   .grid {
     grid-template-columns: 1fr;
