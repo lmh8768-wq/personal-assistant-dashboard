@@ -197,7 +197,10 @@
   // same local-time-only date convention the rest of the app uses (see
   // schedule-recurrence.js's parseDateStr for why).
   function todayStr() {
-    const d = new Date();
+    return toDateStr(new Date());
+  }
+
+  function toDateStr(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
@@ -304,50 +307,90 @@
     }
   }
 
-  function renderExerciseLog() {
-    const list = document.getElementById("exerciseLogList");
-    if (!list) return;
-    list.innerHTML = "";
-    // Most recent first — the log can now span any date, not just today.
-    const entries = [...window.ExerciseLogStore.getAll()].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  // Shows the current calendar week plus the two weeks before it (21 days:
+  // Sunday of two weeks ago through Saturday of this week) — replaces the
+  // old always-visible flat list of every log entry ever recorded, opened
+  // on demand from a calendar button next to the 운동 기록 heading instead
+  // of taking up permanent space on the tab. A logged day's date number
+  // turns green (.has-log); the body part(s) logged that day show beneath
+  // it, each one itself a button that deletes that entry (with undo) —
+  // the only way to remove a log entry now that the flat list is gone.
+  function renderExerciseLogCalendar() {
+    const grid = document.getElementById("exerciseLogCalendarGrid");
+    if (!grid) return;
+    grid.innerHTML = "";
 
-    if (entries.length === 0) {
-      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon" aria-hidden="true">💪</span>기록된 운동이 없어요</li>`;
-      return;
-    }
+    const today = new Date();
+    const currentWeekSunday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
+    const start = new Date(currentWeekSunday.getFullYear(), currentWeekSunday.getMonth(), currentWeekSunday.getDate() - 14);
 
-    entries.forEach((entry) => {
-      const li = document.createElement("li");
-      li.className = "checklist-item";
-
-      const span = document.createElement("span");
-      const label = getBodyPartLabel(entry.bodyPart);
-      span.textContent = `${formatShortDateLabel(entry.date)} · ${label}`;
-      li.appendChild(span);
-
-      const remove = document.createElement("span");
-      remove.className = "checklist-item-remove";
-      remove.textContent = "×";
-      remove.addEventListener("click", () => {
-        const removed = window.ExerciseLogStore.remove(entry.id);
-        renderExerciseLog();
-        renderBodyPartRoutines();
-        if (removed && window.Toast) {
-          window.Toast.show(`"${label}" 기록을 삭제했어요`, {
-            actionLabel: "실행취소",
-            onAction: () => {
-              window.ExerciseLogStore.restore(removed.item, removed.index);
-              renderExerciseLog();
-              renderBodyPartRoutines();
-            },
-          });
-        }
-      });
-      window.makeKeyboardActivatable(remove, `${formatShortDateLabel(entry.date)} ${label} 기록 삭제`);
-      li.appendChild(remove);
-
-      list.appendChild(li);
+    const entriesByDate = {};
+    window.ExerciseLogStore.getAll().forEach((entry) => {
+      if (!entriesByDate[entry.date]) entriesByDate[entry.date] = [];
+      entriesByDate[entry.date].push(entry);
     });
+
+    const todayStrValue = todayStr();
+    for (let i = 0; i < 21; i++) {
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const dStr = toDateStr(d);
+      const dayEntries = entriesByDate[dStr] || [];
+
+      const cell = document.createElement("div");
+      cell.className = "calendar-day";
+      if (dStr === todayStrValue) cell.classList.add("today");
+      if (d.getDay() === 0) cell.classList.add("weekday-sun");
+      if (d.getDay() === 6) cell.classList.add("weekday-sat");
+
+      const topRow = document.createElement("div");
+      topRow.className = "calendar-day-top";
+      const num = document.createElement("span");
+      num.className = "day-number" + (dayEntries.length > 0 ? " has-log" : "");
+      num.textContent = d.getDate();
+      topRow.appendChild(num);
+      cell.appendChild(topRow);
+
+      if (dayEntries.length > 0) {
+        const eventsWrap = document.createElement("div");
+        eventsWrap.className = "calendar-day-events";
+        dayEntries.forEach((entry) => {
+          const label = getBodyPartLabel(entry.bodyPart);
+          const partBtn = document.createElement("button");
+          partBtn.type = "button";
+          partBtn.className = "exercise-log-calendar-day-part";
+          partBtn.textContent = label;
+          partBtn.setAttribute("aria-label", `${formatShortDateLabel(entry.date)} ${label} 기록 삭제`);
+          partBtn.addEventListener("click", () => {
+            const removed = window.ExerciseLogStore.remove(entry.id);
+            renderExerciseLogCalendar();
+            renderBodyPartRoutines();
+            if (removed && window.Toast) {
+              window.Toast.show(`"${label}" 기록을 삭제했어요`, {
+                actionLabel: "실행취소",
+                onAction: () => {
+                  window.ExerciseLogStore.restore(removed.item, removed.index);
+                  renderExerciseLogCalendar();
+                  renderBodyPartRoutines();
+                },
+              });
+            }
+          });
+          eventsWrap.appendChild(partBtn);
+        });
+        cell.appendChild(eventsWrap);
+      }
+
+      grid.appendChild(cell);
+    }
+  }
+
+  function openExerciseLogCalendarModal() {
+    document.getElementById("exerciseLogCalendarModalOverlay").hidden = false;
+    renderExerciseLogCalendar();
+  }
+
+  function closeExerciseLogCalendarModal() {
+    document.getElementById("exerciseLogCalendarModalOverlay").hidden = true;
   }
 
   function handleExerciseLogAdd() {
@@ -368,8 +411,11 @@
       return;
     }
     window.ExerciseLogStore.add({ date, bodyPart });
-    renderExerciseLog();
     renderBodyPartRoutines();
+    // The flat log list this used to refresh into view is gone — a toast
+    // is now the only feedback that the record actually saved, since the
+    // calendar showing it only renders when opened.
+    window.Toast?.show(`${formatShortDateLabel(date)} ${getBodyPartLabel(bodyPart)} 기록을 저장했어요`);
   }
 
   // ---------- Body part manager (add / rename / delete) ----------
@@ -403,7 +449,6 @@
           return;
         }
         window.BodyPartStore.update(part.key, { label });
-        renderExerciseLog();
         renderBodyPartRoutines();
         populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
       });
@@ -432,7 +477,6 @@
         bodyPartDeleteArmed = null;
         const removed = window.BodyPartStore.remove(part.key);
         renderBodyPartManager();
-        renderExerciseLog();
         renderBodyPartRoutines();
         populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
         if (removed && window.Toast) {
@@ -441,7 +485,6 @@
             onAction: () => {
               window.BodyPartStore.restore(removed.item, removed.index);
               renderBodyPartManager();
-              renderExerciseLog();
               renderBodyPartRoutines();
               populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
             },
@@ -628,6 +671,16 @@
     if (dateInput) dateInput.value = todayStr();
     document.getElementById("exerciseLogAddBtn")?.addEventListener("click", handleExerciseLogAdd);
 
+    document.getElementById("exerciseLogCalendarBtn")?.addEventListener("click", openExerciseLogCalendarModal);
+    document.getElementById("closeExerciseLogCalendarModalBtn")?.addEventListener("click", closeExerciseLogCalendarModal);
+    document.getElementById("exerciseLogCalendarModalOverlay")?.addEventListener("click", (e) => {
+      if (e.target.id === "exerciseLogCalendarModalOverlay") closeExerciseLogCalendarModal();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      if (!document.getElementById("exerciseLogCalendarModalOverlay").hidden) closeExerciseLogCalendarModal();
+    });
+
     [
       "exerciseRecordRunDistanceInput",
       "exerciseRecordSquatInput",
@@ -640,7 +693,6 @@
 
     renderRecordsPanel();
     populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
-    renderExerciseLog();
     renderBodyPartRoutines();
     renderDashboardExercise();
   }
@@ -655,7 +707,6 @@
       migrateBodyPartsToKeys();
       renderRecordsPanel();
       populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
-      renderExerciseLog();
       renderBodyPartRoutines();
     },
   };

@@ -1221,6 +1221,49 @@ test("exercise: the top-of-tab summary lists every body part's days-since-last-w
   }
 });
 
+test("exercise: the calendar button opens a 3-week view with logged days marked green, deletable by clicking the body part — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => {
+      const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      window.ExerciseLogStore.add({ date: fmt(new Date()), bodyPart: "chest" });
+    });
+    await page.evaluate(() => document.querySelector('[data-view="exercise"]')?.click());
+    await page.waitForTimeout(200);
+
+    // The old flat log list is gone entirely — the calendar is the only
+    // place a logged entry shows now.
+    assert.equal(await page.locator("#exerciseLogList").count(), 0);
+
+    await page.click("#exerciseLogCalendarBtn");
+    await page.waitForTimeout(200);
+
+    const todayCell = await page.evaluate(() => {
+      const cell = document.querySelector(".exercise-log-calendar-grid .calendar-day.today");
+      return {
+        hasGreenDate: !!cell?.querySelector(".day-number.has-log"),
+        partText: cell?.querySelector(".exercise-log-calendar-day-part")?.textContent,
+      };
+    });
+    assert.equal(todayCell.hasGreenDate, true, "a logged day's date number should get the green .has-log class");
+    assert.equal(todayCell.partText, "가슴");
+
+    // Clicking the body part removes that day's entry.
+    await page.click(".exercise-log-calendar-day-part");
+    await page.waitForTimeout(200);
+    assert.equal(await page.evaluate(() => window.ExerciseLogStore.getAll().length), 0);
+    assert.equal(await page.locator(".exercise-log-calendar-day-part").count(), 0);
+
+    // Undo brings it back and re-renders the calendar with it.
+    await page.click(".toast-action");
+    await page.waitForTimeout(200);
+    assert.equal(await page.evaluate(() => window.ExerciseLogStore.getAll().length), 1);
+    assert.equal(await page.locator(".exercise-log-calendar-day-part").textContent(), "가슴");
+  } finally {
+    await close();
+  }
+});
+
 test("exercise: pre-existing free-text 부위 data migrates to real BodyPartStore keys, and stays usable — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {

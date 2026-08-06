@@ -487,7 +487,10 @@
 
           <div class="diary-header">
             <h2>운동 기록</h2>
-            <button type="button" class="ghost-btn" id="exerciseBodyPartManageBtn" aria-expanded="false">부위 관리</button>
+            <div class="diary-header-actions">
+              <button type="button" class="icon-btn" id="exerciseLogCalendarBtn" aria-label="운동 기록 캘린더 보기">📅</button>
+              <button type="button" class="ghost-btn" id="exerciseBodyPartManageBtn" aria-expanded="false">부위 관리</button>
+            </div>
           </div>
           <div class="exercise-body-part-manager" id="exerciseBodyPartManager" hidden>
             <ul class="checklist-items" id="exerciseBodyPartManagerList"></ul>
@@ -498,12 +501,22 @@
             <select id="exerciseLogBodyPartInput" aria-label="부위"></select>
             <button type="button" class="ghost-btn" id="exerciseLogAddBtn">기록</button>
           </div>
-          <ul class="checklist-items exercise-log-list" id="exerciseLogList"></ul>
 
           <div class="diary-header">
             <h2>부위별 운동 루틴</h2>
           </div>
           <ul class="body-part-routine-list" id="bodyPartRoutineList"></ul>
+        </div>
+
+        <div class="modal-overlay" id="exerciseLogCalendarModalOverlay" hidden>
+          <div class="modal exercise-log-calendar-modal" role="dialog" aria-modal="true" aria-labelledby="exerciseLogCalendarModalTitle">
+            <button type="button" class="modal-close-btn" id="closeExerciseLogCalendarModalBtn" aria-label="닫기">×</button>
+            <h3 id="exerciseLogCalendarModalTitle">최근 3주 운동 기록</h3>
+            <div class="calendar-weekdays exercise-log-calendar-weekdays">
+              <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+            </div>
+            <div class="calendar-grid exercise-log-calendar-grid" id="exerciseLogCalendarGrid"></div>
+          </div>
         </div>
 
         <div class="view" id="view-ledger" hidden>
