@@ -338,6 +338,7 @@
       const input = document.createElement("input");
       input.type = "text";
       input.placeholder = "루틴 항목 이름";
+      input.setAttribute("aria-label", "루틴 항목 이름");
       input.maxLength = 200; // same cap as other single-line title fields (schedule/vongole title)
 
       let settled = false;

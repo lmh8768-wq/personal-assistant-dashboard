@@ -229,6 +229,7 @@
     }
 
     card.addEventListener("click", () => onClick(entry));
+    window.makeKeyboardActivatable(card, `${formatDateLabel(entry.date)} 연습 기록 편집`);
     return card;
   }
 
@@ -247,7 +248,7 @@
 
     feed.innerHTML = "";
     if (entries.length === 0) {
-      feed.innerHTML = `<div class="empty-state"><span class="empty-icon">🎸</span><p>아직 연습 기록이 없어요</p></div>`;
+      feed.innerHTML = `<div class="empty-state"><span class="empty-icon" aria-hidden="true">🎸</span><p>아직 연습 기록이 없어요</p></div>`;
       return;
     }
     entries

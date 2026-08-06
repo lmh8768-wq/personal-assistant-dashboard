@@ -232,7 +232,7 @@
     if (groups.size === 0) {
       const empty = document.createElement("div");
       empty.className = "empty-state";
-      empty.innerHTML = `<span class="empty-icon">🏋️</span><p>아직 등록된 운동이 없어요</p>`;
+      empty.innerHTML = `<span class="empty-icon" aria-hidden="true">🏋️</span><p>아직 등록된 운동이 없어요</p>`;
       container.appendChild(empty);
     } else {
       groups.forEach((groupItems, bodyPart) => {

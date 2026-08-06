@@ -273,7 +273,11 @@
     const categoryDot = document.createElement("span");
     categoryDot.className = "schedule-item-category-dot";
     categoryDot.style.background = getCategoryColor(item.category);
-    categoryDot.title = getCategoryLabel(item.category);
+    // `title` alone is a mouse-hover-only tooltip — not reliably exposed to
+    // screen readers and unreachable on touch. role="img" is the standard
+    // pattern for a non-text visual indicator that still needs a name.
+    categoryDot.setAttribute("role", "img");
+    categoryDot.setAttribute("aria-label", `카테고리: ${getCategoryLabel(item.category)}`);
     li.appendChild(categoryDot);
 
     const checkbox = document.createElement("input");
@@ -338,6 +342,12 @@
     li.appendChild(deleteBtn);
 
     li.addEventListener("click", () => onClick(item));
+    // Was only focusable when reorderDateStr was passed (the day-list),
+    // and even there only Alt+↑/↓ was wired — Enter/Space never triggered
+    // onClick, and the dashboard's "오늘의 일정"/"다가오는 일정" widgets
+    // (which never pass reorderDateStr) weren't focusable at all, making
+    // every row in this app's two most-visited widgets mouse-only.
+    window.makeKeyboardActivatable(li, `${item.title} 일정 편집`);
     return li;
   }
 
@@ -607,7 +617,7 @@
     items = applyHideCompleted(items);
 
     if (items.length === 0) {
-      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon">🗓️</span>이 날에는 일정이 없어요</li>`;
+      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon" aria-hidden="true">🗓️</span>이 날에는 일정이 없어요</li>`;
       return;
     }
 
@@ -664,27 +674,27 @@
     row.innerHTML = "";
 
     templates.forEach((tpl) => {
-      const chip = document.createElement("button");
-      chip.type = "button";
+      // A <div> (not a <button>) so the delete control below can be a real
+      // nested <button> — a <span> inside a <button> can't be made
+      // separately focusable (invalid nested-interactive-content markup),
+      // which used to leave that delete keyboard-unreachable. Every visual
+      // property .template-chip needs (background/border/radius/padding/
+      // cursor) is already declared explicitly in CSS, so the element
+      // itself doesn't rely on <button>'s default styling.
+      const chip = document.createElement("div");
       chip.className = "template-chip";
+      window.makeKeyboardActivatable(chip, `"${tpl.title}" 템플릿으로 일정 추가`);
       chip.style.borderColor = getCategoryColor(tpl.category);
 
       const label = document.createElement("span");
       label.textContent = tpl.title;
       chip.appendChild(label);
 
-      // Not wired up for keyboard access like the other "×" controls in this
-      // app (see window.makeKeyboardActivatable) — this span sits nested
-      // inside `chip`, itself a <button>, and making a span inside a button
-      // separately focusable is invalid nested-interactive-content markup.
-      // Fixing it properly means pulling this out to a sibling button
-      // instead of a nested span, which touches template-chip's CSS: not
-      // done here since nothing in the app ever calls TemplateStore.add()
-      // (confirmed via search), so this row can never actually render a
-      // chip today regardless.
-      const remove = document.createElement("span");
+      const remove = document.createElement("button");
+      remove.type = "button";
       remove.className = "template-chip-remove";
       remove.textContent = "×";
+      remove.setAttribute("aria-label", `"${tpl.title}" 템플릿 삭제`);
       remove.addEventListener("click", (e) => {
         e.stopPropagation();
         window.TemplateStore.remove(tpl.id);
@@ -746,7 +756,7 @@
     const displayItems = applyHideCompleted(items);
     list.innerHTML = "";
     if (displayItems.length === 0) {
-      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon">🗓️</span>오늘 등록된 일정이 없어요</li>`;
+      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon" aria-hidden="true">🗓️</span>오늘 등록된 일정이 없어요</li>`;
       return;
     }
     displayItems.forEach((item) => list.appendChild(renderScheduleItem(item, (it) => openModal("edit", it))));
@@ -772,7 +782,7 @@
     const displayItems = applyHideCompleted(importantItems);
     list.innerHTML = "";
     if (displayItems.length === 0) {
-      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon">📭</span>다가오는 중요 일정이 없어요</li>`;
+      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon" aria-hidden="true">📭</span>다가오는 중요 일정이 없어요</li>`;
       return;
     }
     displayItems.slice(0, 8).forEach((item) => {
@@ -831,7 +841,12 @@
   function paintImportanceStars(value) {
     document.querySelectorAll("#scheduleImportanceStars .star-btn").forEach((btn) => {
       const starValue = Number(btn.dataset.value);
-      btn.classList.toggle("filled", starValue <= value);
+      const filled = starValue <= value;
+      btn.classList.toggle("filled", filled);
+      // The static per-button "중요도 N점" label alone never told a screen
+      // reader which value is CURRENTLY selected — only sighted users could
+      // tell from the filled/empty star glyphs.
+      btn.setAttribute("aria-pressed", String(filled));
     });
     document.getElementById("scheduleImportanceInput").value = String(value);
   }

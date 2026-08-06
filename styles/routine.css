@@ -196,8 +196,11 @@
 }
 
 .goal-item-row .goal-toggle-btn {
-  width: 20px;
-  height: 20px;
+  /* WCAG 2.2 SC 2.5.8 minimum target size is 24x24 CSS px — this was 20px,
+     making exactly the most cramped, deepest-nested part of the tree the
+     hardest to tap accurately, the opposite of what you'd want. */
+  width: 24px;
+  height: 24px;
   border: none;
   background: transparent;
   font-size: 11px;

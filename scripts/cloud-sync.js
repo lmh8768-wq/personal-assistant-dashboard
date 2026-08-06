@@ -511,6 +511,11 @@
     document.getElementById("authLoginForm").hidden = false;
     document.getElementById("authGate").hidden = false;
     document.getElementById("authError").textContent = message || "";
+    // Was never moved anywhere — a keyboard user landing here from the
+    // loading spinner (or bouncing back after a failed attempt) had no cue
+    // the form had resolved into something interactive, and had to Tab
+    // blindly to find the first field.
+    document.getElementById("authEmailInput")?.focus();
   }
 
   function showApp() {

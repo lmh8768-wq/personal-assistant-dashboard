@@ -272,7 +272,7 @@
     if (recipes.length === 0) {
       const icon = q ? "🔍" : section.emptyIcon;
       const text = q ? "검색 결과가 없어요" : section.emptyText;
-      list.innerHTML = `<div class="empty-state"><span class="empty-icon">${icon}</span><p>${text}</p></div>`;
+      list.innerHTML = `<div class="empty-state"><span class="empty-icon" aria-hidden="true">${icon}</span><p>${text}</p></div>`;
       refreshDashboard();
       return;
     }
@@ -366,6 +366,7 @@
     }
 
     card.addEventListener("click", () => openLogModal("edit", entry));
+    window.makeKeyboardActivatable(card, `${formatDateLabel(entry.date)} 시도 기록 편집`);
     return card;
   }
 
@@ -384,7 +385,7 @@
     if (entries.length === 0) {
       const icon = q ? "🔍" : "🍝";
       const text = q ? "검색 결과가 없어요" : "아직 시도 기록이 없어요";
-      feed.innerHTML = `<div class="empty-state"><span class="empty-icon">${icon}</span><p>${text}</p></div>`;
+      feed.innerHTML = `<div class="empty-state"><span class="empty-icon" aria-hidden="true">${icon}</span><p>${text}</p></div>`;
       refreshDashboard();
       return;
     }

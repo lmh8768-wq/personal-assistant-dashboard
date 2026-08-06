@@ -65,7 +65,7 @@
           비밀번호
           <input type="password" id="authPasswordInput" required autocomplete="current-password" />
         </label>
-        <p class="auth-error" id="authError"></p>
+        <p class="auth-error" id="authError" role="alert"></p>
         <button type="submit" class="primary-btn">로그인</button>
       </form>
     </div>
@@ -215,7 +215,7 @@
           <!-- 메인 그리드 -->
           <section class="grid">
 
-            <div class="panel panel-weather">
+            <div class="panel panel-weather" aria-live="polite">
               <div class="panel-header"><h2>오늘의 날씨</h2></div>
               <div class="weather-body" id="weatherBody">
                 <span class="weather-icon" id="weatherIcon">—</span>
@@ -580,7 +580,7 @@
         <div class="view" id="view-assistant" hidden>
           <div class="panel assistant-panel-full">
             <div class="assistant-box">
-              <span class="empty-icon">✦</span>
+              <span class="empty-icon" aria-hidden="true">✦</span>
               <p class="assistant-placeholder">건강 상담, 공부 질문, 그 밖에 무엇이든<br />Claude 앱에서 바로 물어보세요</p>
               <button class="primary-btn open-claude-btn">✦ Claude 앱 열기</button>
             </div>
@@ -646,6 +646,10 @@
                   <option value="medium" selected>보통</option>
                   <option value="large">크게</option>
                 </select>
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" id="keyboardShortcutsEnabledInput" checked />
+                <span>단축키 사용 (/ 검색, n 새 일정)</span>
               </label>
             </div>
           </div>
@@ -893,7 +897,7 @@
           <span class="checklist-label">기본기 체크리스트</span>
           <ul class="checklist-items" id="practiceChecklistItems"></ul>
           <div class="checklist-add-row">
-            <input type="text" id="practiceChecklistInput" placeholder="항목 추가 후 Enter (예: 슬랩 연습)" />
+            <input type="text" id="practiceChecklistInput" placeholder="항목 추가 후 Enter (예: 슬랩 연습)" aria-label="체크리스트 항목 이름" />
             <button type="button" class="ghost-btn" id="practiceChecklistAddBtn">추가</button>
           </div>
         </div>

@@ -304,7 +304,7 @@
     list.innerHTML = "";
 
     if (entries.length === 0) {
-      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon">🧾</span>이 날의 기록이 없어요</li>`;
+      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon" aria-hidden="true">🧾</span>이 날의 기록이 없어요</li>`;
       return;
     }
 
@@ -332,6 +332,10 @@
       const dot = document.createElement("span");
       dot.className = "schedule-item-category-dot";
       dot.style.background = getCategoryColor(entry.categoryKey);
+      // Same fix as schedule.js's identical dot — color alone conveyed the
+      // category, with no accessible name at all (not even a title tooltip).
+      dot.setAttribute("role", "img");
+      dot.setAttribute("aria-label", `카테고리: ${getCategoryLabel(entry.categoryKey)}`);
       li.appendChild(dot);
 
       const body = document.createElement("div");
@@ -384,6 +388,11 @@
         }
         openModal("edit", entry);
       });
+      // The checkbox/delete controls were already keyboard-reachable, but
+      // the row's own primary "open to edit" action (its click listener
+      // above) was mouse-only — matches the same fix applied to
+      // schedule.js's day-list rows.
+      window.makeKeyboardActivatable(li, `${entry.memo || getCategoryLabel(entry.categoryKey)} 내역 편집`);
 
       list.appendChild(li);
     });
@@ -794,7 +803,7 @@
 
       const empty = document.createElement("div");
       empty.className = "empty-state";
-      empty.innerHTML = `<span class="empty-icon">🏷️</span><p>지출 카테고리를 추가해주세요</p>`;
+      empty.innerHTML = `<span class="empty-icon" aria-hidden="true">🏷️</span><p>지출 카테고리를 추가해주세요</p>`;
       totalRow.appendChild(empty);
       if (rowsRegion) rowsRegion.classList.add("collapsed");
       applyLedgerCalendarFit();
@@ -1143,7 +1152,7 @@
       if (byCategory.length === 0) {
         const empty = document.createElement("div");
         empty.className = "empty-state";
-        empty.innerHTML = `<span class="empty-icon">🧾</span><p>이 달엔 기록된 지출이 없어요</p>`;
+        empty.innerHTML = `<span class="empty-icon" aria-hidden="true">🧾</span><p>이 달엔 기록된 지출이 없어요</p>`;
         body.appendChild(empty);
       } else {
         body.appendChild(buildBarList(byCategory));
@@ -1165,7 +1174,7 @@
       if (yearEntries.length === 0) {
         const empty = document.createElement("div");
         empty.className = "empty-state";
-        empty.innerHTML = `<span class="empty-icon">🧾</span><p>이 해엔 기록된 내역이 없어요</p>`;
+        empty.innerHTML = `<span class="empty-icon" aria-hidden="true">🧾</span><p>이 해엔 기록된 내역이 없어요</p>`;
         body.appendChild(empty);
         return;
       }

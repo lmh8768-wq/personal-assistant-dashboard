@@ -69,10 +69,21 @@ window.GoalLabelEditor = {
     function showView() {
       container.innerHTML = "";
       container.textContent = currentLabel;
+      // Renaming was double-click-only — a keyboard user had no way to
+      // reach it at all. Enter/Space opens the same inline editor
+      // dblclick does; study.js's period-title editor already has a
+      // proper "✎" button for this, but the goal tree rows are too dense
+      // for one per row, so the label itself becomes the control instead.
+      container.tabIndex = 0;
+      container.setAttribute("role", "button");
+      container.setAttribute("aria-label", `${currentLabel} — 이름 수정하려면 Enter`);
     }
 
     function showEdit() {
       container.innerHTML = "";
+      container.removeAttribute("tabindex");
+      container.removeAttribute("role");
+      container.removeAttribute("aria-label");
       const input = document.createElement("input");
       input.type = "text";
       input.className = "goal-title-input goal-item-label-input";
@@ -108,6 +119,12 @@ window.GoalLabelEditor = {
     }
 
     container.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      showEdit();
+    });
+    container.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
       e.stopPropagation();
       showEdit();
     });

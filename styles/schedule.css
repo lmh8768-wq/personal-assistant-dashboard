@@ -392,9 +392,16 @@
 }
 
 .template-chip-remove {
+  /* Now a real <button> (was a non-focusable nested <span>) — reset the
+     browser's default button chrome so it still reads as a plain glyph. */
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
   color: var(--text-faint);
   font-size: 13px;
   line-height: 1;
+  cursor: pointer;
 }
 
 .template-chip-remove:hover {

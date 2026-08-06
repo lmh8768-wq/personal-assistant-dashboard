@@ -287,7 +287,24 @@ document.querySelectorAll(".open-claude-btn").forEach((btn) => {
 });
 
 // ---------- Keyboard shortcuts ----------
+// Single-character shortcuts firing on plain keystrokes (no modifier) risk
+// unexpected navigation/modal-opening for speech-input or single-switch
+// users (WCAG 2.1.4) — a way to turn them off entirely is the simplest of
+// that criterion's three remediation options.
+const KEYBOARD_SHORTCUTS_KEY = "keyboardShortcutsEnabled";
+function keyboardShortcutsEnabled() {
+  return localStorage.getItem(KEYBOARD_SHORTCUTS_KEY) !== "false"; // default on
+}
+const keyboardShortcutsInput = document.getElementById("keyboardShortcutsEnabledInput");
+if (keyboardShortcutsInput) {
+  keyboardShortcutsInput.checked = keyboardShortcutsEnabled();
+  keyboardShortcutsInput.addEventListener("change", (e) => {
+    window.safeSetLocalStorage(KEYBOARD_SHORTCUTS_KEY, String(e.target.checked));
+  });
+}
+
 document.addEventListener("keydown", (e) => {
+  if (!keyboardShortcutsEnabled()) return;
   const tag = document.activeElement?.tagName;
   // A <select> counts as "typing" too — without this, pressing "n" while,
   // say, the schedule modal's own category <select> has focus force-opens a
