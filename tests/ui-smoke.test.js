@@ -1166,6 +1166,69 @@ test("exercise: a learned exercise saved with weight 0 (bodyweight) still shows 
   }
 });
 
+test("exercise: pre-existing free-text 부위 data migrates to real BodyPartStore keys, and stays usable — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    // Simulates data saved before 부위 became a managed category — the old
+    // free-text input stored the label directly, not a key.
+    await page.evaluate(() => {
+      localStorage.setItem("assistant.learnedExercises.v1", JSON.stringify([
+        { id: "lex_old1", bodyPart: "가슴", name: "벤치프레스", weight: 60, sets: 3 },
+        { id: "lex_old2", bodyPart: "커스텀부위", name: "특이운동", weight: 10, sets: 5 },
+      ]));
+      localStorage.setItem("assistant.exerciseLog.v1", JSON.stringify([
+        { id: "exlog_old1", date: "2026-08-01", bodyPart: "가슴" },
+      ]));
+      localStorage.setItem("assistant.bodyPartRoutines.v1", JSON.stringify({ "가슴": "벤치프레스 3세트" }));
+    });
+    await page.reload();
+    await bypassAuthGate(page);
+
+    const result = await page.evaluate(() => {
+      const learned = window.LearnedExerciseStore.getAll();
+      const parts = window.BodyPartStore.getAll();
+      const logs = window.ExerciseLogStore.getAll();
+      const chestPart = parts.find((p) => p.label === "가슴");
+      const customPart = parts.find((p) => p.label === "커스텀부위");
+      return {
+        chestMigrated: learned.find((l) => l.name === "벤치프레스")?.bodyPart === chestPart?.key,
+        customPartCreated: !!customPart,
+        customMigrated: learned.find((l) => l.name === "특이운동")?.bodyPart === customPart?.key,
+        logMigrated: logs[0]?.bodyPart === chestPart?.key,
+        routineMigrated: chestPart ? window.BodyPartRoutineStore.get(chestPart.key) : null,
+      };
+    });
+
+    assert.equal(result.chestMigrated, true, "a label matching a default body part must reuse its key");
+    assert.equal(result.customPartCreated, true, "a non-default label must get its own new BodyPartStore entry");
+    assert.equal(result.customMigrated, true);
+    assert.equal(result.logMigrated, true, "ExerciseLogStore entries must migrate too, not just LearnedExerciseStore");
+    assert.equal(result.routineMigrated, "벤치프레스 3세트", "BodyPartRoutineStore must be re-keyed, not left keyed by the old label");
+
+    // Renaming the migrated body part must update the label everywhere it's
+    // used — the whole point of migrating to a real key instead of a string.
+    await page.evaluate(() => document.querySelector('[data-view="exercise"]')?.click());
+    await page.waitForTimeout(200);
+    await page.click("#exerciseBodyPartManageBtn");
+    await page.waitForTimeout(150);
+    const chestInput = await page.evaluateHandle(() => {
+      const inputs = [...document.querySelectorAll("#exerciseBodyPartManagerList input")];
+      return inputs.find((el) => el.value === "가슴");
+    });
+    await chestInput.asElement().fill("가슴근육");
+    await chestInput.asElement().evaluate((el) => el.blur());
+    await page.waitForTimeout(150);
+
+    const groupHeadingText = await page.evaluate(() =>
+      [...document.querySelectorAll(".learned-exercise-group-title")].map((el) => el.textContent)
+    );
+    assert.ok(groupHeadingText.includes("가슴근육"), `expected a "가슴근육" group after rename, got: ${groupHeadingText}`);
+    assert.ok(!groupHeadingText.includes("가슴"), "the old label must not still be showing after the rename");
+  } finally {
+    await close();
+  }
+});
+
 test("routine: undoing a deleted checklist item restores its completion history too, not just the item itself — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {
