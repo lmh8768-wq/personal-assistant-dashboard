@@ -485,21 +485,23 @@
             </div>
           </div>
 
-          <div class="diary-header">
-            <h2>운동 기록</h2>
-            <div class="diary-header-actions">
-              <button type="button" class="icon-btn" id="exerciseLogCalendarBtn" aria-label="운동 기록 캘린더 보기">📅</button>
-              <button type="button" class="ghost-btn" id="exerciseBodyPartManageBtn" aria-expanded="false">부위 관리</button>
+          <div class="exercise-log-section" id="exerciseLogSection">
+            <div class="diary-header">
+              <h2>운동 기록</h2>
+              <div class="diary-header-actions">
+                <button type="button" class="icon-btn" id="exerciseLogCalendarBtn" aria-label="운동 기록 캘린더 보기">📅</button>
+                <button type="button" class="ghost-btn" id="exerciseBodyPartManageBtn" aria-expanded="false">부위 관리</button>
+              </div>
             </div>
-          </div>
-          <div class="exercise-body-part-manager" id="exerciseBodyPartManager" hidden>
-            <ul class="checklist-items" id="exerciseBodyPartManagerList"></ul>
-            <button type="button" class="ghost-btn" id="exerciseBodyPartAddBtn">+ 부위 추가</button>
-          </div>
-          <div class="checklist-add-row">
-            <input type="date" id="exerciseLogDateInput" min="2000-01-01" max="2100-12-31" aria-label="날짜" />
-            <select id="exerciseLogBodyPartInput" aria-label="부위"></select>
-            <button type="button" class="ghost-btn" id="exerciseLogAddBtn">기록</button>
+            <div class="exercise-body-part-manager" id="exerciseBodyPartManager" hidden>
+              <ul class="checklist-items" id="exerciseBodyPartManagerList"></ul>
+              <button type="button" class="ghost-btn" id="exerciseBodyPartAddBtn">+ 부위 추가</button>
+            </div>
+            <div class="checklist-add-row">
+              <input type="date" id="exerciseLogDateInput" min="2000-01-01" max="2100-12-31" aria-label="날짜" />
+              <select id="exerciseLogBodyPartInput" aria-label="부위"></select>
+              <button type="button" class="ghost-btn" id="exerciseLogAddBtn">기록</button>
+            </div>
           </div>
 
           <div class="diary-header">

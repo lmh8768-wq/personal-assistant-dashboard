@@ -1,3 +1,22 @@
+/* ---------- 운동 기록 (header + body-part manager + add row) ---------- */
+/* Same 560px column width as .exercise-records-panel above it, so the
+   calendar/부위 관리 buttons — which used to sit flush against the far
+   right of the whole tab, way past where the 기록 row below them ends —
+   line up with that row's own width instead. margin-bottom separates it
+   from 부위별 운동 루틴 below, which otherwise sat right up against the
+   add row with no gap between them. */
+.exercise-log-section {
+  max-width: 560px;
+  margin-bottom: 28px;
+}
+
+/* Pushed to the row's own right edge (not the input/select's natural
+   width) — same trick as the header's title/actions being flush to
+   opposite ends, so 기록 lands exactly under 부위 관리 above it. */
+#exerciseLogAddBtn {
+  margin-left: auto;
+}
+
 /* ---------- Body part manager (add/rename/delete) ---------- */
 .exercise-body-part-manager {
   background: var(--bg-elevated-2);
