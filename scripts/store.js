@@ -169,6 +169,18 @@ window.addEventListener("storage", (e) => {
       saveSchedules(schedules);
       return { item: removed, index: idx };
     },
+    // One load+save for the whole batch instead of one full array
+    // parse+filter+stringify PER id — used by schedule.js's bulk-delete,
+    // which used to call remove() in a loop (O(k·n) instead of O(n) for k
+    // selected items out of n total schedules).
+    removeMany(ids) {
+      const idSet = new Set(ids);
+      const schedules = loadSchedules();
+      const removed = schedules.filter((s) => idSet.has(s.id));
+      const kept = schedules.filter((s) => !idSet.has(s.id));
+      saveSchedules(kept);
+      return removed;
+    },
     toggleCompleted(id, occurrenceDate) {
       const schedules = loadSchedules();
       const idx = schedules.findIndex((s) => s.id === id);
@@ -278,17 +290,31 @@ window.addEventListener("storage", (e) => {
 (function () {
   const ORDER_KEY = "assistant.scheduleOrder.v1";
 
+  // Every sibling store in this file already caches its parsed value — this
+  // one didn't, so a single-date lookup (moveWithinDay, hit on every
+  // drag-drop or Alt+arrow reorder) re-parsed the whole object from
+  // localStorage on every call, on top of the 42-cell month grid doing the
+  // same before getAll() was added to batch that specific case.
+  let orderCache = null;
+  window.__resetStoreCaches.push(() => {
+    orderCache = null;
+  });
+
   function loadOrder() {
+    if (orderCache) return orderCache;
     try {
       const raw = localStorage.getItem(ORDER_KEY);
-      return raw ? JSON.parse(raw) : {};
+      orderCache = raw ? JSON.parse(raw) : {};
     } catch {
-      return {};
+      orderCache = {};
     }
+    return orderCache;
   }
 
   function saveOrder(data) {
-    window.safeSetLocalStorage(ORDER_KEY, JSON.stringify(data));
+    if (window.safeSetLocalStorage(ORDER_KEY, JSON.stringify(data))) {
+      orderCache = data;
+    }
   }
 
   window.ScheduleOrderStore = {
@@ -303,17 +329,17 @@ window.addEventListener("storage", (e) => {
       return loadOrder();
     },
     set(dateStr, orderedIds) {
-      const data = loadOrder();
-      data[dateStr] = orderedIds;
-      saveOrder(data);
+      // A fresh copy, not a mutation of the cached object in place — if the
+      // write below fails, orderCache must stay exactly what's still
+      // actually persisted, not silently already showing the new value.
+      saveOrder({ ...loadOrder(), [dateStr]: orderedIds });
     },
     // A freshly added schedule jumps to the top of the day it was added
     // for, ahead of anything already ordered (or not yet ordered) there.
     prependToDay(dateStr, id) {
-      const data = loadOrder();
-      const current = Array.isArray(data[dateStr]) ? data[dateStr] : [];
-      data[dateStr] = [id, ...current.filter((existingId) => existingId !== id)];
-      saveOrder(data);
+      const current = loadOrder()[dateStr];
+      const list = Array.isArray(current) ? current : [];
+      saveOrder({ ...loadOrder(), [dateStr]: [id, ...list.filter((existingId) => existingId !== id)] });
     },
   };
 })();
@@ -326,14 +352,21 @@ window.addEventListener("storage", (e) => {
 (function () {
   const PINNED_ORDER_KEY = "assistant.pinnedScheduleOrder.v1";
 
+  let pinnedOrderCache = null;
+  window.__resetStoreCaches.push(() => {
+    pinnedOrderCache = null;
+  });
+
   function loadPinnedOrder() {
+    if (pinnedOrderCache) return pinnedOrderCache;
     try {
       const raw = localStorage.getItem(PINNED_ORDER_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
+      pinnedOrderCache = Array.isArray(parsed) ? parsed : [];
     } catch {
-      return [];
+      pinnedOrderCache = [];
     }
+    return pinnedOrderCache;
   }
 
   window.SchedulePinnedOrderStore = {
@@ -341,7 +374,9 @@ window.addEventListener("storage", (e) => {
       return loadPinnedOrder();
     },
     set(orderedIds) {
-      window.safeSetLocalStorage(PINNED_ORDER_KEY, JSON.stringify(orderedIds));
+      if (window.safeSetLocalStorage(PINNED_ORDER_KEY, JSON.stringify(orderedIds))) {
+        pinnedOrderCache = orderedIds;
+      }
     },
   };
 })();
@@ -708,6 +743,17 @@ function createEntityStore(key, idPrefix) {
       const [removed] = items.splice(idx, 1);
       save(items);
       return { item: removed, index: idx };
+    },
+    // One load+save for the whole batch instead of one full array
+    // read/write per id — used by ledger.js's bulk-delete, which used to
+    // call remove() in a loop (O(k·n) instead of O(n) for k selected items).
+    removeMany(ids) {
+      const idSet = new Set(ids);
+      const items = load();
+      const removed = items.filter((it) => idSet.has(it.id));
+      const kept = items.filter((it) => !idSet.has(it.id));
+      save(kept);
+      return removed;
     },
     restore(item, index) {
       const items = load();

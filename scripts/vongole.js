@@ -504,15 +504,29 @@
     if (input) input.value = "";
   }
 
+  // Every keystroke used to fully rebuild both recipe lists (each card has a
+  // live title <input>/<textarea>) plus the attempt-log feed — same fix
+  // search.js's own filter-as-you-type box already has, just missed here.
+  function debounce(fn, delay) {
+    let timer = null;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  }
+
   function init() {
     seedDefaultRecipeIfEmpty();
     renderAllRecipes();
     renderLog();
 
-    document.getElementById("vongoleFilterInput")?.addEventListener("input", (e) => {
-      filterQuery = e.target.value;
+    const applyFilter = debounce(() => {
       renderAllRecipes();
       renderLog();
+    }, 150);
+    document.getElementById("vongoleFilterInput")?.addEventListener("input", (e) => {
+      filterQuery = e.target.value;
+      applyFilter();
     });
 
     document.getElementById("addVongoleRecipeBtn")?.addEventListener("click", () => addRecipe("success"));

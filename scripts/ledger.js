@@ -432,10 +432,10 @@
 
   function handleLedgerBulkDelete() {
     const ids = [...ledgerSelectedIds];
-    const removedItems = ids
-      .map((id) => window.LedgerEntryStore.getAll().find((e) => e.id === id))
-      .filter(Boolean);
-    ids.forEach((id) => window.LedgerEntryStore.remove(id));
+    // One load+save for the whole batch instead of one full array
+    // read/write PER id (was O(k·n), and even worse — getAll() itself was
+    // being re-called fresh for every single id too).
+    const removedItems = window.LedgerEntryStore.removeMany(ids);
     const count = removedItems.length;
     ledgerSelectedIds.clear();
     ledgerSelectMode = false;

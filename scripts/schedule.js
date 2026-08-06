@@ -1235,8 +1235,9 @@
 
   function handleBulkDelete() {
     const ids = [...new Set([...scheduleSelectedIds].map((key) => splitKey(key)[0]))];
-    const removedItems = ids.map((id) => window.ScheduleStore.getById(id)).filter(Boolean);
-    ids.forEach((id) => window.ScheduleStore.remove(id));
+    // One load+save for the whole batch instead of one full array
+    // read/write per id (O(n) instead of O(k·n) for k selected items).
+    const removedItems = window.ScheduleStore.removeMany(ids);
     const count = removedItems.length;
     scheduleSelectedIds.clear();
     scheduleSelectMode = false;
