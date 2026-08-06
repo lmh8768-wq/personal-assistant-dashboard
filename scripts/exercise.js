@@ -77,6 +77,43 @@
   };
   window.LearnedExerciseStore = LearnedExerciseStore;
 
+  // ---------- Daily exercise log (which body part(s) were worked today) ----------
+  // A dated, id-keyed list — createEntityStore (store.js, loaded before this
+  // file) gives it the same in-memory cache, deletion-tombstone handling,
+  // and safe-write behavior every other list-shaped store in the app already
+  // has, instead of hand-rolling another copy of that here.
+  window.ExerciseLogStore = window.createEntityStore("assistant.exerciseLog.v1", "exlog");
+
+  // ---------- Per-body-part routine notes ----------
+  const BODY_PART_ROUTINE_KEY = "assistant.bodyPartRoutines.v1";
+
+  function loadBodyPartRoutines() {
+    try {
+      const raw = localStorage.getItem(BODY_PART_ROUTINE_KEY);
+      const data = raw ? JSON.parse(raw) : {};
+      return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveBodyPartRoutines(data) {
+    window.safeSetLocalStorage(BODY_PART_ROUTINE_KEY, JSON.stringify(data));
+  }
+
+  const BodyPartRoutineStore = {
+    get(bodyPart) {
+      return loadBodyPartRoutines()[bodyPart] || "";
+    },
+    update(bodyPart, text) {
+      const data = loadBodyPartRoutines();
+      if (text) data[bodyPart] = text;
+      else delete data[bodyPart];
+      saveBodyPartRoutines(data);
+    },
+  };
+  window.BodyPartRoutineStore = BodyPartRoutineStore;
+
   // ---------- Collapsible sections ----------
   // `storageKey`, when given, persists the collapsed state (device-local UI
   // state, not synced) — this section used to always reopen expanded on
@@ -94,6 +131,99 @@
     contentEl.hidden = collapsed;
     btn.textContent = collapsed ? "▸" : "▾";
     btn.setAttribute("aria-expanded", String(!collapsed));
+  }
+
+  // getFullYear/getMonth/getDate (local time), never toISOString (UTC) —
+  // same local-time-only date convention the rest of the app uses (see
+  // schedule-recurrence.js's parseDateStr for why).
+  function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function daysSince(dateStr) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const then = new Date(y, m - 1, d);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((today - then) / 86400000);
+  }
+
+  // Latest logged date per body part, for the "며칠 전" badge next to each
+  // 배운 운동 group heading.
+  function lastWorkedDateByBodyPart() {
+    const map = {};
+    window.ExerciseLogStore.getAll().forEach((entry) => {
+      if (!map[entry.bodyPart] || entry.date > map[entry.bodyPart]) {
+        map[entry.bodyPart] = entry.date;
+      }
+    });
+    return map;
+  }
+
+  // ---------- Today's exercise log (which body part(s) were worked today) ----------
+  function renderTodayExerciseLog() {
+    const list = document.getElementById("exerciseTodayLogList");
+    if (!list) return;
+    list.innerHTML = "";
+    const today = todayStr();
+    const todayEntries = window.ExerciseLogStore.getAll().filter((e) => e.date === today);
+
+    if (todayEntries.length === 0) {
+      list.innerHTML = `<li class="schedule-empty"><span class="empty-icon" aria-hidden="true">💪</span>오늘 기록한 운동 부위가 없어요</li>`;
+      return;
+    }
+
+    todayEntries.forEach((entry) => {
+      const li = document.createElement("li");
+      li.className = "checklist-item";
+
+      const span = document.createElement("span");
+      span.textContent = entry.bodyPart;
+      li.appendChild(span);
+
+      const remove = document.createElement("span");
+      remove.className = "checklist-item-remove";
+      remove.textContent = "×";
+      remove.addEventListener("click", () => {
+        const removed = window.ExerciseLogStore.remove(entry.id);
+        renderTodayExerciseLog();
+        renderLearnedExercises();
+        if (removed && window.Toast) {
+          window.Toast.show(`"${entry.bodyPart}" 기록을 삭제했어요`, {
+            actionLabel: "실행취소",
+            onAction: () => {
+              window.ExerciseLogStore.restore(removed.item, removed.index);
+              renderTodayExerciseLog();
+              renderLearnedExercises();
+            },
+          });
+        }
+      });
+      window.makeKeyboardActivatable(remove, `${entry.bodyPart} 기록 삭제`);
+      li.appendChild(remove);
+
+      list.appendChild(li);
+    });
+  }
+
+  function handleTodayExerciseLogAdd() {
+    const input = document.getElementById("exerciseTodayBodyPartInput");
+    const bodyPart = input.value.trim();
+    if (!bodyPart) return;
+    const today = todayStr();
+    // A repeated submit of the same part on the same day would just clutter
+    // the log with no new information — the date is already granular enough.
+    const alreadyLogged = window.ExerciseLogStore.getAll().some((e) => e.date === today && e.bodyPart === bodyPart);
+    if (alreadyLogged) {
+      window.Toast?.show("오늘 이미 기록한 부위예요", { type: "warning" });
+      input.value = "";
+      return;
+    }
+    window.ExerciseLogStore.add({ date: today, bodyPart });
+    input.value = "";
+    renderTodayExerciseLog();
+    renderLearnedExercises();
   }
 
   // ---------- Personal records panel ----------
@@ -229,6 +359,8 @@
       groups.get(key).push(item);
     });
 
+    const lastWorked = lastWorkedDateByBodyPart();
+
     if (groups.size === 0) {
       const empty = document.createElement("div");
       empty.className = "empty-state";
@@ -239,10 +371,37 @@
         const group = document.createElement("div");
         group.className = "learned-exercise-group";
 
+        const headingRow = document.createElement("div");
+        headingRow.className = "learned-exercise-group-heading-row";
+
         const heading = document.createElement("div");
         heading.className = "learned-exercise-group-title";
         heading.textContent = bodyPart;
-        group.appendChild(heading);
+        headingRow.appendChild(heading);
+
+        // Days since this body part was last logged via "오늘 운동한 부위"
+        // above — lets you see at a glance which parts need a rest day and
+        // which are overdue.
+        const lastDate = lastWorked[bodyPart];
+        if (lastDate) {
+          const badge = document.createElement("span");
+          badge.className = "learned-exercise-last-worked";
+          const days = daysSince(lastDate);
+          badge.textContent = days <= 0 ? "오늘" : `${days}일 전`;
+          headingRow.appendChild(badge);
+        }
+        group.appendChild(headingRow);
+
+        const routineInput = document.createElement("input");
+        routineInput.type = "text";
+        routineInput.className = "learned-exercise-routine-input";
+        routineInput.placeholder = `${bodyPart} 루틴 (예: 벤치프레스 3세트, 딥스 3세트)`;
+        routineInput.setAttribute("aria-label", `${bodyPart} 루틴`);
+        routineInput.value = window.BodyPartRoutineStore.get(bodyPart);
+        routineInput.addEventListener("change", () => {
+          window.BodyPartRoutineStore.update(bodyPart, routineInput.value.trim());
+        });
+        group.appendChild(routineInput);
 
         const list = document.createElement("ul");
         list.className = "learned-exercise-list";
@@ -386,6 +545,14 @@
     const addRow = document.getElementById("learnedExerciseAddRow");
     if (addRow) addRow.appendChild(makeLearnedExerciseAddTrigger());
 
+    document.getElementById("exerciseTodayLogAddBtn")?.addEventListener("click", handleTodayExerciseLogAdd);
+    document.getElementById("exerciseTodayBodyPartInput")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleTodayExerciseLogAdd();
+      }
+    });
+
     [
       "exerciseRecordRunDistanceInput",
       "exerciseRecordSquatInput",
@@ -397,6 +564,7 @@
     document.getElementById("exerciseRecordRunPaceInput").addEventListener("change", handlePaceFieldChange);
 
     renderRecordsPanel();
+    renderTodayExerciseLog();
     renderLearnedExercises();
     renderDashboardExercise();
   }
@@ -409,6 +577,7 @@
     refreshDashboard: renderDashboardExercise,
     onShow: () => {
       renderRecordsPanel();
+      renderTodayExerciseLog();
       renderLearnedExercises();
     },
   };

@@ -49,11 +49,51 @@
   margin-bottom: 16px;
 }
 
+.learned-exercise-group-heading-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .learned-exercise-group-title {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-muted);
-  margin-bottom: 6px;
+}
+
+/* Days since this body part was last logged via "오늘 운동한 부위" — informs
+   a decision (rest vs. train today), not decorative, so it gets the same
+   pill treatment as other at-a-glance status chips in the app rather than
+   fading into text-faint. */
+.learned-exercise-last-worked {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.learned-exercise-routine-input {
+  display: block;
+  width: 100%;
+  font-family: inherit;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--text);
+  outline: none;
+  margin-bottom: 8px;
+  transition: border-color 0.15s ease;
+}
+
+.learned-exercise-routine-input:focus {
+  border-color: var(--accent);
 }
 
 .learned-exercise-list {

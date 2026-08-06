@@ -499,6 +499,15 @@
           </div>
 
           <div class="diary-header">
+            <h2>오늘 운동한 부위</h2>
+          </div>
+          <div class="checklist-add-row">
+            <input type="text" id="exerciseTodayBodyPartInput" placeholder="부위 (예: 가슴)" list="learnedExerciseBodyPartOptions" aria-label="오늘 운동한 부위" maxLength="10" />
+            <button type="button" class="ghost-btn" id="exerciseTodayLogAddBtn">기록</button>
+          </div>
+          <ul class="checklist-items exercise-today-log-list" id="exerciseTodayLogList"></ul>
+
+          <div class="diary-header">
             <h2>배운 운동 <span id="learnedExerciseAddRow"></span></h2>
             <button type="button" class="icon-btn section-toggle-btn" id="toggleLearnedExerciseBtn" aria-expanded="true" aria-label="배운 운동 접기/펼치기">▾</button>
           </div>
