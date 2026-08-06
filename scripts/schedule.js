@@ -789,7 +789,26 @@
     }
 
     const importantItems = items.filter((item) => (item.importance || 0) >= 4);
-    const displayItems = applyHideCompleted(importantItems);
+    // A multi-day (ranged) item matches every day within its span, so the
+    // loop above pushes it once per day inside the upcoming window — same
+    // id, different occurrenceDate — and it used to render as that many
+    // separate rows. Collapse to one row per id, preferring whichever
+    // occurrence is still incomplete (so a 3-day event doesn't vanish under
+    // "완료 항목 숨기기" just because its earliest day happened to already
+    // be checked off) and falling back to the earliest occurrence once
+    // every day in range is done.
+    const byId = new Map();
+    importantItems.forEach((item) => {
+      const existing = byId.get(item.id);
+      if (!existing) {
+        byId.set(item.id, item);
+        return;
+      }
+      const existingDone = (existing.completedDates || []).includes(existing.occurrenceDate);
+      const itemDone = (item.completedDates || []).includes(item.occurrenceDate);
+      if (existingDone && !itemDone) byId.set(item.id, item);
+    });
+    const displayItems = applyHideCompleted([...byId.values()]);
     list.innerHTML = "";
     if (displayItems.length === 0) {
       list.innerHTML = `<li class="schedule-empty"><span class="empty-icon" aria-hidden="true">📭</span>다가오는 중요 일정이 없어요</li>`;
@@ -801,7 +820,14 @@
       if (titleEl) {
         const dateBadge = document.createElement("span");
         dateBadge.className = "schedule-item-upcoming-date";
-        dateBadge.textContent = formatShortDate(item.occurrenceDate);
+        // The item's own full date/endDate span, not just the one
+        // occurrenceDate this row happens to represent — otherwise a
+        // 3-day event collapsed to a single row would show only its
+        // first matched day, silently hiding that it spans further.
+        dateBadge.textContent =
+          item.endDate && item.endDate !== item.date
+            ? `${formatShortDate(item.date)}~${formatShortDate(item.endDate)}`
+            : formatShortDate(item.occurrenceDate);
         titleEl.prepend(dateBadge);
       }
       list.appendChild(li);

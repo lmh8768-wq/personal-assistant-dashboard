@@ -599,6 +599,40 @@ test("schedule: only ★4+ items get a title chip on the month calendar, lower-i
   }
 });
 
+test("dashboard: a multi-day schedule shows as one row in 다가오는 일정, not once per day — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    await page.evaluate((catKey) => {
+      const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const today = new Date();
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2);
+      const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 4);
+      window.ScheduleStore.add({
+        title: "멀티데이 일정",
+        date: fmt(start),
+        endDate: fmt(end),
+        repeat: { type: "none" },
+        importance: 5,
+        category: catKey,
+      });
+    }, catKey);
+
+    await page.evaluate(() => document.querySelector('[data-view="dashboard"]')?.click());
+    await page.waitForTimeout(300);
+
+    const rows = await page.evaluate(() =>
+      [...document.querySelectorAll("#dashboardUpcomingList .schedule-item")].map(
+        (li) => li.querySelector(".schedule-item-title")?.textContent || ""
+      )
+    );
+    assert.equal(rows.length, 1);
+    assert.ok(rows[0].includes("~"), "a multi-day item's badge should show its full date range, not a single day");
+  } finally {
+    await close();
+  }
+});
+
 test("ledger: the month calendar shows that day's expense/income totals — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {
