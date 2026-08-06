@@ -1216,6 +1216,44 @@ test("dashboard: narrower windows drop to a 2-column grid (3 rows) and still fit
   }
 });
 
+test("dashboard: a cold page load re-fits the grid after the profile greeting appears, not just once before it — the actual bug fix", { skip: !RUN }, async () => {
+  // The very first setActiveView("dashboard") call (bottom of main.js) runs
+  // synchronously before initFeatures() has run any view's init() at all —
+  // including SettingsView's, whose applyProfile() un-hides
+  // #dashboardGreeting for a signed-in user with a profile name set. That
+  // first fit was computed while the greeting was still in its default
+  // hidden state, so the grid was sized as if that extra row of text
+  // didn't exist, and nothing re-measured afterward to correct it — this
+  // only reproduces on an actual cold load (page.reload()), not a plain
+  // tab switch, since __featuresInitialized guards initFeatures() to once.
+  const { page, close } = await launchApp();
+  try {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.evaluate(() => window.SettingsStore.update({ profileName: "테스트유저" }));
+    await page.reload();
+    await bypassAuthGate(page);
+    await page.waitForTimeout(300);
+
+    const info = await page.evaluate(() => {
+      const c = document.querySelector(".content");
+      const greeting = document.getElementById("dashboardGreeting");
+      const heights = [...document.querySelectorAll("#view-dashboard .panel")].map((p) =>
+        Math.round(p.getBoundingClientRect().height)
+      );
+      return {
+        greetingVisible: !greeting.hidden,
+        scrollable: c.scrollHeight > c.clientHeight + 2,
+        allEqual: heights.every((h) => h === heights[0]),
+      };
+    });
+    assert.equal(info.greetingVisible, true, "the greeting should actually be showing for this test to mean anything");
+    assert.equal(info.scrollable, false, "the dashboard must still fit without scrolling once the greeting's height is accounted for");
+    assert.equal(info.allEqual, true, "the 6 panels must still be equal height, not sized against the pre-greeting measurement");
+  } finally {
+    await close();
+  }
+});
+
 test("vongole: adding a recipe while a filter is active also refreshes the other section and the attempt log — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {

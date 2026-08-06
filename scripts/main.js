@@ -352,6 +352,18 @@ window.initFeatures = function initFeatures() {
   if (window.RoutineView) window.RoutineView.init();
   if (window.GlobalSearch) window.GlobalSearch.init();
   if (window.PushNotifications) window.PushNotifications.reconcileSubscription();
+  // On the very first page load, the initial setActiveView("dashboard")
+  // call (bottom of this file) runs — and with it, the first
+  // fitDashboardGrid() — synchronously, before any of the init() calls
+  // just above it have run at all. SettingsView.init()'s applyProfile()
+  // un-hiding #dashboardGreeting for a signed-in user with a profile name
+  // set is the most visible case: that fit was computed while the greeting
+  // was still in its default hidden state, so the grid ended up sized as
+  // if that extra row of text didn't exist — and nothing ran fitDashboard-
+  // Grid() again afterward to correct it. Re-fitting now, once every
+  // dashboard-contributing view has actually finished initializing, is
+  // what catches that.
+  fitDashboardGrid();
 };
 
 // ---------- Open Claude app (stand-in for AI features) ----------
