@@ -671,9 +671,19 @@ button.nav-item {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px 20px;
-  min-height: 220px;
+  /* Must match main.js's fitDashboardGrid() MIN_PANEL_HEIGHT — a bigger
+     value here would fight a smaller forced row height (a grid item's own
+     min-height can force it to overflow a track that's explicitly sized
+     smaller than that), undoing the fit calculation that decided a
+     shorter height still comfortably fit everything without scrolling. */
+  min-height: 160px;
   display: flex;
   flex-direction: column;
+  /* main.js's fitDashboardGrid() forces both grid rows to the same
+     explicit height on a tall-enough window — a panel whose own content
+     needs more room than that would otherwise spill out past this card's
+     rounded border instead of being contained (or scrolling) within it. */
+  overflow: hidden;
 }
 
 .panel-header {

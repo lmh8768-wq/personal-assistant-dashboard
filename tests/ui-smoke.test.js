@@ -1096,6 +1096,98 @@ test("study: dragging a goal onto a row under a different parent shows no drop i
   }
 });
 
+test("study: marking a period as current drives the dashboard's 완료율 bar, un-marking it reverts to 미지정 — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="study"]')?.click());
+    await page.waitForTimeout(150);
+
+    const ids = await page.evaluate(() => {
+      const store = window.AcademicGoalStore;
+      const year = store.addYear("2026테스트");
+      const periodId = store.getPeriods(year.id)[0].id;
+      const g1 = store.addGoal(year.id, periodId, null, "목표1");
+      store.addGoal(year.id, periodId, null, "목표2");
+      store.toggleDone(year.id, periodId, g1.id);
+      window.StudyView.onShow();
+      return { yearId: year.id, periodId };
+    });
+    await page.waitForTimeout(150);
+
+    // A default year (labeled with the real current year, no "테스트"
+    // suffix) is auto-seeded on first-ever load, so a bare "1학기 중간고사"
+    // text match could hit that empty period instead of the "2026테스트"
+    // one this test just created — scope to the containing year section.
+    const yearSection = page.locator(".goal-year-section", { hasText: "2026테스트" });
+    const starBtn = yearSection.locator(".goal-period-card", { hasText: "1학기 중간고사" }).locator(".goal-period-current-btn");
+    await starBtn.click();
+    await page.waitForTimeout(150);
+
+    await page.evaluate(() => document.querySelector('[data-view="dashboard"]')?.click());
+    await page.waitForTimeout(200);
+    const barText = await page.evaluate(() => document.getElementById("academicRateValue")?.textContent);
+    assert.equal(barText, "1/2 · 50%", `expected the marked period's own progress, got "${barText}"`);
+    const titleText = await page.evaluate(() => document.getElementById("academicRateTitle")?.textContent);
+    assert.ok(titleText.includes("1학기 중간고사"), `title should name the current period, got "${titleText}"`);
+
+    await page.evaluate(() => document.querySelector('[data-view="study"]')?.click());
+    await page.waitForTimeout(150);
+    await starBtn.click(); // un-mark
+    await page.waitForTimeout(150);
+    await page.evaluate(() => document.querySelector('[data-view="dashboard"]')?.click());
+    await page.waitForTimeout(200);
+    assert.equal(await page.evaluate(() => document.getElementById("academicRateValue")?.textContent), "현재 구간 미지정");
+  } finally {
+    await close();
+  }
+});
+
+test("dashboard: the 6 panels fill equal, matching heights and the page needs no scroll when the window is tall enough — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.evaluate(() => document.querySelector('[data-view="dashboard"]')?.click());
+    await page.waitForTimeout(300);
+
+    const heights = await page.evaluate(() =>
+      [...document.querySelectorAll("#view-dashboard .panel")].map((p) => Math.round(p.getBoundingClientRect().height))
+    );
+    assert.equal(heights.length, 6);
+    assert.ok(heights.every((h) => h === heights[0]), `all 6 panels should be the same height, got ${JSON.stringify(heights)}`);
+
+    const scrollable = await page.evaluate(() => {
+      const c = document.querySelector(".content");
+      return c.scrollHeight > c.clientHeight + 2;
+    });
+    assert.equal(scrollable, false, "a tall enough window shouldn't need to scroll to see the whole dashboard");
+  } finally {
+    await close();
+  }
+});
+
+test("dashboard: a common laptop viewport height (768px) still avoids scrolling — the actual bug fix", { skip: !RUN }, async () => {
+  // A too-conservative minimum panel height floor used to reject fitting
+  // at this exact height by fractions of a pixel (the real computed row
+  // height came out to 219.5px against a 220px floor), falling all the
+  // way back to natural/scrollable sizing even though the window was easily
+  // "big enough" by any reasonable read of that phrase — 1366x768 is one
+  // of the most common laptop resolutions there is.
+  const { page, close } = await launchApp();
+  try {
+    await page.setViewportSize({ width: 1600, height: 768 });
+    await page.evaluate(() => document.querySelector('[data-view="dashboard"]')?.click());
+    await page.waitForTimeout(300);
+
+    const scrollable = await page.evaluate(() => {
+      const c = document.querySelector(".content");
+      return c.scrollHeight > c.clientHeight + 2;
+    });
+    assert.equal(scrollable, false, "768px tall is a common, clearly-big-enough laptop viewport — it must not need to scroll");
+  } finally {
+    await close();
+  }
+});
+
 test("vongole: adding a recipe while a filter is active also refreshes the other section and the attempt log — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {

@@ -110,6 +110,66 @@ if (mobileSearchBtn && searchBoxEl) {
   });
 }
 
+// ---------- Dashboard grid auto-fit ----------
+// The 6 panels (오늘의 날씨/오늘의 일정/다가오는 일정, then 베이스 연습/
+// 운동 기록/봉골레 파스타) used to size to their own natural content
+// height — a panel with more content (다가오는 일정 with several items,
+// 운동 기록 listing every body part) grew taller than its row-mates, and
+// the two ROWS never matched each other's height at all (CSS Grid only
+// equalizes cells within the SAME row, not across rows). There was also no
+// reason for the page to scroll past the grid at all on a tall window.
+// This sizes both rows to fill whatever vertical space is actually
+// available below the completion-rate bars, so all 6 panels end up the
+// same size and the dashboard fits without scrolling once the window is
+// tall enough — mirrors calendar-fit.js's live-measurement approach rather
+// than hardcoding pixel heights for the greeting/bars above the grid.
+let dashboardFitResizeTimer = null;
+
+function fitDashboardGrid() {
+  const dashboardView = document.getElementById("view-dashboard");
+  const grid = document.querySelector("#view-dashboard .grid");
+  const contentEl = document.querySelector(".content");
+  if (!dashboardView || dashboardView.hidden || !grid || !contentEl) return;
+
+  // Below this width .grid stacks to a single column (see responsive.css)
+  // — forcing a 2-row height here would fight that stacked layout's own
+  // natural (scrollable) sizing.
+  if (window.matchMedia("(max-width: 960px)").matches) {
+    grid.style.gridTemplateRows = "";
+    return;
+  }
+
+  const MIN_PANEL_HEIGHT = 160; // matches .panel's own min-height
+  const GRID_GAP = 14; // matches .grid's gap
+
+  // Cleared before measuring so this starts from the grid's natural
+  // (unforced) position — otherwise a previously forced height would
+  // offset where the grid itself sits, corrupting the very measurement
+  // used to compute the next one.
+  grid.style.gridTemplateRows = "";
+
+  const contentRect = contentEl.getBoundingClientRect();
+  const gridRect = grid.getBoundingClientRect();
+  const paddingBottom = parseFloat(getComputedStyle(contentEl).paddingBottom) || 0;
+
+  const chromeHeight = gridRect.top - contentRect.top;
+  const availableHeight = contentEl.clientHeight - chromeHeight - paddingBottom;
+  const rowHeight = (availableHeight - GRID_GAP) / 2;
+
+  // Only force it when there's actually enough room for both rows to stay
+  // usable — below that, falling back to natural (min-height-driven,
+  // scrollable) sizing beats squashing every panel down to an unreadable
+  // sliver.
+  if (rowHeight >= MIN_PANEL_HEIGHT) {
+    grid.style.gridTemplateRows = `repeat(2, ${Math.floor(rowHeight)}px)`;
+  }
+}
+
+window.addEventListener("resize", () => {
+  clearTimeout(dashboardFitResizeTimer);
+  dashboardFitResizeTimer = setTimeout(fitDashboardGrid, 200);
+});
+
 // ---------- Nav switching ----------
 const navItems = document.querySelectorAll(".nav-item[data-view]");
 const pageTitle = document.getElementById("pageTitle");
@@ -159,6 +219,12 @@ function showView(viewName) {
   }
   if (viewName === "dashboard" && window.VongoleView) {
     window.VongoleView.refreshDashboard();
+  }
+  if (viewName === "dashboard" && window.StudyView) {
+    window.StudyView.refreshDashboard();
+  }
+  if (viewName === "dashboard") {
+    fitDashboardGrid();
   }
   if (viewName === "routine" && window.RoutineView) {
     // The routine layout was hidden (width 0) for any resize that happened

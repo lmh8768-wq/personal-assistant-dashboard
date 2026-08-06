@@ -17,6 +17,17 @@
   margin-left: auto;
 }
 
+/* Body-part count is unbounded (the user can add as many as they want),
+   unlike the dashboard schedule widgets' fixed ~6-item cap — this instead
+   just fills whatever height the dashboard grid's auto-fit (main.js)
+   gives its panel and scrolls internally past that, rather than growing
+   the panel itself or spilling past .panel's own overflow: hidden. */
+#dashboardExerciseBodyPartStatus {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /* ---------- Body part manager (add/rename/delete) ---------- */
 .exercise-body-part-manager {
   background: var(--bg-elevated-2);

@@ -87,6 +87,36 @@
     }
   }
 
+  // ---------- Current period (user-designated, for the dashboard's 완료율 bar) ----------
+  // 구간 (1학기 중간고사, 여름방학, ...) are free-text labels with no date
+  // info at all — freely added/renamed/removed — so there's no way to
+  // derive "the current one" from today's date. The user marks exactly one
+  // as current instead; a plain {yearId, periodId} pointer (or null) is
+  // enough since only one can be current at a time.
+  const CURRENT_PERIOD_KEY = "assistant.currentAcademicPeriod.v1";
+
+  function loadCurrentPeriod() {
+    try {
+      const raw = localStorage.getItem(CURRENT_PERIOD_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && parsed.yearId && parsed.periodId ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  window.CurrentAcademicPeriodStore = {
+    get() {
+      return loadCurrentPeriod();
+    },
+    set(yearId, periodId) {
+      window.safeSetLocalStorage(CURRENT_PERIOD_KEY, JSON.stringify({ yearId, periodId }));
+    },
+    clear() {
+      window.safeSetLocalStorage(CURRENT_PERIOD_KEY, JSON.stringify(null));
+    },
+  };
+
   // Thin wrappers over scripts/goal-tree-logic.js's shared implementation
   // (identical to practice.js's curriculum tree — this used to be a
   // hand-copied second implementation that could silently drift from that
@@ -751,6 +781,7 @@
         }
       }
     });
+    renderDashboardAcademicProgress();
   }
 
   // nodeParentId is the id of `node`'s own parent (or null at the top
@@ -1079,6 +1110,24 @@
       actions.appendChild(summary);
     }
 
+    // Marks which one period (out of every year/period combination) feeds
+    // the dashboard's 완료율 bar — see CurrentAcademicPeriodStore's own
+    // comment for why this has to be a manual pick rather than derived
+    // from today's date.
+    const currentPeriod = window.CurrentAcademicPeriodStore.get();
+    const isCurrentPeriod = !!(currentPeriod && currentPeriod.yearId === yearId && currentPeriod.periodId === period.id);
+    const currentBtn = document.createElement("button");
+    currentBtn.type = "button";
+    currentBtn.className = "icon-btn goal-period-current-btn" + (isCurrentPeriod ? " active" : "");
+    currentBtn.textContent = isCurrentPeriod ? "★" : "☆";
+    currentBtn.setAttribute("aria-label", isCurrentPeriod ? "현재 구간 지정 해제" : "대시보드에 표시할 현재 구간으로 지정");
+    currentBtn.addEventListener("click", () => {
+      if (isCurrentPeriod) window.CurrentAcademicPeriodStore.clear();
+      else window.CurrentAcademicPeriodStore.set(yearId, period.id);
+      onChange();
+    });
+    actions.appendChild(currentBtn);
+
     const goalListRegion = wrapCollapseRegion(
       renderGoalList(yearId, period.id, goals, 0, null, onChange, true),
       collapsed
@@ -1220,6 +1269,53 @@
       const input = container.querySelector(".goal-item-label-input");
       if (input) input.focus();
     }
+    renderDashboardAcademicProgress();
+  }
+
+  // ---------- Dashboard (현재 구간 학업 완료율) ----------
+  function renderDashboardAcademicProgress() {
+    const fillEl = document.getElementById("academicRateFill");
+    const valueEl = document.getElementById("academicRateValue");
+    const titleEl = document.getElementById("academicRateTitle");
+    if (!fillEl || !valueEl) return;
+
+    fillEl.classList.remove("warning", "over");
+    fillEl.setAttribute("role", "progressbar");
+    fillEl.setAttribute("aria-valuemin", "0");
+    fillEl.setAttribute("aria-valuemax", "100");
+
+    const current = window.CurrentAcademicPeriodStore.get();
+    const period = current ? GoalStore.getPeriods(current.yearId).find((p) => p.id === current.periodId) : null;
+    if (!current || !period) {
+      fillEl.style.width = "0%";
+      fillEl.setAttribute("aria-valuenow", "0");
+      if (titleEl) titleEl.textContent = "현재 구간 학업 완료율";
+      valueEl.textContent = "현재 구간 미지정";
+      return;
+    }
+
+    if (titleEl) titleEl.textContent = `${period.label} 완료율`;
+    const goals = GoalStore.getGoals(current.yearId, current.periodId);
+    const totals = goals.reduce(
+      (acc, g) => {
+        const c = countProgress(g);
+        acc.total += c.total;
+        acc.done += c.done;
+        return acc;
+      },
+      { total: 0, done: 0 }
+    );
+    if (totals.total === 0) {
+      fillEl.style.width = "0%";
+      fillEl.setAttribute("aria-valuenow", "0");
+      valueEl.textContent = "목표 없음";
+      return;
+    }
+
+    const pct = Math.round((totals.done / totals.total) * 100);
+    fillEl.style.width = `${pct}%`;
+    fillEl.setAttribute("aria-valuenow", String(pct));
+    valueEl.textContent = `${totals.done}/${totals.total} · ${pct}%`;
   }
 
   function init() {
@@ -1236,5 +1332,5 @@
 
   // Same gap as practice.js's curriculum tree (see its onShow comment) —
   // this tab's content only ever rendered once, at app startup.
-  window.StudyView = { init, onShow: renderAll };
+  window.StudyView = { init, onShow: renderAll, refreshDashboard: renderDashboardAcademicProgress };
 })();

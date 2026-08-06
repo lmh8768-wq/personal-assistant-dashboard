@@ -31,6 +31,22 @@
   margin-top: 14px;
 }
 
+/* Marks which one period feeds the dashboard's 완료율 bar — filled/gold
+   when active, same muted-until-hovered treatment as other icon buttons
+   otherwise so an unstarred card doesn't read as "missing" something. */
+.goal-period-current-btn {
+  font-size: 15px;
+  color: var(--text-faint);
+}
+
+.goal-period-current-btn:hover {
+  color: var(--warning);
+}
+
+.goal-period-current-btn.active {
+  color: var(--warning);
+}
+
 /* Collapsed cards pack tighter — less padding, and a run of consecutive
    collapsed cards sits closer together than expanded ones would. */
 .goal-period-card.collapsed {
