@@ -217,6 +217,16 @@
     return Math.round((today - then) / 86400000);
   }
 
+  // 7+ days since last worked reads as "getting overdue" (orange), 14+ as
+  // "overdue" (red) — shared by the exercise tab's own chips and the
+  // dashboard panel mirroring them, so both stay in sync if the thresholds
+  // ever change.
+  function overdueLevel(days) {
+    if (days >= 14) return "overdue-critical";
+    if (days >= 7) return "overdue-warning";
+    return null;
+  }
+
   // Every registered body part, longest-idle first — a part with no record
   // at all sorts last, since "never logged" isn't the same signal as "N
   // days overdue" and shouldn't crowd out the parts that actually need
@@ -266,6 +276,8 @@
       if (lastDate) {
         const days = daysSince(lastDate);
         value.textContent = days <= 0 ? "오늘" : `${days}일 전`;
+        const level = overdueLevel(days);
+        if (level) value.classList.add(level);
       } else {
         value.textContent = "기록 없음";
         chip.classList.add("no-record");
@@ -557,9 +569,10 @@
       label.textContent = part.label;
       li.appendChild(label);
 
-      const input = document.createElement("input");
-      input.type = "text";
+      const input = document.createElement("textarea");
       input.className = "body-part-routine-input";
+      input.rows = 2;
+      input.maxLength = 500;
       input.setAttribute("aria-label", `${part.label} 루틴`);
       input.value = window.BodyPartRoutineStore.get(part.key);
       input.addEventListener("change", () => {
@@ -643,6 +656,8 @@
       if (lastDate) {
         const days = daysSince(lastDate);
         value.textContent = days <= 0 ? "오늘" : `${days}일 전`;
+        const level = overdueLevel(days);
+        if (level) value.classList.add(level);
       } else {
         value.textContent = "기록 없음";
       }

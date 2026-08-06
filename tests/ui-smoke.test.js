@@ -1221,6 +1221,75 @@ test("exercise: the top-of-tab summary lists every body part's days-since-last-w
   }
 });
 
+test("exercise: days-since-last-worked turns orange at 7 days and red at 14, on both the tab chips and the dashboard panel — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => {
+      const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const daysAgo = (n) => {
+        const d = new Date();
+        d.setDate(d.getDate() - n);
+        return fmt(d);
+      };
+      window.ExerciseLogStore.add({ date: daysAgo(5), bodyPart: "chest" }); // under 7: no warning
+      window.ExerciseLogStore.add({ date: daysAgo(7), bodyPart: "back" }); // exactly 7: orange
+      window.ExerciseLogStore.add({ date: daysAgo(14), bodyPart: "leg" }); // exactly 14: red
+    });
+    await page.evaluate(() => document.querySelector('[data-view="exercise"]')?.click());
+    await page.waitForTimeout(200);
+
+    const chipLevels = await page.evaluate(() =>
+      Object.fromEntries(
+        [...document.querySelectorAll("#exerciseLastWorkedSummary .exercise-last-worked-chip")].map((c) => [
+          c.querySelector(".exercise-last-worked-chip-label")?.textContent,
+          c.querySelector(".exercise-last-worked-chip-value")?.className,
+        ])
+      )
+    );
+    assert.ok(!chipLevels["가슴"].includes("overdue"), `5 days shouldn't be flagged, got "${chipLevels["가슴"]}"`);
+    assert.ok(chipLevels["등"].includes("overdue-warning"), `7 days should be orange, got "${chipLevels["등"]}"`);
+    assert.ok(chipLevels["하체"].includes("overdue-critical"), `14 days should be red, got "${chipLevels["하체"]}"`);
+
+    await page.evaluate(() => document.querySelector('[data-view="dashboard"]')?.click());
+    await page.waitForTimeout(200);
+    const dashboardLevels = await page.evaluate(() =>
+      Object.fromEntries(
+        [...document.querySelectorAll("#dashboardExerciseBodyPartStatus .practice-status-row")].map((row) => [
+          row.querySelector("strong")?.textContent,
+          row.querySelector("span")?.className,
+        ])
+      )
+    );
+    assert.ok(!dashboardLevels["가슴"].includes("overdue"), "same thresholds must apply on the dashboard");
+    assert.ok(dashboardLevels["등"].includes("overdue-warning"));
+    assert.ok(dashboardLevels["하체"].includes("overdue-critical"));
+  } finally {
+    await close();
+  }
+});
+
+test("exercise: 부위별 운동 루틴's textarea keeps line breaks the old single-line input couldn't — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="exercise"]')?.click());
+    await page.waitForTimeout(200);
+
+    const tagName = await page.evaluate(() => document.querySelector(".body-part-routine-input")?.tagName);
+    assert.equal(tagName, "TEXTAREA", "the routine field must be a textarea, not a single-line input");
+
+    const routineInput = page.locator(".body-part-routine-row", { hasText: "가슴" }).locator(".body-part-routine-input");
+    await routineInput.fill("벤치프레스 3세트\n딥스 3세트");
+    await routineInput.evaluate((el) => el.dispatchEvent(new Event("change")));
+    await page.waitForTimeout(100);
+
+    const chestKey = await page.evaluate(() => window.BodyPartStore.getAll().find((p) => p.label === "가슴")?.key);
+    const saved = await page.evaluate((key) => window.BodyPartRoutineStore.get(key), chestKey);
+    assert.equal(saved, "벤치프레스 3세트\n딥스 3세트", "the line break must survive the save, not get collapsed/stripped");
+  } finally {
+    await close();
+  }
+});
+
 test("exercise: the calendar button opens a 3-week view with logged days marked green, deletable by clicking the body part — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {

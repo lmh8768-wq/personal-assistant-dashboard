@@ -71,6 +71,29 @@
   padding: 2px 0;
 }
 
+/* 7+ days since last worked (orange), 14+ (red) — same classes on both the
+   exercise tab's own chip and the dashboard panel's plain text mirroring
+   it, so each context just supplies its own color/background treatment. */
+.exercise-last-worked-chip-value.overdue-warning {
+  color: var(--warning);
+  background: rgba(245, 165, 36, 0.12);
+}
+
+.exercise-last-worked-chip-value.overdue-critical {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.practice-status-row .overdue-warning {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.practice-status-row .overdue-critical {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 /* ---------- Exercise personal records ---------- */
 .exercise-records-panel {
   display: flex;
@@ -204,6 +227,7 @@
   font-size: 13px;
   color: var(--text);
   outline: none;
+  resize: vertical;
   transition: border-color 0.15s ease;
 }
 
