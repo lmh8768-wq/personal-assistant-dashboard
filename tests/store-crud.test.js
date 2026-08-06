@@ -3,6 +3,36 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { loadStoreModule, loadStoreModuleWithStorage } = require("./helpers/load-store");
 
+test("DeletionTombstones: ScheduleStore.remove records a tombstone, add()/addMany() forget it on restore", () => {
+  const window = loadStoreModule();
+  const item = window.ScheduleStore.add({ title: "일정", date: "2026-08-06", repeat: { type: "none" } });
+
+  window.ScheduleStore.remove(item.id);
+  assert.equal(window.DeletionTombstones.has(item.id), true, "remove() must record a tombstone");
+
+  // Undo restores the item via add() with its original id — must forget
+  // the tombstone, or the next sync merge would silently re-delete it.
+  window.ScheduleStore.add(item);
+  assert.equal(window.DeletionTombstones.has(item.id), false, "restoring via add() must forget the tombstone");
+});
+
+test("DeletionTombstones: LedgerEntryStore.removeMany records tombstones, restore()/addMany() forget them", () => {
+  const window = loadStoreModule();
+  const a = window.LedgerEntryStore.add({ date: "2026-08-01", amount: 1000, categoryKey: "food", type: "expense" });
+  const b = window.LedgerEntryStore.add({ date: "2026-08-02", amount: 2000, categoryKey: "food", type: "expense" });
+
+  window.LedgerEntryStore.removeMany([a.id, b.id]);
+  assert.equal(window.DeletionTombstones.has(a.id), true);
+  assert.equal(window.DeletionTombstones.has(b.id), true);
+
+  window.LedgerEntryStore.restore(a, 0);
+  assert.equal(window.DeletionTombstones.has(a.id), false, "restore() must forget its own tombstone");
+  assert.equal(window.DeletionTombstones.has(b.id), true, "restore() must not touch an unrelated tombstone");
+
+  window.LedgerEntryStore.addMany([b]);
+  assert.equal(window.DeletionTombstones.has(b.id), false, "addMany() must forget the tombstones of ids it restores");
+});
+
 test("LedgerEntryStore: add/update/remove/restore round-trip", () => {
   const window = loadStoreModule();
   const store = window.LedgerEntryStore;

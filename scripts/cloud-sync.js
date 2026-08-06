@@ -269,7 +269,13 @@
   // bespoke merge rule per store. It's still not a full CRDT — two devices
   // editing the *same* item's *same* field at the same time still has one
   // side win — but that's a much narrower window than before.
-  function mergeStoredValue(existingRaw, incomingRaw) {
+  // tombstonedIds, when given, strips any {id,...} item the CURRENT device
+  // knows was deliberately deleted out of `incoming` before merging — a
+  // union-by-id merge otherwise can't tell "deleted" apart from "the other
+  // side just hasn't synced this yet" when an id is missing from one side,
+  // and unioning a stale remote copy back in silently resurrected a
+  // deletion (see DeletionTombstones' own comment in store.js).
+  function mergeStoredValue(existingRaw, incomingRaw, tombstonedIds) {
     let existing;
     let incoming;
     try {
@@ -281,6 +287,10 @@
       incoming = incomingRaw != null ? JSON.parse(incomingRaw) : undefined;
     } catch {
       incoming = undefined;
+    }
+
+    if (tombstonedIds && tombstonedIds.size > 0 && Array.isArray(incoming)) {
+      incoming = incoming.filter((item) => !(item && typeof item === "object" && tombstonedIds.has(item.id)));
     }
 
     const bothMergeable =
@@ -307,6 +317,25 @@
       return;
     }
     applyingRemote = true;
+    // The tombstone list is itself just another synced key, so it merges
+    // via the same union-by-id logic as everything else below — but that
+    // merge hasn't happened yet at this point in the loop (key order is
+    // unspecified), so the effective set used to filter every OTHER key
+    // this pass is the union of what's already local and what's in this
+    // incoming payload, computed once up front.
+    const tombstonedIds = new Set();
+    try {
+      const localTombstones = JSON.parse(localStorage.getItem(window.DeletionTombstones.KEY) || "[]");
+      (Array.isArray(localTombstones) ? localTombstones : []).forEach((t) => t && tombstonedIds.add(t.id));
+    } catch {
+      // ignore — an unparseable tombstone list just means nothing gets filtered from it
+    }
+    try {
+      const incomingTombstones = JSON.parse(data[window.DeletionTombstones.KEY] || "[]");
+      (Array.isArray(incomingTombstones) ? incomingTombstones : []).forEach((t) => t && tombstonedIds.add(t.id));
+    } catch {
+      // ignore
+    }
     const allKeys = new Set([...Object.keys(localStorage).filter(isAppKey), ...Object.keys(data).filter(isAppKey)]);
     allKeys.forEach((key) => {
       const existingRaw = localStorage.getItem(key);
@@ -324,7 +353,7 @@
         originalSetItem(key, incomingRaw);
         return;
       }
-      originalSetItem(key, mergeStoredValue(existingRaw, incomingRaw));
+      originalSetItem(key, mergeStoredValue(existingRaw, incomingRaw, tombstonedIds));
     });
     applyingRemote = false;
     lastSnapshotStr = currentSnapshotStr();

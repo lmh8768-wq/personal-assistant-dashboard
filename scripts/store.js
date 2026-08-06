@@ -43,6 +43,78 @@ window.addEventListener("storage", (e) => {
   }
 });
 
+// ---------- Deletion tombstones ----------
+// cloud-sync.js's per-key merge (deep-merge.js) is a union-by-id merge —
+// correct for two devices adding DIFFERENT items, but it has no way to
+// distinguish "this id was deliberately deleted" from "this device just
+// hasn't synced it yet" when an id is missing from one side. That ambiguity
+// meant a deletion could get silently resurrected: delete a schedule, then
+// a merge against ANY remote snapshot that still has it (a second device
+// that hasn't caught up, or this device's own delete racing a concurrent
+// pull) added it right back, and the very next push re-uploaded it as if
+// nothing happened. This is a real, reported bug — not hypothetical.
+//
+// Recording an id here whenever it's deleted, and having cloud-sync.js's
+// merge filter tombstoned ids out of incoming data before unioning, closes
+// that gap: once deleted, an id never comes back via a merge, no matter how
+// stale the other side's copy is. Entries prune after 60 days — long enough
+// for any realistic offline device to reconnect and catch up, short enough
+// that this list doesn't grow forever. This key is itself an
+// "assistant."-prefixed synced key (a keyed array, `id` = the tombstoned
+// item's id), so it merges and propagates across devices the same
+// union-by-id way every other array does — a tombstone recorded on either
+// device survives the merge on both.
+(function () {
+  const TOMBSTONE_KEY = "assistant.deletionTombstones.v1";
+  const RETENTION_MS = 60 * 24 * 60 * 60 * 1000;
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(TOMBSTONE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function prune(list) {
+    const cutoff = Date.now() - RETENTION_MS;
+    return list.filter((t) => t && typeof t.deletedAt === "number" && t.deletedAt > cutoff);
+  }
+
+  window.DeletionTombstones = {
+    record(ids) {
+      if (!ids || ids.length === 0) return;
+      const list = prune(load());
+      const known = new Set(list.map((t) => t.id));
+      const now = Date.now();
+      let changed = false;
+      ids.forEach((id) => {
+        if (known.has(id)) return;
+        known.add(id);
+        list.push({ id, deletedAt: now });
+        changed = true;
+      });
+      if (changed) window.safeSetLocalStorage(TOMBSTONE_KEY, JSON.stringify(list));
+    },
+    has(id) {
+      return prune(load()).some((t) => t.id === id);
+    },
+    // Undoing a delete (the app's own "실행취소" toasts) restores the item —
+    // without this, the tombstone recorded a moment earlier would still be
+    // there, and the very next merge would silently re-delete the item the
+    // user just explicitly brought back.
+    forget(ids) {
+      if (!ids || ids.length === 0) return;
+      const idSet = new Set(ids);
+      const list = prune(load()).filter((t) => !idSet.has(t.id));
+      window.safeSetLocalStorage(TOMBSTONE_KEY, JSON.stringify(list));
+    },
+    KEY: TOMBSTONE_KEY,
+  };
+})();
+
 // ---------- Schedule persistence (localStorage) ----------
 (function () {
   const SCHEDULE_KEY = "assistant.schedules.v1";
@@ -135,6 +207,11 @@ window.addEventListener("storage", (e) => {
       const item = { id: createId(), ...schedule };
       schedules.push(item);
       saveSchedules(schedules);
+      // A no-op for a genuinely brand-new id (never tombstoned); clears the
+      // tombstone when this is actually an undo restoring a deleted item's
+      // original id — without this, the very next merge would silently
+      // re-delete the item the user just explicitly brought back.
+      window.DeletionTombstones.forget([item.id]);
       return item;
     },
     // Adds several schedules with a single load+save instead of one full
@@ -145,6 +222,7 @@ window.addEventListener("storage", (e) => {
       const created = items.map((item) => ({ id: createId(), ...item }));
       schedules.push(...created);
       saveSchedules(schedules);
+      window.DeletionTombstones.forget(created.map((s) => s.id));
       return created;
     },
     update(id, patch) {
@@ -167,6 +245,7 @@ window.addEventListener("storage", (e) => {
       if (idx === -1) return null;
       const [removed] = schedules.splice(idx, 1);
       saveSchedules(schedules);
+      window.DeletionTombstones.record([id]);
       return { item: removed, index: idx };
     },
     // One load+save for the whole batch instead of one full array
@@ -179,6 +258,7 @@ window.addEventListener("storage", (e) => {
       const removed = schedules.filter((s) => idSet.has(s.id));
       const kept = schedules.filter((s) => !idSet.has(s.id));
       saveSchedules(kept);
+      window.DeletionTombstones.record(removed.map((s) => s.id));
       return removed;
     },
     toggleCompleted(id, occurrenceDate) {
@@ -715,6 +795,10 @@ function createEntityStore(key, idPrefix) {
       const item = { id: createId(), ...entry };
       items.push(item);
       save(items);
+      // A no-op for a genuinely brand-new id; clears a tombstone when this
+      // is actually an undo restoring a deleted item's original id — see
+      // DeletionTombstones' own comment for why this matters.
+      window.DeletionTombstones.forget([item.id]);
       return item;
     },
     // Adds several entries with a single load+save instead of one full
@@ -726,6 +810,7 @@ function createEntityStore(key, idPrefix) {
       const created = entries.map((entry) => ({ id: createId(), ...entry }));
       items.push(...created);
       save(items);
+      window.DeletionTombstones.forget(created.map((it) => it.id));
       return created;
     },
     update(id, patch) {
@@ -742,6 +827,7 @@ function createEntityStore(key, idPrefix) {
       if (idx === -1) return null;
       const [removed] = items.splice(idx, 1);
       save(items);
+      window.DeletionTombstones.record([id]);
       return { item: removed, index: idx };
     },
     // One load+save for the whole batch instead of one full array
@@ -753,6 +839,7 @@ function createEntityStore(key, idPrefix) {
       const removed = items.filter((it) => idSet.has(it.id));
       const kept = items.filter((it) => !idSet.has(it.id));
       save(kept);
+      window.DeletionTombstones.record(removed.map((it) => it.id));
       return removed;
     },
     restore(item, index) {
@@ -762,6 +849,7 @@ function createEntityStore(key, idPrefix) {
       const at = Math.min(Math.max(0, index), items.length);
       items.splice(at, 0, item);
       save(items);
+      window.DeletionTombstones.forget([item.id]);
     },
   };
 }

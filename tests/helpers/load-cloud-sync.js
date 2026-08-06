@@ -18,7 +18,16 @@ function loadCloudSyncModule() {
   const code = fs.readFileSync(path.join(__dirname, "..", "..", "scripts", "cloud-sync.js"), "utf8");
   const localStorage = createMemoryStorage();
   const noopEl = { hidden: false, textContent: "", className: "" };
-  const windowObj = { addEventListener: () => {} };
+  // store.js's real DeletionTombstones isn't loaded in this sandbox (it
+  // pulls in schedule-recurrence.js and the rest of store.js's dependency
+  // chain, which these cloud-sync-only tests don't need) — a stub with the
+  // same shape is enough since these tests exercise cloud-sync.js's own
+  // merge/filter logic, not the tombstone store itself (see
+  // store-crud.test.js for that).
+  const windowObj = {
+    addEventListener: () => {},
+    DeletionTombstones: { KEY: "assistant.deletionTombstones.v1", has: () => false, record: () => {}, forget: () => {} },
+  };
   const sandbox = {
     localStorage,
     console,
@@ -119,6 +128,8 @@ function loadCloudSyncModuleWithFakeFirebase({ docExists, docPayload, seedLocalS
   const windowObj = {
     addEventListener: () => {},
     Toast: { show: (msg) => toastMessages.push(msg) },
+    // See loadCloudSyncModule's own comment on this same stub.
+    DeletionTombstones: { KEY: "assistant.deletionTombstones.v1", has: () => false, record: () => {}, forget: () => {} },
   };
 
   const sandbox = {

@@ -360,3 +360,37 @@ test("snapshot(update) from another device: a genuine remote change still merges
   assert.equal(localStorage.getItem("__cloudSync.pendingPush"), "1", "the merged result must be armed for re-push");
   assert.equal(JSON.parse(localStorage.getItem("assistant.schedules.v1")).length, 2, "the merge itself must still have applied");
 });
+
+test("snapshot(update) from another device: a deleted item is not resurrected by a stale remote copy that still has it — the actual bug fix (deletion tombstones)", () => {
+  // The real reported bug: delete a schedule, then a merge against ANY
+  // remote snapshot that still has it (a second device that hasn't caught
+  // up to the deletion yet) used to silently add it right back, since a
+  // plain union-by-id merge can't tell "deleted" apart from "the other
+  // side just hasn't synced this yet" when an id is missing from one side.
+  const tombstones = JSON.stringify([{ id: "sc1", deletedAt: Date.now() }]);
+  const { localStorage, triggerRemoteUpdate } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({
+      "assistant.schedules.v1": JSON.stringify([]),
+      "assistant.deletionTombstones.v1": tombstones,
+    }),
+    seedLocalStorage: {
+      "assistant.schedules.v1": JSON.stringify([]),
+      "assistant.deletionTombstones.v1": tombstones,
+    },
+  });
+
+  // A remote update from a different device carrying a STALE copy that
+  // still has the deleted item — e.g. that device hasn't pulled the
+  // deletion yet.
+  const staleRemoteSchedules = JSON.stringify([{ id: "sc1", title: "삭제된 일정" }]);
+  triggerRemoteUpdate(
+    JSON.stringify({
+      "assistant.schedules.v1": staleRemoteSchedules,
+      "assistant.deletionTombstones.v1": tombstones,
+    })
+  );
+
+  const merged = JSON.parse(localStorage.getItem("assistant.schedules.v1"));
+  assert.equal(merged.length, 0, "a tombstoned id must not be resurrected by a stale remote copy");
+});
