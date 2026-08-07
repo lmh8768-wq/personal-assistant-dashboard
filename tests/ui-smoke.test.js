@@ -1311,6 +1311,35 @@ test("toast: duration: 0 means never auto-dismiss instead of falling back to the
   }
 });
 
+test("toast: an actionable toast anchors near the click that triggered it (e.g. a delete button) instead of the fixed corner — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => window.RoutineStore.addItem("routine", "테스트 항목"));
+    await page.evaluate(() => document.querySelector('[data-view="routine"]')?.click());
+    await page.waitForTimeout(200);
+
+    const target = page.locator(".checklist-item-remove").first();
+    const box = await target.boundingBox();
+    await target.click();
+    await page.waitForTimeout(200);
+
+    const toastBox = await page.evaluate(() => {
+      const t = document.querySelector(".toast-floating");
+      return t ? t.getBoundingClientRect() : null;
+    });
+    assert.ok(toastBox, "the undo toast should render as a position-anchored (.toast-floating) toast");
+    // "Near" the click, not pixel-exact — clamped to stay on-screen, and
+    // offset by a small margin from the cursor on purpose (see toast.js).
+    const clickCenterY = box.y + box.height / 2;
+    assert.ok(
+      Math.abs(toastBox.top - clickCenterY) < 150,
+      `toast should land close to the click (y=${clickCenterY}), got top=${toastBox.top}`
+    );
+  } finally {
+    await close();
+  }
+});
+
 test("practice: the progress percentage only counts leaf goals, not derived-done parents — the actual bug fix", { skip: !RUN }, async () => {
   // root has children A (2 leaves, both done -> A itself reads done) and B
   // (2 leaves, 1 done). Real leaf completion is 3/4 = 75%. Counting the
