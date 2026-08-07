@@ -1507,6 +1507,31 @@ test("exercise: 부위별 운동 루틴's textarea grows to fit its content inst
   }
 });
 
+test("exercise: 부위별 운동 루틴 can be collapsed and stays collapsed after leaving and returning to the tab — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="exercise"]')?.click());
+    await page.waitForTimeout(200);
+
+    const region = page.locator("#bodyPartRoutineRegion");
+    assert.equal(await region.evaluate((el) => el.classList.contains("collapsed")), false);
+
+    await page.click("#toggleBodyPartRoutinesBtn");
+    await page.waitForTimeout(200);
+    assert.equal(await region.evaluate((el) => el.classList.contains("collapsed")), true);
+    assert.equal(await page.locator("#toggleBodyPartRoutinesBtn").getAttribute("aria-expanded"), "false");
+
+    // Leaving and coming back must not silently re-expand it.
+    await page.evaluate(() => document.querySelector('[data-view="dashboard"]')?.click());
+    await page.waitForTimeout(150);
+    await page.evaluate(() => document.querySelector('[data-view="exercise"]')?.click());
+    await page.waitForTimeout(200);
+    assert.equal(await region.evaluate((el) => el.classList.contains("collapsed")), true, "collapsed state should persist across tab switches");
+  } finally {
+    await close();
+  }
+});
+
 test("exercise: the calendar button opens a 3-week view with logged days marked green, deletable by clicking the body part — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {

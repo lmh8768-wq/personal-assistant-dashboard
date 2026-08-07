@@ -685,8 +685,37 @@
     });
   }
 
+  // ---------- Collapsible sections ----------
+  // `storageKey`, when given, persists the collapsed state (device-local UI
+  // state, not synced) — same .collapse-region grid-rows animation
+  // practice.js's curriculum/연습 기록 sections and study.js's years/periods
+  // already use, rather than an instant [hidden] cut.
+  function toggleSection(regionEl, btn, storageKey) {
+    const collapsing = !regionEl.classList.contains("collapsed");
+    regionEl.classList.toggle("collapsed", collapsing);
+    btn.textContent = collapsing ? "▸" : "▾";
+    btn.setAttribute("aria-expanded", String(!collapsing));
+    if (storageKey) localStorage.setItem(storageKey, String(collapsing));
+  }
+
+  function applyStoredCollapse(regionEl, btn, storageKey) {
+    const collapsed = localStorage.getItem(storageKey) === "true";
+    regionEl.classList.toggle("collapsed", collapsed);
+    btn.textContent = collapsed ? "▸" : "▾";
+    btn.setAttribute("aria-expanded", String(!collapsed));
+  }
+
   function init() {
     migrateBodyPartsToKeys();
+
+    const routineToggleBtn = document.getElementById("toggleBodyPartRoutinesBtn");
+    const routineRegion = document.getElementById("bodyPartRoutineRegion");
+    if (routineToggleBtn && routineRegion) {
+      applyStoredCollapse(routineRegion, routineToggleBtn, "bodyPartRoutinesCollapsed");
+      routineToggleBtn.addEventListener("click", (e) => {
+        toggleSection(routineRegion, e.currentTarget, "bodyPartRoutinesCollapsed");
+      });
+    }
 
     const bodyPartManageBtn = document.getElementById("exerciseBodyPartManageBtn");
     const bodyPartManager = document.getElementById("exerciseBodyPartManager");

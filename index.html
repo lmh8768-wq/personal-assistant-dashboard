@@ -516,8 +516,13 @@
 
           <div class="diary-header">
             <h2>부위별 운동 루틴</h2>
+            <button type="button" class="icon-btn section-toggle-btn" id="toggleBodyPartRoutinesBtn" aria-expanded="true" aria-label="부위별 운동 루틴 접기/펼치기">▾</button>
           </div>
-          <ul class="body-part-routine-list" id="bodyPartRoutineList"></ul>
+          <div class="collapse-region" id="bodyPartRoutineRegion">
+            <div class="collapse-region-inner">
+              <ul class="body-part-routine-list" id="bodyPartRoutineList"></ul>
+            </div>
+          </div>
         </div>
 
         <div class="modal-overlay" id="exerciseLogCalendarModalOverlay" hidden>
