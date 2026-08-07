@@ -1792,3 +1792,46 @@ test("calendar-fit: on a short viewport, MIN_WIDTH is only applied when it still
     await close();
   }
 });
+
+test("calendar-fit: the day panel is capped at a max width instead of claiming all leftover space on a wide window — the actual bug fix", { skip: !RUN }, async () => {
+  // The calendar's own width is driven purely by fitting its fixed 6-row
+  // height into the available vertical space (via the fixed 3:4 cell
+  // aspect ratio) — it can't grow wider just because the window is wider.
+  // Handing the day panel 100% of the leftover width (the old plain "1fr"
+  // column) meant a wide-but-not-especially-tall window (e.g. 1920x1080)
+  // left the calendar looking small next to a day panel stretched into
+  // mostly-empty space — checked on both tabs that share this logic.
+  const { page, close } = await launchApp();
+  try {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+
+    for (const [view, layoutId, calendarId] of [
+      ["ledger", "ledgerLayout", "ledgerCalendarPanel"],
+      ["schedule", "scheduleLayout", "calendarPanel"],
+    ]) {
+      await page.evaluate((v) => document.querySelector(`[data-view="${v}"]`)?.click(), view);
+      await page.waitForTimeout(300);
+      const info = await page.evaluate(
+        ({ layoutId, calendarId }) => {
+          const layout = document.getElementById(layoutId);
+          const dayPanel = layout.children[1];
+          return {
+            calendarWidth: document.getElementById(calendarId).getBoundingClientRect().width,
+            dayPanelWidth: dayPanel.getBoundingClientRect().width,
+          };
+        },
+        { layoutId, calendarId }
+      );
+      assert.ok(
+        info.dayPanelWidth <= 480,
+        `[${view}] day panel should be capped at 480px, got ${info.dayPanelWidth}px`
+      );
+      assert.ok(
+        info.calendarWidth > info.dayPanelWidth,
+        `[${view}] the calendar should be the bigger of the two on a wide window, got calendar=${info.calendarWidth}px vs dayPanel=${info.dayPanelWidth}px`
+      );
+    }
+  } finally {
+    await close();
+  }
+});

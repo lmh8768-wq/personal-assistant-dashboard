@@ -19,6 +19,16 @@
   const CELL_ASPECT = 4 / 3; // height / width, matches .calendar-day's aspect-ratio: 3/4
   const MIN_WIDTH = 420;
   const DAY_PANEL_MIN_WIDTH = 280;
+  // The calendar's own width is driven entirely by fitting its fixed 6-row
+  // height into the available vertical space, via the fixed 3:4 cell aspect
+  // ratio — it has no way to grow wider just because the window is wider.
+  // Handing the day panel 100% of whatever's left over (the old plain
+  // "1fr" column) meant a wide-but-not-especially-tall window (a common
+  // desktop shape, e.g. 1920x1080) left the calendar looking small next to
+  // a day panel stretched into mostly-empty space. Capping it here instead
+  // leaves genuinely unused width as empty margin, which reads as "the
+  // calendar is the main thing" rather than "the list panel is."
+  const DAY_PANEL_MAX_WIDTH = 480;
   const LAYOUT_GAP = 14; // must match .schedule-layout's gap in CSS
 
   // Sizes the calendar panel so its full 6-row month grid fits the
@@ -33,7 +43,7 @@
     const grid = document.getElementById(gridId);
     const layout = document.getElementById(layoutId);
     const contentEl = document.querySelector(".content");
-    const fallback = { width: 640, marginTop: 0 };
+    const fallback = { width: 640, dayPanelWidth: DAY_PANEL_MIN_WIDTH, marginTop: 0 };
     if (!panel || !grid || !layout || !contentEl || !grid.children.length) return fallback;
 
     const gridRect = grid.getBoundingClientRect();
@@ -78,7 +88,12 @@
       }
     }
 
-    return { width: targetWidth, marginTop };
+    // Whatever's left after the calendar, capped at DAY_PANEL_MAX_WIDTH —
+    // the targetWidth clamp above already guarantees at least
+    // DAY_PANEL_MIN_WIDTH remains, so this is never smaller than that.
+    const dayPanelWidth = Math.min(available - targetWidth - LAYOUT_GAP, DAY_PANEL_MAX_WIDTH);
+
+    return { width: targetWidth, dayPanelWidth, marginTop };
   }
 
   function apply({ layoutId, panelId, gridId, extraHeight }) {
@@ -96,7 +111,7 @@
     }
 
     const fit = compute({ panelId, gridId, layoutId, extraHeight });
-    layout.style.gridTemplateColumns = `${fit.width}px 1fr`;
+    layout.style.gridTemplateColumns = `${fit.width}px ${fit.dayPanelWidth}px`;
     layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
   }
 
