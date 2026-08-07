@@ -26,6 +26,16 @@
   vertical-align: middle;
 }
 
+/* Same inline-with-heading trick as #exerciseLogCalendarBtn above — sits
+   right after "부위별 운동 루틴" itself instead of pinned to the diary-header's
+   far-right edge, which used to leave it floating alone way past where the
+   65%-capped routine list below it actually ends. */
+#toggleBodyPartRoutinesBtn {
+  width: 28px;
+  height: 28px;
+  vertical-align: middle;
+}
+
 /* Body-part count is unbounded (the user can add as many as they want),
    unlike the dashboard schedule widgets' fixed ~6-item cap — this instead
    just fills whatever height the dashboard grid's auto-fit (main.js)
