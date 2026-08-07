@@ -235,6 +235,10 @@
 }
 
 /* ---------- Per-body-part routine list ---------- */
+/* Unlike 운동 기록 above (capped at a fixed 560px), this stays relative to
+   the tab's own available width — on a wide window the textareas
+   (width: 100%) stretched the full panel width, reading uncomfortably
+   long line-for-line. */
 .body-part-routine-list {
   list-style: none;
   margin: 0;
@@ -242,6 +246,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-width: 65%;
 }
 
 .body-part-routine-row {
