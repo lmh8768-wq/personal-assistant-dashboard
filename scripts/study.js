@@ -1256,12 +1256,19 @@
     if (!container) return;
     container.innerHTML = "";
 
-    container.appendChild(
-      makeAddTrigger("goal-add-row", "+ 연도 추가", "연도 이름 (예: 2027)", (label) => {
-        GoalStore.addYear(label);
-        renderAll();
-      })
-    );
+    // Lives in the diary-header next to "학업 목표" itself, not as the
+    // list's first row below it — same "action beside the heading" spot
+    // as the 선택 button right next to it.
+    const addYearRow = document.getElementById("studyAddYearRow");
+    if (addYearRow) {
+      addYearRow.innerHTML = "";
+      addYearRow.appendChild(
+        makeAddTrigger("goal-add-row", "+ 연도 추가", "연도 이름 (예: 2027)", (label) => {
+          GoalStore.addYear(label);
+          renderAll();
+        })
+      );
+    }
 
     GoalStore.getYears().forEach((year) => container.appendChild(renderYearSection(year, renderAll)));
 

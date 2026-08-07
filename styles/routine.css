@@ -307,6 +307,18 @@
   margin-bottom: 10px;
 }
 
+/* In the study-tab header (next to "학업 목표"), the row sits inline among
+   the header's other actions instead of stacked as its own full-width
+   line above the year list — needs its own width since .goal-add-input's
+   100% would otherwise fight the flex row's shrink-to-fit sizing. */
+.diary-header-actions .goal-add-row {
+  margin: 0;
+}
+
+.diary-header-actions .goal-add-input {
+  width: 160px;
+}
+
 .goal-add-trigger-btn {
   border-style: dashed;
 }

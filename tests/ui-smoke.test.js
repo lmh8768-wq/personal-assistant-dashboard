@@ -325,6 +325,36 @@ test("study: deleting a year needs two clicks (arm, then confirm) — the actual
   }
 });
 
+test("study: the + 연도 추가 trigger lives in the header next to 학업 목표, and still adds a year from there — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="study"]')?.click());
+    await page.waitForTimeout(150);
+
+    const headerTrigger = page.locator("#view-study .diary-header #studyAddYearRow .goal-add-trigger-btn");
+    await headerTrigger.waitFor({ state: "visible" });
+    assert.equal(
+      await page.locator("#goalPeriods > .goal-add-row").count(),
+      0,
+      "the trigger should no longer sit as the year list's own first row"
+    );
+
+    await headerTrigger.click();
+    await page.waitForTimeout(100);
+    const input = page.locator("#studyAddYearRow .goal-add-input");
+    await input.fill("2099");
+    await input.press("Enter");
+    await page.waitForTimeout(150);
+
+    assert.equal(
+      await page.evaluate(() => window.AcademicGoalStore.getYears().some((y) => y.label === "2099")),
+      true
+    );
+  } finally {
+    await close();
+  }
+});
+
 test("practice: toggling a leaf goal's checkbox patches its row + ancestors in place, without rebuilding the tree", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {
