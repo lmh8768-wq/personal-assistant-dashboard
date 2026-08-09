@@ -237,6 +237,45 @@
   gap: 4px;
 }
 
+/* A second grid, stacked exactly on top of .calendar-grid (same columns,
+   same gap, same box) so a bar's grid-column/grid-row placement lines up
+   with the day cells underneath pixel-for-pixel with no JS measurement —
+   and, since it spans multiple grid TRACKS via grid-column, its own box
+   automatically bridges the 4px gaps between the days it covers, which a
+   bar confined inside a single .calendar-day (overflow: hidden clips
+   anything crossing that cell's own edge) never could. */
+.calendar-range-bars {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  gap: 4px;
+  pointer-events: none;
+}
+
+.calendar-range-bars.month-nav-animating {
+  transition: opacity var(--dur-panel) var(--ease-standard);
+}
+
+.calendar-range-bar {
+  align-self: start;
+  /* margin-top (set inline per-bar by renderRangeBars, from
+     CALENDAR_RANGE_BAR_TOP_OFFSET/LANE_HEIGHT in schedule.js) is what
+     actually positions it below the day number and into the right lane —
+     grid-row only picks the week. */
+  font-size: 10px;
+  line-height: 1.3;
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
 /* Month navigation "page turn": the incoming grid is transformed into
    place by JS (see renderCalendar in schedule.js) while a cloned ghost of
    the outgoing month slides out over it — this rule just supplies the
@@ -278,6 +317,12 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
+  /* Pinned to the today-circle's own height (.calendar-day.today .day-number,
+     below) so this row is the same height whether or not this particular
+     cell is today — .calendar-range-bar's margin-top (schedule.js) assumes
+     one fixed offset for every cell in a row, which a shifting top-row
+     height would throw off by a couple px on whichever row today falls in. */
+  min-height: 18px;
 }
 
 .calendar-day-events {
@@ -298,6 +343,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Reserves the exact box a real chip would take (see buildCalendarCell's
+   spacerCount) without showing anything, so a day's own remaining chips
+   render below wherever a .calendar-range-bar sits over that day instead
+   of underneath it. */
+.calendar-day-event-chip.spacer {
+  visibility: hidden;
 }
 
 .calendar-day-event-more {

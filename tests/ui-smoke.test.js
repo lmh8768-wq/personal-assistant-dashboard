@@ -709,6 +709,65 @@ test("schedule: only ★4+ items get a title chip on the month calendar, lower-i
   }
 });
 
+test("schedule: a multi-day ★4+ item renders as one continuous bar on the month calendar instead of a chip repeated on every day it spans — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    await page.evaluate((catKey) => {
+      const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const today = new Date();
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3);
+      window.ScheduleStore.add({ title: "여행", date: fmt(start), endDate: fmt(end), repeat: { type: "none" }, importance: 5, category: catKey });
+      // A same-day single-day item, to confirm it still shows its own chip
+      // rather than getting silently swallowed by the bar's reserved space.
+      window.ScheduleStore.add({ title: "짧은일정", date: fmt(new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1)), repeat: { type: "none" }, importance: 5, category: catKey });
+    }, catKey);
+
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(300);
+
+    const result = await page.evaluate(() => {
+      const bars = [...document.querySelectorAll(".calendar-range-bar")];
+      return {
+        bars: bars.map((b) => b.textContent),
+        textAlign: bars.map((b) => getComputedStyle(b).textAlign),
+        perDayChips: [...document.querySelectorAll(".calendar-day-event-chip:not(.spacer)")].map((c) => c.textContent),
+      };
+    });
+    assert.deepEqual(result.bars, ["여행"], "the multi-day item should render as exactly one bar (this month doesn't cross a week boundary for a 3-day span starting tomorrow in every case, but a single segment is the common case)");
+    assert.ok(!result.perDayChips.includes("여행"), "should never also appear as a regular per-day chip");
+    assert.ok(result.perDayChips.includes("짧은일정"), "an unrelated single-day item on one of the spanned days should still show its own chip");
+    assert.ok(result.textAlign.every((a) => a === "center"), "the title should be centered within the bar");
+  } finally {
+    await close();
+  }
+});
+
+test("schedule: a multi-day item crossing a week boundary splits into one bar segment per week row it touches — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    await page.evaluate((catKey) => {
+      const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const d = new Date();
+      while (d.getDay() !== 6) d.setDate(d.getDate() + 1); // advance to the next Saturday
+      const start = new Date(d);
+      const end = new Date(d);
+      end.setDate(end.getDate() + 2); // Saturday -> Monday, always crosses into the next 일-토 row
+      window.ScheduleStore.add({ title: "주말여행", date: fmt(start), endDate: fmt(end), repeat: { type: "none" }, importance: 5, category: catKey });
+    }, catKey);
+
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(300);
+
+    const barCount = await page.locator(".calendar-range-bar", { hasText: "주말여행" }).count();
+    assert.equal(barCount, 2, "one segment in the Saturday's row, one in the following Sunday/Monday's row");
+  } finally {
+    await close();
+  }
+});
+
 test("dashboard: a multi-day schedule shows as one row in 다가오는 일정, not once per day — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {

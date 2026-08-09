@@ -21,6 +21,25 @@
   // dot, so nothing disappears entirely.
   const CALENDAR_HIGHLIGHT_MIN_IMPORTANCE = 4;
   const CALENDAR_MAX_EVENT_CHIPS = 6;
+  // How many concurrent multi-day bars a single week row can show before
+  // falling back to the old per-day chip for the rest — bounds how much of
+  // a day cell's limited height (CALENDAR_MAX_EVENT_CHIPS slots) a busy week
+  // can eat purely on reserved bar space.
+  const CALENDAR_MAX_RANGE_LANES = 3;
+  // .calendar-range-bar's position is pure CSS grid placement (see
+  // renderRangeBars) except for this vertical offset, which has no grid
+  // equivalent — it has to match, in px, where the FIRST slot of a day
+  // cell's own .calendar-day-events stack visually starts: .calendar-day's
+  // padding-top (4) + .calendar-day-top's height (18, pinned by CSS to
+  // match the today-circle so it's the same for every cell) + .calendar-
+  // day-events' margin-top (2).
+  const CALENDAR_RANGE_BAR_TOP_OFFSET = 24;
+  // One .calendar-day-event-chip's own height (line-height 1.3 * 10px font
+  // + 1px top/bottom padding, border-box) plus .calendar-day-events' 2px
+  // gap — matches the spacer slots buildCalendarCell reserves per lane, so
+  // a bar in lane N lines up with slot N whether that slot holds a real
+  // chip or a blank spacer.
+  const CALENDAR_RANGE_BAR_LANE_HEIGHT = 15;
 
   function loadHideCompleted() {
     try {
@@ -70,6 +89,104 @@
 
   function formatDayLabel(d) {
     return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS[d.getDay()]})`;
+  }
+
+  // Assigns each ★4+ multi-day (non-repeating, date !== endDate) item to a
+  // "lane" within every week row it crosses, so it can be drawn as one
+  // continuous bar (see renderRangeBars) instead of a separate chip
+  // repeated on every day it touches. Lane assignment resets each row —
+  // the same item can land in a different lane from one week to the next,
+  // same as any month-view multi-day-event calendar; each week only ever
+  // needs to know about the items visible within it.
+  //
+  // Returns:
+  //   bars — one entry per {item, week-row} segment actually placed, with
+  //     the grid position (row/colStart/colEnd) and lane renderRangeBars needs.
+  //   dayMaxLane — dateStr -> highest lane index used that day, so
+  //     buildCalendarCell knows how many blank spacer slots to reserve.
+  //   excludedDayItemIds — dateStr -> Set of item ids already shown as a
+  //     bar that day, so buildCalendarCell's own per-day chip list doesn't
+  //     duplicate them.
+  function computeRangeBarLayout(gridDates, schedules) {
+    const bars = [];
+    const dayMaxLane = new Map();
+    const excludedDayItemIds = new Map();
+
+    const rangedItems = schedules.filter(
+      (item) =>
+        item.endDate &&
+        item.endDate !== item.date &&
+        (item.importance || DEFAULT_IMPORTANCE) >= CALENDAR_HIGHLIGHT_MIN_IMPORTANCE
+    );
+    if (rangedItems.length === 0) return { bars, dayMaxLane, excludedDayItemIds };
+
+    for (let row = 0; row < 6; row++) {
+      const rowDates = gridDates.slice(row * 7, row * 7 + 7);
+      const rowStartStr = toDateStr(rowDates[0]);
+      const rowEndStr = toDateStr(rowDates[6]);
+
+      const itemsThisRow = rangedItems
+        .filter((item) => item.date <= rowEndStr && item.endDate >= rowStartStr)
+        .map((item) => {
+          // Clipped to this row/week — an item starting before or ending
+          // after this row's own 7 days just spans the row's full edge.
+          const colStart = Math.max(
+            0,
+            rowDates.findIndex((d) => toDateStr(d) >= item.date)
+          );
+          let colEnd = 6;
+          for (let i = 6; i >= 0; i--) {
+            if (toDateStr(rowDates[i]) <= item.endDate) {
+              colEnd = i;
+              break;
+            }
+          }
+          return { item, colStart, colEnd };
+        })
+        // Widest/earliest first — a stable, simple greedy lane assignment
+        // (same idea as interval graph coloring) that keeps longer bars
+        // from getting pushed into unnecessarily high lanes by a short one
+        // that happened to sort first.
+        .sort((a, b) => a.colStart - b.colStart || b.colEnd - b.colStart - (a.colEnd - a.colStart));
+
+      const laneEndCol = []; // laneEndCol[lane] = last column that lane is occupied through
+      itemsThisRow.forEach(({ item, colStart, colEnd }) => {
+        let lane = laneEndCol.findIndex((endCol) => endCol < colStart);
+        if (lane === -1) {
+          if (laneEndCol.length >= CALENDAR_MAX_RANGE_LANES) return; // no room this row — falls back to a normal chip on each day it touches
+          lane = laneEndCol.length;
+        }
+        laneEndCol[lane] = colEnd;
+        bars.push({ item, rowIndex: row, colStart, colEnd, lane });
+        for (let c = colStart; c <= colEnd; c++) {
+          const dStr = toDateStr(rowDates[c]);
+          dayMaxLane.set(dStr, Math.max(dayMaxLane.get(dStr) ?? -1, lane));
+          if (!excludedDayItemIds.has(dStr)) excludedDayItemIds.set(dStr, new Set());
+          excludedDayItemIds.get(dStr).add(item.id);
+        }
+      });
+    }
+
+    return { bars, dayMaxLane, excludedDayItemIds };
+  }
+
+  function renderRangeBars(rangeLayout) {
+    const container = document.getElementById("calendarRangeBars");
+    if (!container) return;
+    container.innerHTML = "";
+    rangeLayout.bars.forEach(({ item, rowIndex, colStart, colEnd, lane }) => {
+      const bar = document.createElement("div");
+      bar.className = "calendar-range-bar";
+      bar.style.gridRow = String(rowIndex + 1);
+      bar.style.gridColumn = `${colStart + 1} / ${colEnd + 2}`;
+      bar.style.marginTop = `${CALENDAR_RANGE_BAR_TOP_OFFSET + lane * CALENDAR_RANGE_BAR_LANE_HEIGHT}px`;
+      const color = getCategoryColor(item.category);
+      bar.style.background = color;
+      bar.style.color = readableTextOn(color);
+      bar.textContent = item.title;
+      bar.title = item.title;
+      container.appendChild(bar);
+    });
   }
 
   function getCategoryColor(key) {
@@ -364,7 +481,7 @@
 
   let scheduleResizeTimer = null;
 
-  function buildCalendarCell(d, isOutside, preloaded) {
+  function buildCalendarCell(d, isOutside, preloaded, rangeLayout) {
     const dStr = toDateStr(d);
     const todayStr = toDateStr(new Date());
     const selectedStr = toDateStr(selectedDate);
@@ -413,13 +530,33 @@
       ? window.ScheduleRecurrence.getOccurrences(preloaded.schedules, dStr)
       : window.ScheduleStore.getOccurrences(dStr);
     const dayItems = applyCustomOrder(dStr, occurrences, preloaded);
-    const highlighted = dayItems.filter((item) => (item.importance || DEFAULT_IMPORTANCE) >= CALENDAR_HIGHLIGHT_MIN_IMPORTANCE);
+    // Already shown as one of renderRangeBars' spanning bars — this cell
+    // shouldn't repeat it as its own separate chip too.
+    const excludedIds = rangeLayout && rangeLayout.excludedDayItemIds.get(dStr);
+    const highlighted = dayItems.filter(
+      (item) => (item.importance || DEFAULT_IMPORTANCE) >= CALENDAR_HIGHLIGHT_MIN_IMPORTANCE && !(excludedIds && excludedIds.has(item.id))
+    );
     const hasLowerImportance = dayItems.some((item) => (item.importance || DEFAULT_IMPORTANCE) < CALENDAR_HIGHLIGHT_MIN_IMPORTANCE);
 
-    if (highlighted.length > 0) {
+    // Blank slots matching however many range-bar lanes cross this day (see
+    // computeRangeBarLayout), so this day's OWN chips render below the bar(s)
+    // instead of getting visually covered by them — the bars themselves live
+    // in a separate absolutely-positioned overlay, unaware of this cell's own
+    // content flow, so this cell has to leave the room for them itself.
+    const spacerCount = rangeLayout ? (rangeLayout.dayMaxLane.get(dStr) ?? -1) + 1 : 0;
+    const availableSlots = Math.max(0, CALENDAR_MAX_EVENT_CHIPS - spacerCount);
+    const shownHighlighted = highlighted.slice(0, availableSlots);
+    const overflowCount = highlighted.length - shownHighlighted.length;
+
+    if (spacerCount > 0 || shownHighlighted.length > 0) {
       const eventsWrap = document.createElement("div");
       eventsWrap.className = "calendar-day-events";
-      highlighted.slice(0, CALENDAR_MAX_EVENT_CHIPS).forEach((item) => {
+      for (let i = 0; i < spacerCount; i++) {
+        const spacer = document.createElement("span");
+        spacer.className = "calendar-day-event-chip spacer";
+        eventsWrap.appendChild(spacer);
+      }
+      shownHighlighted.forEach((item) => {
         const chip = document.createElement("span");
         chip.className = "calendar-day-event-chip";
         const chipColor = getCategoryColor(item.category);
@@ -429,10 +566,10 @@
         chip.title = item.title;
         eventsWrap.appendChild(chip);
       });
-      if (highlighted.length > CALENDAR_MAX_EVENT_CHIPS) {
+      if (overflowCount > 0) {
         const more = document.createElement("span");
         more.className = "calendar-day-event-more";
-        more.textContent = `+${highlighted.length - CALENDAR_MAX_EVENT_CHIPS}`;
+        more.textContent = `+${overflowCount}`;
         eventsWrap.appendChild(more);
       }
       cell.appendChild(eventsWrap);
@@ -480,6 +617,7 @@
     document.getElementById("calendarTitle").textContent = `${year}년 ${month + 1}월`;
 
     const grid = document.getElementById("calendarGrid");
+    const rangeBars = document.getElementById("calendarRangeBars");
     const direction = monthNavDirection;
     monthNavDirection = 0;
 
@@ -503,6 +641,14 @@
       grid.classList.remove("month-nav-animating");
       grid.style.transform = `translateX(${direction > 0 ? "100%" : "-100%"})`;
       grid.style.opacity = "0";
+      // The range bars live in their own overlay (not inside .calendar-grid,
+      // so cloning the grid above doesn't carry them) — rather than build a
+      // second slide-out ghost just for them, they simply crossfade instead
+      // while the day cells underneath slide.
+      if (rangeBars) {
+        rangeBars.classList.remove("month-nav-animating");
+        rangeBars.style.opacity = "0";
+      }
     }
 
     grid.innerHTML = "";
@@ -513,9 +659,12 @@
       orderMap: window.ScheduleOrderStore.getAll(),
       pinnedOrder: window.SchedulePinnedOrderStore.get(),
     };
-    buildMonthGrid(year, month).forEach((d) => {
-      grid.appendChild(buildCalendarCell(d, d.getMonth() !== month, preloaded));
+    const gridDates = buildMonthGrid(year, month);
+    const rangeLayout = computeRangeBarLayout(gridDates, preloaded.schedules);
+    gridDates.forEach((d) => {
+      grid.appendChild(buildCalendarCell(d, d.getMonth() !== month, preloaded, rangeLayout));
     });
+    renderRangeBars(rangeLayout);
 
     if (ghost) {
       // Force layout so the pre-transition transform above actually takes
@@ -524,6 +673,10 @@
       grid.classList.add("month-nav-animating");
       grid.style.transform = "translateX(0)";
       grid.style.opacity = "1";
+      if (rangeBars) {
+        rangeBars.classList.add("month-nav-animating");
+        rangeBars.style.opacity = "1";
+      }
       // A rapid second month-nav click starts a new renderCalendar() call,
       // which removes .month-nav-animating (line 489 above) before this
       // transition finishes — that fires "transitioncancel", not
@@ -537,6 +690,10 @@
         grid.classList.remove("month-nav-animating");
         grid.style.transform = "";
         grid.style.opacity = "";
+        if (rangeBars) {
+          rangeBars.classList.remove("month-nav-animating");
+          rangeBars.style.opacity = "";
+        }
       };
       grid.addEventListener("transitionend", finishGridAnim, { once: true });
       gridAnimFallbackTimer = setTimeout(finishGridAnim, 500);
