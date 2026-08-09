@@ -386,7 +386,10 @@
                 </div>
               </div>
               <div class="template-chip-row" id="templateChipRow"></div>
-              <div class="schedule-filter-bar" id="scheduleFilterBar"></div>
+              <div class="schedule-filter-row">
+                <div class="schedule-filter-bar" id="scheduleFilterBar"></div>
+                <button type="button" class="schedule-category-manage-btn" id="scheduleCategoryManageBtn" aria-label="카테고리 관리">⚙️</button>
+              </div>
               <div class="day-panel-toolbar">
                 <button type="button" class="ghost-btn" id="toggleHideCompletedBtn">완료 항목 숨기기</button>
               </div>
@@ -887,6 +890,21 @@
       <div class="modal-actions">
         <div class="modal-actions-right">
           <button type="button" class="primary-btn" id="closeLedgerCategoryModalBtn">완료</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 일정 카테고리 관리 모달 -->
+  <div class="modal-overlay" id="scheduleCategoryModalOverlay" hidden>
+    <div class="modal ledger-category-modal" role="dialog" aria-modal="true" aria-labelledby="scheduleCategoryModalTitle">
+      <button type="button" class="modal-close-btn" id="closeScheduleCategoryModalTopBtn" aria-label="닫기">×</button>
+      <h3 id="scheduleCategoryModalTitle">카테고리 관리</h3>
+      <div id="scheduleCategoryEditRows"></div>
+      <button type="button" class="ghost-btn" id="addScheduleCategoryModalBtn">+ 카테고리 추가</button>
+      <div class="modal-actions">
+        <div class="modal-actions-right">
+          <button type="button" class="primary-btn" id="closeScheduleCategoryModalBtn">완료</button>
         </div>
       </div>
     </div>

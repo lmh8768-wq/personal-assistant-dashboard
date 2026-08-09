@@ -140,8 +140,16 @@
     "#f87171", "#22d3ee", "#fbbf24", "#6366f1", "#9ca3af",
   ];
 
-  function renderCategoryEditor() {
-    const container = document.getElementById("categoryEditRows");
+  // containerId defaults to the 설정 tab's own list — schedule.js's in-tab
+  // category manager modal (a second place to reach this exact same
+  // CategoryStore, so users don't have to leave 일정 · 할 일 to manage
+  // categories) calls this with its own modal's container id instead of
+  // duplicating this whole render/add flow a third time (ledger.js's
+  // category editor is a separate near-copy of this one, but that one
+  // targets a differently-shaped store — budget/type fields this one has
+  // none of — so reuse wasn't free there the way it is here).
+  function renderCategoryEditor(containerId) {
+    const container = document.getElementById(containerId || "categoryEditRows");
     if (!container) return;
     container.innerHTML = "";
     window.CategoryStore.getAll().forEach((cat) => {
@@ -200,14 +208,14 @@
       removeBtn.setAttribute("aria-label", `${cat.label} 카테고리 삭제`);
       removeBtn.addEventListener("click", () => {
         const removed = window.CategoryStore.remove(cat.key);
-        renderCategoryEditor();
+        renderCategoryEditor(containerId);
         if (window.ScheduleView) window.ScheduleView.refreshAll();
         if (removed && window.Toast) {
           window.Toast.show(`"${cat.label}" 카테고리를 삭제했어요`, {
             actionLabel: "실행취소",
             onAction: () => {
               window.CategoryStore.restore(removed.item, removed.index);
-              renderCategoryEditor();
+              renderCategoryEditor(containerId);
               if (window.ScheduleView) window.ScheduleView.refreshAll();
             },
           });
@@ -230,15 +238,16 @@
     return `${base} ${n}`;
   }
 
-  function addScheduleCategory() {
+  function addScheduleCategory(containerId) {
+    const id = containerId || "categoryEditRows";
     const existing = window.CategoryStore.getAll();
     const color = CATEGORY_COLOR_PRESETS[existing.length % CATEGORY_COLOR_PRESETS.length];
     const label = uniqueCategoryLabel("새 카테고리", existing.map((c) => c.label));
     const created = window.CategoryStore.add(label, color);
-    renderCategoryEditor();
+    renderCategoryEditor(id);
     if (window.ScheduleView) window.ScheduleView.refreshAll();
     requestAnimationFrame(() => {
-      const row = document.querySelector(`#categoryEditRows .category-edit-row[data-key="${created.key}"]`);
+      const row = document.querySelector(`#${id} .category-edit-row[data-key="${created.key}"]`);
       const input = row?.querySelector('[data-field="label"]');
       if (input) {
         input.focus();
@@ -660,7 +669,7 @@
 
     document.getElementById("settingsForm").addEventListener("submit", handleSettingsSubmit);
     document.getElementById("profileForm").addEventListener("submit", handleProfileSubmit);
-    document.getElementById("addScheduleCategoryBtn")?.addEventListener("click", addScheduleCategory);
+    document.getElementById("addScheduleCategoryBtn")?.addEventListener("click", () => addScheduleCategory());
     document.getElementById("customShortcutForm").addEventListener("submit", handleAddCustomShortcut);
 
     document.getElementById("shortcutBlog").addEventListener("click", () => openShortcut("naverBlogUrl", "네이버 블로그"));
@@ -693,6 +702,11 @@
     init,
     refreshStorage: renderStorageUsage,
     refreshCategories: renderCategoryEditor,
+    // Lets schedule.js's own category manager modal reuse this exact
+    // render/add logic against its own container id, instead of a second
+    // copy of it — see renderCategoryEditor's own comment.
+    renderCategoryEditorInto: renderCategoryEditor,
+    addScheduleCategoryInto: addScheduleCategory,
     // Same reasoning as refreshCategories above — profile name/avatar and
     // custom shortcuts can also change from outside this tab (cloud sync
     // pulling in another device's edit), but only refreshCategories was

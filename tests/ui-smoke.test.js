@@ -588,6 +588,61 @@ test("exercise: an invalid running-pace format is rejected without blocking the 
   }
 });
 
+test("schedule: categories can be added/renamed/deleted from an in-tab manager, staying in sync with 설정's own category list — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(150);
+
+    await page.click("#scheduleCategoryManageBtn");
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(() => document.getElementById("scheduleCategoryModalOverlay").hidden), false);
+
+    await page.click("#addScheduleCategoryModalBtn");
+    await page.waitForTimeout(150);
+    const newRow = page.locator("#scheduleCategoryEditRows .category-edit-row").last();
+    await newRow.locator('input[type="text"]').fill("테스트카테고리");
+    await newRow.locator('input[type="text"]').dispatchEvent("change");
+    await page.waitForTimeout(150);
+
+    assert.ok(
+      await page.evaluate(() => window.CategoryStore.getAll().some((c) => c.label === "테스트카테고리")),
+      "adding from the schedule-tab modal should persist to the same CategoryStore settings.js manages"
+    );
+
+    await page.click("#closeScheduleCategoryModalBtn");
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(() => document.getElementById("scheduleCategoryModalOverlay").hidden), true);
+
+    const filterChips = await page.evaluate(() => [...document.querySelectorAll("#scheduleFilterBar .schedule-filter-chip")].map((c) => c.textContent));
+    assert.ok(filterChips.some((t) => t.includes("테스트카테고리")), "the day-panel filter bar should pick up the new category immediately");
+
+    // The 설정 tab's own editor should show the exact same category — same
+    // store, just a second place to reach it.
+    await page.evaluate(() => document.querySelector('[data-view="settings"]')?.click());
+    await page.waitForTimeout(150);
+    const settingsLabels = await page.evaluate(() => [...document.querySelectorAll("#categoryEditRows .category-edit-row input[type=text]")].map((i) => i.value));
+    assert.ok(settingsLabels.includes("테스트카테고리"));
+
+    // Delete it via the settings tab, then confirm it's gone from the
+    // schedule-tab modal too (re-opening re-renders, not a stale snapshot).
+    // Scoped by data-key, not hasText — the label lives inside an <input
+    // value>, which isn't part of an element's matchable text content.
+    const key = await page.evaluate(() => window.CategoryStore.getAll().find((c) => c.label === "테스트카테고리").key);
+    await page.locator(`#categoryEditRows .category-edit-row[data-key="${key}"] .checklist-item-remove`).click();
+    await page.waitForTimeout(150);
+
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(150);
+    await page.click("#scheduleCategoryManageBtn");
+    await page.waitForTimeout(150);
+    const rowsAfterDelete = await page.evaluate(() => [...document.querySelectorAll("#scheduleCategoryEditRows .category-edit-row input[type=text]")].map((i) => i.value));
+    assert.ok(!rowsAfterDelete.includes("테스트카테고리"));
+  } finally {
+    await close();
+  }
+});
+
 test("ledger/schedule: repeated '+' clicks on new-category number the placeholder instead of duplicating it — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {

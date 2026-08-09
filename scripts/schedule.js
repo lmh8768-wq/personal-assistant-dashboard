@@ -757,6 +757,22 @@
     });
   }
 
+  // ---------- Category manager (a second, in-tab place to reach the same
+  // CategoryStore settings.js's 설정 tab already manages — see
+  // renderCategoryEditor's own comment in settings.js for why this reuses
+  // that render/add logic instead of a third copy of it) ----------
+  function openScheduleCategoryManager() {
+    const overlay = document.getElementById("scheduleCategoryModalOverlay");
+    if (!overlay || !window.SettingsView) return;
+    window.SettingsView.renderCategoryEditorInto("scheduleCategoryEditRows");
+    overlay.hidden = false;
+  }
+
+  function closeScheduleCategoryManager() {
+    const overlay = document.getElementById("scheduleCategoryModalOverlay");
+    if (overlay) overlay.hidden = true;
+  }
+
   // ---------- Day panel ----------
   function updateScheduleSelectToolbar() {
     const toolbar = document.getElementById("scheduleSelectToolbar");
@@ -1640,10 +1656,21 @@
       if (e.target.id === "editScopeModalOverlay") closeEditScopeModal();
     });
 
+    document.getElementById("scheduleCategoryManageBtn")?.addEventListener("click", openScheduleCategoryManager);
+    document.getElementById("closeScheduleCategoryModalBtn")?.addEventListener("click", closeScheduleCategoryManager);
+    document.getElementById("closeScheduleCategoryModalTopBtn")?.addEventListener("click", closeScheduleCategoryManager);
+    document.getElementById("addScheduleCategoryModalBtn")?.addEventListener("click", () => {
+      window.SettingsView?.addScheduleCategoryInto("scheduleCategoryEditRows");
+    });
+    document.getElementById("scheduleCategoryModalOverlay")?.addEventListener("click", (e) => {
+      if (e.target.id === "scheduleCategoryModalOverlay") closeScheduleCategoryManager();
+    });
+
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !document.getElementById("scheduleModalOverlay").hidden) closeModal();
       if (e.key === "Escape" && !document.getElementById("deleteScopeModalOverlay").hidden) closeDeleteScopeModal();
       if (e.key === "Escape" && !document.getElementById("editScopeModalOverlay").hidden) closeEditScopeModal();
+      if (e.key === "Escape" && !document.getElementById("scheduleCategoryModalOverlay").hidden) closeScheduleCategoryManager();
     });
 
     refreshAll();
