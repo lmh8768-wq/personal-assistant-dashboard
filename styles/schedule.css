@@ -538,6 +538,41 @@
   color: var(--text-faint);
 }
 
+/* Same drag-over indicator as .schedule-item/.goal-item-row — used by the
+   루틴·생활 tab's checklists (routine.js), which reuses this shared
+   .checklist-item row instead of its own. */
+.checklist-item.drag-over-before,
+.checklist-item.drag-over-after {
+  position: relative;
+}
+
+.checklist-item.drag-over-before {
+  box-shadow: 0 -3px 0 0 var(--accent);
+}
+
+.checklist-item.drag-over-after {
+  box-shadow: 0 3px 0 0 var(--accent);
+}
+
+.checklist-item.drag-over-before::before,
+.checklist-item.drag-over-after::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.checklist-item.drag-over-before::before {
+  top: -4.5px;
+}
+
+.checklist-item.drag-over-after::before {
+  bottom: -4.5px;
+}
+
 .checklist-item-bpm-input {
   width: 64px;
   font-family: inherit;

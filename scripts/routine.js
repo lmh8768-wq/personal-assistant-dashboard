@@ -284,6 +284,24 @@
       saveAll(data);
       window.DeletionTombstones.forget([item.id]);
     },
+    // Reorders within a single type's flat item list only — draggedId and
+    // targetId are always looked up in the SAME type's array, so a drag
+    // that somehow lands on the other checklist (루틴 vs 생활 are rendered
+    // side by side) is naturally a no-op rather than moving an item across
+    // lists it was never in.
+    reorderItem(type, draggedId, targetId, insertBefore) {
+      if (draggedId === targetId) return;
+      const data = loadAll();
+      const items = data[type].items;
+      const fromIdx = items.findIndex((i) => i.id === draggedId);
+      if (fromIdx === -1) return;
+      const [dragged] = items.splice(fromIdx, 1);
+      let toIdx = items.findIndex((i) => i.id === targetId);
+      if (toIdx === -1) toIdx = items.length;
+      else if (!insertBefore) toIdx += 1;
+      items.splice(toIdx, 0, dragged);
+      saveAll(data);
+    },
     isDone(type, id) {
       const routine = loadAll()[type];
       return (routine.history[todayStr()] || []).includes(id);
@@ -322,6 +340,16 @@
   };
   window.RoutineStore = RoutineStore;
 
+  // ---------- Row reordering (drag-and-drop within one checklist) ----------
+  // Tracked here rather than read from dataTransfer during dragover (only
+  // reliably readable at drop time in most browsers) — same pattern as
+  // study.js/practice.js's goal trees and schedule.js's day list.
+  // draggedRoutineType guards against a drag started in 루틴 landing on a
+  // 생활 row (the two lists render side by side): dragover bails out with no
+  // indicator unless the row being hovered belongs to the same type.
+  let draggedRoutineItemId = null;
+  let draggedRoutineType = null;
+
   function renderList(type) {
     const config = TYPES.find((t) => t.key === type);
     const list = document.getElementById(config.listId);
@@ -335,6 +363,64 @@
       const done = doneToday.has(item.id);
       const li = document.createElement("li");
       li.className = "checklist-item" + (done ? " done" : "");
+      li.dataset.routineItemId = item.id;
+
+      li.draggable = true;
+      li.addEventListener("dragstart", (e) => {
+        draggedRoutineItemId = item.id;
+        draggedRoutineType = type;
+        e.dataTransfer.setData("text/plain", item.id);
+        e.dataTransfer.effectAllowed = "move";
+      });
+      li.addEventListener("dragend", () => {
+        draggedRoutineItemId = null;
+        draggedRoutineType = null;
+      });
+      li.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        if (draggedRoutineItemId === null || draggedRoutineItemId === item.id || draggedRoutineType !== type) {
+          li.classList.remove("drag-over-before", "drag-over-after");
+          return;
+        }
+        const rect = li.getBoundingClientRect();
+        const before = e.clientY - rect.top < rect.height / 2;
+        li.classList.toggle("drag-over-before", before);
+        li.classList.toggle("drag-over-after", !before);
+      });
+      li.addEventListener("dragleave", () => {
+        li.classList.remove("drag-over-before", "drag-over-after");
+      });
+      li.addEventListener("drop", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        li.classList.remove("drag-over-before", "drag-over-after");
+        const draggedId = e.dataTransfer.getData("text/plain");
+        if (!draggedId) return;
+        const rect = li.getBoundingClientRect();
+        const before = e.clientY - rect.top < rect.height / 2;
+        RoutineStore.reorderItem(type, draggedId, item.id, before);
+        renderAll();
+      });
+
+      // Drag-and-drop had no keyboard equivalent — same Alt+↑/↓ pattern
+      // already used by the goal trees (practice.js/study.js) and
+      // schedule.js's day list.
+      li.tabIndex = 0;
+      li.title = "Alt+↑/↓ 키로 순서를 바꿀 수 있어요";
+      li.addEventListener("keydown", (e) => {
+        if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+        if (e.target !== li) return;
+        e.preventDefault();
+        const items = RoutineStore.getItems(type);
+        const idx = items.findIndex((i) => i.id === item.id);
+        const targetIdx = e.key === "ArrowUp" ? idx - 1 : idx + 1;
+        if (idx === -1 || targetIdx < 0 || targetIdx >= items.length) return;
+        RoutineStore.reorderItem(type, item.id, items[targetIdx].id, e.key === "ArrowUp");
+        renderAll();
+        requestAnimationFrame(() => {
+          document.querySelector(`.checklist-item[data-routine-item-id="${item.id}"]`)?.focus();
+        });
+      });
 
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";

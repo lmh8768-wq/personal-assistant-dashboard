@@ -500,7 +500,6 @@
   function toggleStudySelectMode() {
     studySelectMode = !studySelectMode;
     selectedGoals.clear();
-    document.getElementById("studySelectModeBtn").textContent = studySelectMode ? "선택 취소" : "선택";
     updateStudySelectToolbar();
     renderAll();
   }
@@ -508,7 +507,6 @@
   function exitStudySelectMode() {
     studySelectMode = false;
     selectedGoals.clear();
-    document.getElementById("studySelectModeBtn").textContent = "선택";
     updateStudySelectToolbar();
   }
 
@@ -1195,6 +1193,18 @@
     );
     const periodsRegion = wrapCollapseRegion(periodsWrap, collapsed);
 
+    // studySelectMode is global (one selection spans every year/period), so
+    // this button is intentionally rendered once per year section — all of
+    // them stay in sync since toggling it re-renders the whole tree. Sits
+    // to the left of this year's own fold toggle, not off in the page's top
+    // header where it used to be far from the goals it actually acts on.
+    const selectModeBtn = document.createElement("button");
+    selectModeBtn.type = "button";
+    selectModeBtn.className = "ghost-btn study-select-mode-btn";
+    selectModeBtn.textContent = studySelectMode ? "선택 취소" : "선택";
+    selectModeBtn.addEventListener("click", toggleStudySelectMode);
+    actions.appendChild(selectModeBtn);
+
     actions.appendChild(
       makeToggleBtn(collapsed, (newCollapsed) => {
         toggleYearCollapsed(year.id);
@@ -1327,7 +1337,6 @@
 
   function init() {
     renderAll();
-    document.getElementById("studySelectModeBtn")?.addEventListener("click", toggleStudySelectMode);
     document.getElementById("studySelectAllBtn")?.addEventListener("click", handleStudySelectAll);
     document.getElementById("studyCopyBtn")?.addEventListener("click", handleStudyCopy);
     document.getElementById("studyDeleteBtn")?.addEventListener("click", handleStudyDelete);

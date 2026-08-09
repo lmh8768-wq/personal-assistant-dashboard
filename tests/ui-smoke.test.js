@@ -170,6 +170,46 @@ test("routine: adding a checklist item and toggling it done both persist", { ski
   }
 });
 
+test("routine: checklist items can be reordered by dragging, both by mouse (native DnD) and Alt+↑/↓ — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => {
+      window.RoutineStore.addItem("routine", "A항목");
+      window.RoutineStore.addItem("routine", "B항목");
+      window.RoutineStore.addItem("routine", "C항목");
+    });
+    await page.reload();
+    await bypassAuthGate(page);
+    await page.evaluate(() => document.querySelector('[data-view="routine"]')?.click());
+    await page.waitForTimeout(150);
+
+    const afterDrag = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll("#routineChecklistList .checklist-item")];
+      const a = rows.find((r) => r.textContent.includes("A항목"));
+      const c = rows.find((r) => r.textContent.includes("C항목"));
+      const transfer = new DataTransfer();
+      a.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: transfer }));
+      const rect = c.getBoundingClientRect();
+      c.dispatchEvent(new DragEvent("dragover", { bubbles: true, dataTransfer: transfer, clientY: rect.bottom - 2 }));
+      c.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer: transfer, clientY: rect.bottom - 2 }));
+      a.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer: transfer }));
+      return window.RoutineStore.getItems("routine").map((i) => i.label);
+    });
+    assert.deepEqual(afterDrag, ["B항목", "C항목", "A항목"], "dropping A after C should move it to the end");
+
+    // Alt+↑/↓ keyboard equivalent, on the now-first row ("B항목").
+    const firstRow = page.locator("#routineChecklistList .checklist-item").first();
+    await firstRow.focus();
+    await firstRow.press("Alt+ArrowDown");
+    await page.waitForTimeout(150);
+
+    const afterKeyboard = await page.evaluate(() => window.RoutineStore.getItems("routine").map((i) => i.label));
+    assert.deepEqual(afterKeyboard, ["C항목", "B항목", "A항목"], "Alt+ArrowDown should swap B past C");
+  } finally {
+    await close();
+  }
+});
+
 test("accessibility: toast has aria-live, modal focus returns to its trigger, delete spans are keyboard-activatable", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {
@@ -231,7 +271,7 @@ test("study: select-mode multi-select, copy/paste, and multi-select delete match
     await page.evaluate(() => document.querySelector('[data-view="study"]')?.click());
     await page.waitForTimeout(150);
 
-    await page.click("#studySelectModeBtn");
+    await page.locator(".study-select-mode-btn").first().click();
     await page.waitForTimeout(100);
     const rowA = page.locator(`.goal-item-row[data-goal-id="${ids.goalA}"]`);
     await rowA.locator(".goal-select-checkbox").click();
@@ -250,7 +290,7 @@ test("study: select-mode multi-select, copy/paste, and multi-select delete match
     );
     assert.equal(goalBChildren, 1);
 
-    await page.click("#studySelectModeBtn");
+    await page.locator(".study-select-mode-btn").first().click();
     await page.waitForTimeout(100);
     await rowA.locator(".goal-select-checkbox").click();
     await page.waitForTimeout(100);
@@ -320,6 +360,46 @@ test("study: deleting a year needs two clicks (arm, then confirm) — the actual
       false,
       "second click confirms — the year should now be gone"
     );
+  } finally {
+    await close();
+  }
+});
+
+test("study: 선택 sits to the left of each year's own fold toggle, not in the page header, and toggling one syncs every year's — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => window.AcademicGoalStore.addYear("2029테스트"));
+    await page.reload();
+    await bypassAuthGate(page);
+    await page.evaluate(() => document.querySelector('[data-view="study"]')?.click());
+    await page.waitForTimeout(150);
+
+    assert.equal(
+      await page.locator("#view-study .diary-header #studySelectModeBtn").count(),
+      0,
+      "should no longer be a single global button in the page header"
+    );
+
+    const yearSection = page.locator(".goal-year-section", { hasText: "2029테스트" });
+    const header = yearSection.locator(".goal-year-header").first();
+    const selectBtn = header.locator(".study-select-mode-btn");
+    await selectBtn.waitFor({ state: "visible" });
+
+    const order = await header.evaluate((el) => {
+      const kids = [...el.querySelector(".diary-card-header-actions").children];
+      return kids.map((k) => k.className);
+    });
+    const selectIdx = order.findIndex((c) => c.includes("study-select-mode-btn"));
+    const toggleIdx = order.findIndex((c) => c.includes("goal-toggle-btn"));
+    assert.ok(selectIdx !== -1 && toggleIdx !== -1 && selectIdx < toggleIdx, "선택 should come before the fold toggle in DOM order");
+
+    const beforeLabels = await page.evaluate(() => [...document.querySelectorAll(".study-select-mode-btn")].map((b) => b.textContent));
+    assert.ok(beforeLabels.length >= 2 && beforeLabels.every((t) => t === "선택"));
+
+    await selectBtn.click();
+    await page.waitForTimeout(100);
+    const afterLabels = await page.evaluate(() => [...document.querySelectorAll(".study-select-mode-btn")].map((b) => b.textContent));
+    assert.ok(afterLabels.every((t) => t === "선택 취소"), "every year's button should reflect the same (global) select mode");
   } finally {
     await close();
   }
