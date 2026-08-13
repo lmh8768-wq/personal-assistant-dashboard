@@ -505,3 +505,102 @@ test("snapshot(update): a tombstoned key-identified item (CategoryStore's {key,.
   const merged = JSON.parse(localStorage.getItem("assistant.categories.v1"));
   assert.equal(merged.length, 0, "a tombstoned key-identified item must not be resurrected by a stale remote copy");
 });
+
+test("snapshot(update): a tombstoned item still sitting in THIS device's own local copy is removed, not just a stale remote copy — the actual bug fix", () => {
+  // Every test above covers the remote side still holding a deleted item —
+  // stripTombstoned only ever ran against `incoming`, never `existing`.
+  // That left the opposite (and more common) case completely unprotected:
+  // THIS device hasn't deleted its own local copy yet, but is merging in a
+  // tombstone recorded by a DIFFERENT device. A plain union-by-id merge
+  // keeps anything present only in `existing`, so the item survived every
+  // merge on this device forever, and this device's own next push
+  // re-uploaded it to the server — resurrecting a deletion nobody here ever
+  // undid.
+  const localSchedules = JSON.stringify([{ id: "sc1", title: "다른 기기에서 삭제됨" }]);
+  const localTombstones = JSON.stringify([]); // this device hasn't learned about the deletion yet
+  const { localStorage, triggerRemoteUpdate } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({
+      "assistant.schedules.v1": localSchedules,
+      "assistant.deletionTombstones.v1": localTombstones,
+    }),
+    seedLocalStorage: {
+      "assistant.schedules.v1": localSchedules,
+      "assistant.deletionTombstones.v1": localTombstones,
+    },
+  });
+
+  // A remote update carrying the deletion: schedule already gone remotely,
+  // and a tombstone recorded for it.
+  const remoteTombstones = JSON.stringify([{ id: "sc1", deletedAt: Date.now() }]);
+  triggerRemoteUpdate(
+    JSON.stringify({
+      "assistant.schedules.v1": JSON.stringify([]),
+      "assistant.deletionTombstones.v1": remoteTombstones,
+    })
+  );
+
+  const merged = JSON.parse(localStorage.getItem("assistant.schedules.v1"));
+  assert.equal(merged.length, 0, "a tombstoned item must be removed from this device's OWN existing copy, not just kept out of incoming");
+});
+
+test("snapshot(update): the deletion tombstone list itself survives a merge instead of wiping its own incoming entries — the actual bug fix", () => {
+  // The tombstone list is synced as just another key, through the SAME
+  // stripTombstoned pass as everything else — but every entry's own id IS,
+  // by construction, one of the ids in tombstonedIds (that set is built
+  // FROM this very list). Stripping the tombstone list's incoming value
+  // against tombstonedIds therefore always emptied it back to [], so a
+  // tombstone recorded on another device could never actually be adopted by
+  // this device's own persisted tombstone list — only that OTHER device's
+  // items were protected from resurrection, on that device alone.
+  const localTombstones = JSON.stringify([{ id: "sc9", deletedAt: 1 }]);
+  const { localStorage, triggerRemoteUpdate } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({ "assistant.deletionTombstones.v1": localTombstones }),
+    seedLocalStorage: { "assistant.deletionTombstones.v1": localTombstones },
+  });
+
+  // A different device that has ALSO deleted sc1 (and, since it synced
+  // earlier, already knows about sc9 too).
+  const remoteTombstones = JSON.stringify([
+    { id: "sc9", deletedAt: 1 },
+    { id: "sc1", deletedAt: 2 },
+  ]);
+  triggerRemoteUpdate(JSON.stringify({ "assistant.deletionTombstones.v1": remoteTombstones }));
+
+  const merged = JSON.parse(localStorage.getItem("assistant.deletionTombstones.v1"));
+  assert.ok(merged.some((t) => t.id === "sc1"), "a tombstone recorded on another device must be adopted into this device's own list");
+  assert.ok(merged.some((t) => t.id === "sc9"), "this device's own pre-existing tombstone must survive the merge too");
+});
+
+test("snapshot(update): tombstone stripping survives the mismatched-shape fallback (e.g. a corrupted local copy) — the actual bug fix", () => {
+  // mergeStoredValue falls back to full-replace when the two sides aren't
+  // "both mergeable" the same way — e.g. this device's own local copy of a
+  // key is corrupted/unparseable. That fallback used to return the raw,
+  // un-stripped incomingRaw parameter instead of the already-stripped
+  // `incoming` variable, silently discarding any tombstone stripping that
+  // had just happened for that key.
+  const tombstones = JSON.stringify([{ id: "sc1", deletedAt: Date.now() }]);
+  const { localStorage, triggerRemoteUpdate } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({
+      "assistant.schedules.v1": "not json {{{", // this device's own copy is corrupted
+      "assistant.deletionTombstones.v1": tombstones,
+    }),
+    seedLocalStorage: {
+      "assistant.schedules.v1": "not json {{{",
+      "assistant.deletionTombstones.v1": tombstones,
+    },
+  });
+
+  const staleRemoteSchedules = JSON.stringify([{ id: "sc1", title: "삭제된 일정" }]);
+  triggerRemoteUpdate(
+    JSON.stringify({
+      "assistant.schedules.v1": staleRemoteSchedules,
+      "assistant.deletionTombstones.v1": tombstones,
+    })
+  );
+
+  const merged = JSON.parse(localStorage.getItem("assistant.schedules.v1"));
+  assert.equal(merged.length, 0, "a tombstoned item must stay stripped even through the mismatched-shape fallback path");
+});

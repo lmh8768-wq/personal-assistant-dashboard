@@ -321,8 +321,18 @@
       incoming = undefined;
     }
 
-    if (tombstonedIds && tombstonedIds.size > 0 && incoming !== undefined) {
-      incoming = stripTombstoned(incoming, tombstonedIds);
+    if (tombstonedIds && tombstonedIds.size > 0) {
+      // Both sides need stripping, not just incoming: mergeArrays (deep-
+      // merge.js) is a straight union, so a tombstoned item still sitting in
+      // `existing` (this device's OWN copy, never itself deleted here) was
+      // never removed by a merge — only an item missing from `existing` but
+      // present in `incoming` got filtered. That silently resurrected any
+      // item deleted on ANOTHER device the moment this device's own next
+      // merge/push ran: the deletion never actually reached this device's
+      // stored copy, and its next full-replace push re-uploaded the
+      // "resurrected" item right back to the server for everyone.
+      if (incoming !== undefined) incoming = stripTombstoned(incoming, tombstonedIds);
+      if (existing !== undefined) existing = stripTombstoned(existing, tombstonedIds);
     }
 
     const bothMergeable =
@@ -331,8 +341,13 @@
         incoming && typeof incoming === "object" && !Array.isArray(incoming));
     if (!bothMergeable) {
       // Not both mergeable the same way (or one side missing/unparseable) —
-      // fall back to the old full-replace behavior for just this one key.
-      return incomingRaw;
+      // fall back to the old full-replace behavior for just this one key,
+      // but with whatever stripping just happened above still applied —
+      // returning the raw, un-stripped incomingRaw here would silently
+      // undo that stripping (and any tombstoned item still in it) whenever
+      // this branch is taken, e.g. because this device's own local copy of
+      // the key is corrupted/unparseable.
+      return incoming !== undefined ? JSON.stringify(incoming) : incomingRaw;
     }
     return JSON.stringify(window.DeepMerge.mergeValues(existing, incoming));
   }
@@ -385,7 +400,17 @@
         originalSetItem(key, incomingRaw);
         return;
       }
-      originalSetItem(key, mergeStoredValue(existingRaw, incomingRaw, tombstonedIds));
+      // The tombstone list's own entries can never survive being run
+      // through stripTombstoned against tombstonedIds: every entry's own id
+      // IS one of the ids just harvested into that set (it's the same list
+      // this device just read to build it), so incoming's tombstone entries
+      // always stripped down to [] and this device's own copy of the list
+      // could never actually gain a tombstone recorded on another device.
+      // The tombstone list is just a plain id-keyed array — the ordinary
+      // union-by-id merge (no stripping needed, or wanted, for this one
+      // key) is exactly what keeps it durable across devices.
+      const tombstonesForThisKey = key === window.DeletionTombstones.KEY ? null : tombstonedIds;
+      originalSetItem(key, mergeStoredValue(existingRaw, incomingRaw, tombstonesForThisKey));
     });
     applyingRemote = false;
     lastSnapshotStr = currentSnapshotStr();
