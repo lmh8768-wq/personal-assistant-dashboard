@@ -32,14 +32,25 @@
   // cell's own .calendar-day-events stack visually starts: .calendar-day's
   // padding-top (4) + .calendar-day-top's height (18, pinned by CSS to
   // match the today-circle so it's the same for every cell) + .calendar-
-  // day-events' margin-top (2).
-  const CALENDAR_RANGE_BAR_TOP_OFFSET = 24;
-  // One .calendar-day-event-chip's own height (line-height 1.3 * 10px font
-  // + 1px top/bottom padding, border-box) plus .calendar-day-events' 2px
-  // gap — matches the spacer slots buildCalendarCell reserves per lane, so
-  // a bar in lane N lines up with slot N whether that slot holds a real
-  // chip or a blank spacer.
-  const CALENDAR_RANGE_BAR_LANE_HEIGHT = 15;
+  // day's own 2px flex `gap` between .calendar-day-top and .calendar-day-
+  // events (easy to miss — it's on the PARENT, not either child) +
+  // .calendar-day-events' margin-top (2). Doesn't account for a day that
+  // also renders a .calendar-day-holiday label — that adds its own row
+  // (and another 2px flex gap) ABOVE .calendar-day-events, and since a bar
+  // spans a whole grid row with one shared offset, there's no single value
+  // that's correct for a week mixing holiday and non-holiday day cells; a
+  // per-day offset would need per-day bar placement, not attempted here.
+  const CALENDAR_RANGE_BAR_TOP_OFFSET = 26;
+  // One .calendar-day-event-chip's own rendered height (line-height 1.3 *
+  // 10px font = 13px, + 1px top/bottom padding = 15px; no explicit `height`
+  // is set on it, so box-sizing doesn't change this) plus .calendar-day-
+  // events' 2px `gap` to the next slot — 17px is the actual distance from
+  // one lane's top to the next, matching the spacer slots buildCalendarCell
+  // reserves per lane so a bar in lane N lines up with slot N whether that
+  // slot holds a real chip or a blank spacer. (Previously 15 — the chip's
+  // own height without the gap to the next slot — which understated every
+  // lane after the first, compounding by ~2px per lane.)
+  const CALENDAR_RANGE_BAR_LANE_HEIGHT = 17;
 
   function loadHideCompleted() {
     try {
@@ -970,16 +981,27 @@
     // "완료 항목 숨기기" just because its earliest day happened to already
     // be checked off) and falling back to the earliest occurrence once
     // every day in range is done.
+    //
+    // A REPEATING (non-ranged) item also matches once per day it recurs on
+    // within the window — same id, different occurrenceDate too — but each
+    // of those is a genuinely separate future occurrence, not one span.
+    // Keying purely on item.id collapsed a daily/weekly repeat down to a
+    // single row, silently hiding every occurrence but one. Only dedupe by
+    // id for an actual multi-day range (item.endDate set and different from
+    // item.date); everything else keys on id+occurrenceDate so each day's
+    // occurrence keeps its own row.
     const byId = new Map();
     importantItems.forEach((item) => {
-      const existing = byId.get(item.id);
+      const isRange = item.endDate && item.endDate !== item.date;
+      const key = isRange ? item.id : `${item.id}::${item.occurrenceDate}`;
+      const existing = byId.get(key);
       if (!existing) {
-        byId.set(item.id, item);
+        byId.set(key, item);
         return;
       }
       const existingDone = (existing.completedDates || []).includes(existing.occurrenceDate);
       const itemDone = (item.completedDates || []).includes(item.occurrenceDate);
-      if (existingDone && !itemDone) byId.set(item.id, item);
+      if (existingDone && !itemDone) byId.set(key, item);
     });
     const displayItems = applyHideCompleted([...byId.values()]);
     list.innerHTML = "";
@@ -1039,6 +1061,23 @@
     document.getElementById("repeatNote").hidden = !isRepeating;
     document.getElementById("schedulePinnedRow").hidden = !isRepeating;
     if (!isRepeating) document.getElementById("schedulePinnedInput").checked = false;
+    // A multi-day range and a repeat rule can't both apply to the same item
+    // — readPayloadFromForm only keeps endDate when repeatType === "none" —
+    // but nothing here ever told the user that. Turning repeat on while a
+    // range was already picked used to silently drop the range's end date
+    // on save, with the summary still showing the full range right up until
+    // submit. Collapsing the range back to a single day here, with a toast,
+    // makes the just-completed action (turning repeat on) the one that
+    // visibly sticks instead of one that silently loses to the other.
+    if (isRepeating && rangeEnd && rangeEnd !== rangeStart) {
+      rangeEnd = rangeStart;
+      updateDateRangeSummary();
+      renderRangePicker();
+      window.Toast?.show("반복 일정은 하루짜리로 저장돼요 — 선택했던 기간이 시작일로 좁혀졌어요", {
+        type: "warning",
+        duration: 6000,
+      });
+    }
     updateRepeatUntilDateVisibility();
   }
 
@@ -1148,6 +1187,23 @@
       if (dateStr < rangeStart) setDateRange(dateStr, rangeStart);
       else setDateRange(rangeStart, dateStr);
       rangeSelectingEnd = false;
+      // Same conflict as updateRepeatFieldsVisibility, the other direction:
+      // picking an actual multi-day range (not just re-clicking the same
+      // day) while repeat is set used to silently drop the range on save
+      // with no indication anything happened. Turning repeat off here
+      // instead makes the just-completed action (picking a range) the one
+      // that sticks.
+      if (rangeEnd !== rangeStart) {
+        const repeatInput = document.getElementById("scheduleRepeatInput");
+        if (repeatInput && repeatInput.value !== "none") {
+          repeatInput.value = "none";
+          updateRepeatFieldsVisibility();
+          window.Toast?.show("여러 날짜를 선택해서 반복 설정이 꺼졌어요 — 반복 일정은 하루짜리로만 저장돼요", {
+            type: "warning",
+            duration: 6000,
+          });
+        }
+      }
     }
     renderRangePicker();
   }
@@ -1602,6 +1658,11 @@
       const now = new Date();
       viewDate = new Date(now.getFullYear(), now.getMonth(), 1);
       selectedDate = now;
+      // Same gap the calendar-cell click handler was fixed for (see
+      // clearSelectionIfActive's own comment) — jumping to today via this
+      // button while a bulk selection is armed on a different day left it
+      // silently armed there too, just via a different path.
+      clearSelectionIfActive();
       renderCalendarArea();
       renderDayList();
     });
@@ -1701,6 +1762,7 @@
       const now = new Date();
       viewDate = new Date(now.getFullYear(), now.getMonth(), 1);
       selectedDate = now;
+      clearSelectionIfActive();
       renderCalendarArea();
       renderDayList();
     },
@@ -1711,6 +1773,7 @@
       const d = parseDateStr(dateStr);
       viewDate = new Date(d.getFullYear(), d.getMonth(), 1);
       selectedDate = d;
+      clearSelectionIfActive();
       renderCalendarArea();
       renderDayList();
     },

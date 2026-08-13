@@ -60,6 +60,27 @@
       });
       addSection(items);
     }
+    // db34f05 retired window.LearnedExerciseStore (free-text 배운 운동) in
+    // favor of BodyPartStore/BodyPartRoutineStore, but this section was
+    // never rebuilt against the replacement stores — 운동 silently dropped
+    // out of global search entirely, with no error, until now.
+    if (window.BodyPartStore) {
+      const items = [];
+      window.BodyPartStore.getAll().forEach((part) => {
+        if ((part.label || "").toLowerCase().includes(q)) {
+          items.push({ type: "운동", label: part.label, view: "exercise" });
+        }
+        const routineText = window.BodyPartRoutineStore?.get(part.key) || "";
+        if (routineText.toLowerCase().includes(q)) {
+          items.push({
+            type: "운동",
+            label: routineText.length > 30 ? routineText.slice(0, 30) + "…" : routineText,
+            view: "exercise",
+          });
+        }
+      });
+      addSection(items);
+    }
     if (window.AcademicGoalStore) {
       const goals = [];
       window.AcademicGoalStore.getYears().forEach((year) => {

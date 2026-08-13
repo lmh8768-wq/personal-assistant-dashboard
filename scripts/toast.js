@@ -14,18 +14,24 @@
   // bubble-phase listener, so recording in the bubble phase would always
   // be reporting last click, one click "behind."
   //
-  // isTrusted filters out synthetic clicks — makeKeyboardActivatable
-  // (a11y.js) activates Enter/Space by calling el.click(), which is NOT a
-  // real cursor position (clientX/clientY both 0) and would otherwise
-  // anchor a keyboard user's toast to the top-left corner of the screen.
-  // Leaving lastClickPosition at whatever the last REAL click was (or null,
-  // for a keyboard-only session) falls back to the shared corner instead,
-  // which is what a mouse-less user actually wants.
+  // isTrusted alone filters out makeKeyboardActivatable's (a11y.js)
+  // synthetic el.click() calls, but NOT a real <button>'s own native
+  // Enter/Space activation — the browser dispatches that as a genuine,
+  // trusted click with clientX/clientY both 0 (no pointer was involved),
+  // which is indistinguishable from isTrusted alone. e.detail (the click
+  // count) is the actual signal: a real mouse click always reports 1+,
+  // while BOTH a synthetic el.click() and a keyboard-activated button's
+  // click report 0 — using it here catches the native-button case isTrusted
+  // missed, which otherwise anchored a keyboard user's next actionable
+  // toast (e.g. the 실행취소 undo prompt right after deleting via Enter/
+  // Space on a focused delete button) to the top-left corner of the screen
+  // instead of falling back to the shared corner like every other keyboard
+  // path already does.
   let lastClickPosition = null;
   document.addEventListener(
     "click",
     (e) => {
-      if (e.isTrusted) lastClickPosition = { x: e.clientX, y: e.clientY };
+      if (e.isTrusted && e.detail !== 0) lastClickPosition = { x: e.clientX, y: e.clientY };
     },
     true
   );

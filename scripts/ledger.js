@@ -216,14 +216,7 @@
       selectedDate = d;
       // Selecting a day outside the shown month brings that month into view.
       if (isOutside) calendarViewDate = new Date(d.getFullYear(), d.getMonth(), 1);
-      // Switching days while a bulk selection is active used to leave it
-      // silently armed on the PREVIOUS day's entries — a later "전체 선택"
-      // then 삭제 could delete entries from two different days at once with
-      // no visual cue the older selection was still armed.
-      if (ledgerSelectMode && ledgerSelectedIds.size > 0) {
-        ledgerSelectedIds.clear();
-        updateLedgerSelectToolbar();
-      }
+      clearSelectionIfActive();
       renderCalendar();
       renderDayPanel();
     });
@@ -440,6 +433,19 @@
     toolbar.hidden = !ledgerSelectMode;
     const countEl = document.getElementById("ledgerSelectCount");
     if (countEl) countEl.textContent = `${ledgerSelectedIds.size}개 선택됨`;
+  }
+
+  // Switching days while a bulk selection is active used to leave it
+  // silently armed on the PREVIOUS day's entries — a later "전체 선택" then
+  // 삭제 could delete entries from two different days at once with no
+  // visual cue the older selection was still armed. Originally only the
+  // calendar-cell click handler called this inline; "오늘" and the
+  // search-driven goToDate() also reassign selectedDate and had the exact
+  // same gap, just via a different path.
+  function clearSelectionIfActive() {
+    if (!ledgerSelectMode || ledgerSelectedIds.size === 0) return;
+    ledgerSelectedIds.clear();
+    updateLedgerSelectToolbar();
   }
 
   function toggleLedgerSelectMode() {
@@ -1346,6 +1352,7 @@
       const now = new Date();
       calendarViewDate = new Date(now.getFullYear(), now.getMonth(), 1);
       selectedDate = now;
+      clearSelectionIfActive();
       renderCalendar();
       renderDayPanel();
     });

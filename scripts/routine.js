@@ -217,19 +217,40 @@
     }
   }
 
+  // Cross-device sync (cloud-sync.js) merges each item by id, field by
+  // field — a same-id item on both sides keeps whichever side is currently
+  // "incoming" per conflicting field, same as any other store — but it has
+  // no notion of ARRAY POSITION at all: deep-merge.js's mergeArrays builds
+  // its result from a Map keyed by identity, and Map.set() on an
+  // already-present key updates its value without moving it, so a merge
+  // always keeps the local device's own item order and only ever appends
+  // brand-new ids at the end. A drag-reorder made on one device was
+  // therefore silently undone by another device's very next sync merge.
+  // Stamping an ordinary `order` field on every item (renumbered on every
+  // reorder) sidesteps that entirely: it flows through the SAME per-item
+  // field merge every other field conflict already relies on, so render
+  // order just needs to sort by it instead of trusting raw array position.
+  function sortByOrder(items) {
+    return [...items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }
+
   const RoutineStore = {
     getItems(type) {
-      return loadAll()[type].items;
+      return sortByOrder(loadAll()[type].items);
     },
     // For a render pass that needs items + done-state for every item (or
     // every day in a month) — one load instead of loadAll() being re-run,
     // re-parsing the whole store from localStorage, once per item/cell.
     getSnapshot() {
-      return loadAll();
+      const data = loadAll();
+      TYPES.forEach((t) => {
+        data[t.key].items = sortByOrder(data[t.key].items);
+      });
+      return data;
     },
     addItem(type, label) {
       const data = loadAll();
-      const item = { id: createId("rt"), label };
+      const item = { id: createId("rt"), label, order: data[type].items.length };
       data[type].items.push(item);
       saveAll(data);
       window.DeletionTombstones.forget([item.id]);
@@ -300,6 +321,12 @@
       if (toIdx === -1) toIdx = items.length;
       else if (!insertBefore) toIdx += 1;
       items.splice(toIdx, 0, dragged);
+      // Stamp every item's `order`, not just the two that moved — see
+      // sortByOrder's comment above for why array position alone can't
+      // survive a cross-device merge.
+      items.forEach((item, i) => {
+        item.order = i;
+      });
       saveAll(data);
     },
     isDone(type, id) {

@@ -770,9 +770,18 @@ test("schedule: a multi-day ★4+ item renders as one continuous bar on the mont
     const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
     await page.evaluate((catKey) => {
       const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const today = new Date();
-      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-      const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3);
+      // Anchored to the next Monday (not "tomorrow") and spanning Mon-Wed —
+      // "tomorrow + 3 days" used to occasionally cross a week-row boundary
+      // depending on which day of the week the test happened to run (e.g.
+      // any Thursday), flaking this test's "exactly one bar" assertion for
+      // a reason that had nothing to do with the code under test. Mon-Wed
+      // of the SAME calendar row is guaranteed to never cross a 일-토 row
+      // boundary, regardless of today's weekday.
+      const d = new Date();
+      while (d.getDay() !== 1) d.setDate(d.getDate() + 1); // advance to the next Monday
+      const start = new Date(d);
+      const end = new Date(d);
+      end.setDate(end.getDate() + 2); // Monday -> Wednesday
       window.ScheduleStore.add({ title: "여행", date: fmt(start), endDate: fmt(end), repeat: { type: "none" }, importance: 5, category: catKey });
       // A same-day single-day item, to confirm it still shows its own chip
       // rather than getting silently swallowed by the bar's reserved space.
@@ -857,6 +866,126 @@ test("dashboard: a multi-day schedule shows as one row in 다가오는 일정, n
   }
 });
 
+test("dashboard: a daily-repeating schedule shows once per upcoming day in 다가오는 일정, not collapsed to one row — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    await page.evaluate((catKey) => {
+      const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      window.ScheduleStore.add({
+        title: "매일 반복 일정",
+        date: fmt(new Date()),
+        repeat: { type: "daily", until: null },
+        importance: 5,
+        category: catKey,
+      });
+    }, catKey);
+
+    await page.evaluate(() => document.querySelector('[data-view="dashboard"]')?.click());
+    await page.waitForTimeout(300);
+
+    const rows = await page.evaluate(() =>
+      [...document.querySelectorAll("#dashboardUpcomingList .schedule-item")].map(
+        (li) => li.querySelector(".schedule-item-title")?.textContent || ""
+      )
+    );
+    // Same id, one row per future occurrence within the default 7-day
+    // window — collapsing on id alone (the multi-day fix's dedup key)
+    // wrongly treated every daily occurrence as the same span and hid all
+    // but one.
+    assert.ok(rows.length > 1, `expected more than one occurrence row, got ${rows.length}`);
+    assert.ok(rows.every((r) => !r.includes("~")), "a repeating (non-ranged) item's rows must show a single day, not a range badge");
+  } finally {
+    await close();
+  }
+});
+
+test("schedule: turning on repeat while a multi-day range is picked collapses the range instead of silently dropping it on save — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(200);
+    await page.click("#addScheduleBtn");
+    await page.waitForTimeout(200);
+
+    // Pick a 3-day range starting today.
+    await page.evaluate(() => {
+      const cells = [...document.querySelectorAll("#scheduleRangePickerGrid .calendar-day")];
+      const todayIdx = cells.findIndex((c) => c.classList.contains("today"));
+      cells[todayIdx].click();
+      cells[todayIdx + 2].click();
+    });
+    await page.waitForTimeout(100);
+
+    const summaryBeforeRepeat = await page.textContent("#scheduleDateRangeSummary");
+    assert.ok(summaryBeforeRepeat.includes("~"), "sanity: a real range should be selected before turning repeat on");
+
+    await page.selectOption("#scheduleRepeatInput", "daily");
+    await page.waitForTimeout(200);
+
+    const summaryAfterRepeat = await page.textContent("#scheduleDateRangeSummary");
+    assert.ok(!summaryAfterRepeat.includes("~"), "the range should collapse to a single day once repeat is turned on");
+
+    const toastShown = await page.evaluate(() =>
+      [...document.querySelectorAll(".toast-text")].some((el) => el.textContent.includes("반복 일정은 하루짜리로"))
+    );
+    assert.equal(toastShown, true, "expected a warning toast explaining the range was collapsed");
+
+    await page.fill("#scheduleTitleInput", "충돌테스트");
+    await page.click('#scheduleForm button[type="submit"]');
+    await page.waitForTimeout(200);
+
+    const saved = await page.evaluate(() => window.ScheduleStore.getAll().find((s) => s.title === "충돌테스트"));
+    assert.ok(saved, "the item should have saved");
+    assert.equal(saved.endDate, null, "endDate should be null (single day), matching what the UI showed before submit");
+    assert.equal(saved.repeat.type, "daily", "the repeat setting the user turned on should be the one that actually saved");
+  } finally {
+    await close();
+  }
+});
+
+test("schedule: picking a multi-day range while repeat is set turns repeat off instead of silently dropping the range on save — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(200);
+    await page.click("#addScheduleBtn");
+    await page.waitForTimeout(200);
+
+    await page.selectOption("#scheduleRepeatInput", "daily");
+    await page.waitForTimeout(100);
+
+    // Pick an actual 3-day range (a re-click of the same day would not
+    // trigger the conflict — only a genuine range does).
+    await page.evaluate(() => {
+      const cells = [...document.querySelectorAll("#scheduleRangePickerGrid .calendar-day")];
+      const todayIdx = cells.findIndex((c) => c.classList.contains("today"));
+      cells[todayIdx].click();
+      cells[todayIdx + 2].click();
+    });
+    await page.waitForTimeout(200);
+
+    const repeatValueAfter = await page.inputValue("#scheduleRepeatInput");
+    assert.equal(repeatValueAfter, "none", "repeat should turn off once a real multi-day range is picked");
+
+    const toastShown = await page.evaluate(() =>
+      [...document.querySelectorAll(".toast-text")].some((el) => el.textContent.includes("반복 설정이 꺼졌어요"))
+    );
+    assert.equal(toastShown, true, "expected a warning toast explaining repeat was turned off");
+
+    await page.fill("#scheduleTitleInput", "충돌테스트2");
+    await page.click('#scheduleForm button[type="submit"]');
+    await page.waitForTimeout(200);
+
+    const saved = await page.evaluate(() => window.ScheduleStore.getAll().find((s) => s.title === "충돌테스트2"));
+    assert.ok(saved, "the item should have saved");
+    assert.ok(saved.endDate, "the multi-day range the user picked last should be the one that actually saved");
+    assert.equal(saved.repeat.type, "none", "repeat should have stayed off");
+  } finally {
+    await close();
+  }
+});
+
 test("ledger: the month calendar shows that day's expense/income totals — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {
@@ -877,6 +1006,51 @@ test("ledger: the month calendar shows that day's expense/income totals — the 
     });
     assert.ok(cellText.includes("1.5만"), `expected the expense total in the cell, got "${cellText}"`);
     assert.ok(cellText.includes("200만"), `expected the income total in the cell, got "${cellText}"`);
+  } finally {
+    await close();
+  }
+});
+
+test("ledger: clicking 오늘 while a bulk selection is armed on a different day clears it, instead of allowing a cross-day bulk-delete — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    // A day guaranteed to be in the same month/view as today but not today
+    // itself — avoids month-boundary edge cases entirely.
+    const otherDay = await page.evaluate(() => {
+      const d = new Date();
+      return d.getDate() === 1 ? 2 : 1;
+    });
+    await page.evaluate((otherDay) => {
+      const d = new Date();
+      const fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+      const otherDate = new Date(d.getFullYear(), d.getMonth(), otherDay);
+      const expCat = window.LedgerCategoryStore.getByType("expense")[0].key;
+      window.LedgerEntryStore.add({ date: fmt(otherDate), amount: 1000, categoryKey: expCat, type: "expense" });
+    }, otherDay);
+
+    await page.evaluate(() => document.querySelector('[data-view="ledger"]')?.click());
+    await page.waitForTimeout(300);
+
+    // Select the OTHER day (not today) in the calendar.
+    await page.evaluate((otherDay) => {
+      const cells = [...document.querySelectorAll("#ledgerCalendarGrid .calendar-day:not(.outside)")];
+      cells.find((c) => c.querySelector(".day-number")?.textContent === String(otherDay))?.click();
+    }, otherDay);
+    await page.waitForTimeout(150);
+
+    await page.click("#ledgerSelectModeBtn");
+    await page.waitForTimeout(150);
+    await page.click("#ledgerDayEntryList .schedule-item-checkbox");
+    await page.waitForTimeout(150);
+
+    const countBeforeToday = await page.textContent("#ledgerSelectCount");
+    assert.equal(countBeforeToday, "1개 선택됨", "sanity: the entry should be selected before clicking 오늘");
+
+    await page.click("#ledgerTodayBtn");
+    await page.waitForTimeout(150);
+
+    const countAfterToday = await page.textContent("#ledgerSelectCount");
+    assert.equal(countAfterToday, "0개 선택됨", "jumping to 오늘 must clear a selection armed on a different day");
   } finally {
     await close();
   }
@@ -1564,6 +1738,61 @@ test("toast: an actionable toast anchors near the click that triggered it (e.g. 
   }
 });
 
+test("toast: a real button's native keyboard (Enter) activation doesn't anchor the next toast to the top-left corner — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    await page.evaluate((catKey) => {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      window.ScheduleStore.add({ title: "키보드삭제테스트", date: today, repeat: { type: "none" }, category: catKey });
+    }, catKey);
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(200);
+
+    // Open the edit modal with a real mouse click (this is what actually
+    // arms lastClickPosition to a legitimate, non-zero spot).
+    const row = page.locator(".schedule-item").filter({ visible: true }).first();
+    const rowBox = await row.boundingBox();
+    await row.click();
+    await page.waitForTimeout(150);
+
+    // #deleteScheduleBtn is a plain, standalone <button> inside the modal
+    // (unlike the row's own "×", it isn't nested inside a
+    // makeKeyboardActivatable ancestor that intercepts Enter first) —
+    // pressing Enter while it's focused fires a genuine, trusted native
+    // click, with clientX/clientY both 0 since no pointer was involved.
+    // isTrusted alone can't tell that apart from a real mouse click at
+    // (0, 0); only e.detail (0 for both a keyboard activation and a11y.js's
+    // synthetic el.click(), 1+ for an actual mouse click) can.
+    const deleteBtn = page.locator("#deleteScheduleBtn");
+    await deleteBtn.focus();
+    await deleteBtn.press("Enter");
+    await page.waitForTimeout(200);
+
+    const toastBox = await page.evaluate(() => {
+      const t = document.querySelector(".toast-floating");
+      return t ? t.getBoundingClientRect() : null;
+    });
+    assert.ok(toastBox, "the undo toast should render as a position-anchored (.toast-floating) toast");
+    // It should stay anchored near the earlier REAL click (opening the
+    // modal), not get reset to the clamped top-left corner (12, 12) by the
+    // keyboard-triggered delete.
+    assert.ok(
+      toastBox.top > 50 || toastBox.left > 50,
+      `toast should not be reset to the top-left corner by the keyboard click, got top=${toastBox.top} left=${toastBox.left}`
+    );
+    const rowCenterY = rowBox.y + rowBox.height / 2;
+    assert.ok(
+      Math.abs(toastBox.top - rowCenterY) < 150,
+      `toast should still be anchored near the row that was clicked to open the modal (y=${rowCenterY}), got top=${toastBox.top}`
+    );
+  } finally {
+    await close();
+  }
+});
+
 test("practice: the progress percentage only counts leaf goals, not derived-done parents — the actual bug fix", { skip: !RUN }, async () => {
   // root has children A (2 leaves, both done -> A itself reads done) and B
   // (2 leaves, 1 done). Real leaf completion is 3/4 = 75%. Counting the
@@ -1932,6 +2161,50 @@ test("schedule: selecting an item in bulk-select mode patches just that row, wit
   }
 });
 
+test("schedule: clicking 오늘 while a bulk selection is armed on a different day clears it, instead of allowing a cross-day bulk action — the actual bug fix", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    const catKey = await page.evaluate(() => window.CategoryStore.getAll()[0].key);
+    // A day guaranteed to be in the same month/view as today but not today
+    // itself — avoids month-boundary edge cases entirely.
+    const otherDay = await page.evaluate(() => (new Date().getDate() === 1 ? 2 : 1));
+    await page.evaluate(
+      ({ catKey, otherDay }) => {
+        const d = new Date();
+        const fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+        const otherDate = new Date(d.getFullYear(), d.getMonth(), otherDay);
+        window.ScheduleStore.add({ title: "테스트일정", date: fmt(otherDate), repeat: { type: "none" }, category: catKey });
+      },
+      { catKey, otherDay }
+    );
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(200);
+
+    // Select the OTHER day (not today) in the calendar.
+    await page.evaluate((otherDay) => {
+      const cells = [...document.querySelectorAll("#calendarGrid .calendar-day:not(.outside)")];
+      cells.find((c) => c.querySelector(".day-number")?.textContent === String(otherDay))?.click();
+    }, otherDay);
+    await page.waitForTimeout(150);
+
+    await page.click("#scheduleSelectModeBtn");
+    await page.waitForTimeout(150);
+    await page.click("#scheduleList .schedule-item");
+    await page.waitForTimeout(150);
+
+    const countBeforeToday = await page.textContent("#scheduleSelectCount");
+    assert.equal(countBeforeToday, "1개 선택됨", "sanity: the item should be selected before clicking 오늘");
+
+    await page.click("#todayBtn");
+    await page.waitForTimeout(150);
+
+    const countAfterToday = await page.textContent("#scheduleSelectCount");
+    assert.equal(countAfterToday, "0개 선택됨", "jumping to 오늘 must clear a selection armed on a different day");
+  } finally {
+    await close();
+  }
+});
+
 test("search: a single early category can't starve out every other category — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {
@@ -1970,6 +2243,42 @@ test("search: a 1-character query doesn't spuriously match the 비서 assistant 
       [...document.querySelectorAll("#searchResults .search-result-badge")].map((el) => el.textContent)
     );
     assert.ok(!types.includes("비서"), `"c" should not match the assistant shortcut, got types: ${types.join(",")}`);
+  } finally {
+    await close();
+  }
+});
+
+test("search: 운동 body parts and their routine notes are searchable again — the actual bug fix", { skip: !RUN }, async () => {
+  // db34f05 replaced window.LearnedExerciseStore (free-text 배운 운동) with
+  // BodyPartStore/BodyPartRoutineStore, but search.js's exercise section
+  // was never rebuilt against the replacement stores — 운동 silently
+  // dropped out of global search entirely.
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="exercise"]')?.click());
+    await page.waitForTimeout(200);
+    await page.evaluate(() => {
+      const part = window.BodyPartStore.add("테스트근육부위");
+      window.BodyPartRoutineStore.update(part.key, "테스트루틴메모");
+    });
+
+    await page.fill("#globalSearchInput", "테스트근육부위");
+    await page.waitForTimeout(250);
+    const labelMatch = await page.evaluate(() =>
+      [...document.querySelectorAll("#searchResults .search-result-item")].some(
+        (el) => el.querySelector(".search-result-badge")?.textContent === "운동" && el.textContent.includes("테스트근육부위")
+      )
+    );
+    assert.equal(labelMatch, true, "a body part's own label should be a searchable 운동 result");
+
+    await page.fill("#globalSearchInput", "테스트루틴메모");
+    await page.waitForTimeout(250);
+    const noteMatch = await page.evaluate(() =>
+      [...document.querySelectorAll("#searchResults .search-result-item")].some(
+        (el) => el.querySelector(".search-result-badge")?.textContent === "운동" && el.textContent.includes("테스트루틴메모")
+      )
+    );
+    assert.equal(noteMatch, true, "a body part's routine note text should be a searchable 운동 result");
   } finally {
     await close();
   }
