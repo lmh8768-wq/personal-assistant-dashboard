@@ -294,6 +294,22 @@
     if (value && typeof value === "object") {
       const out = {};
       Object.keys(value).forEach((key) => {
+        // A handful of stores (exercise.js's BodyPartRoutineStore, keyed as
+        // {bodyPartKey: text}) are a plain id-keyed MAP rather than an array
+        // of {id/key,...} items — the array branch above has nothing to
+        // filter here, since the "item" IS the object's own property name,
+        // not a field inside a value. Deleting a body part already records
+        // a tombstone for its key (createKeyedStore.remove()), but that
+        // tombstone only ever protected the BodyPartStore array entry
+        // itself; the routine-notes map still had the same key sitting in
+        // it, un-filtered, so a stale remote snapshot that hadn't caught up
+        // yet kept merging the orphaned note right back in — which then
+        // got mistaken for still-unmigrated free text and re-spawned a
+        // brand-new "zombie" body part every single reload. Generated ids
+        // are always `${prefix}_${timestamp}_${random}`, so an unrelated
+        // object's real field name (e.g. SettingsStore's "profileName")
+        // colliding with one by chance isn't a realistic risk.
+        if (tombstonedIds.has(key)) return;
         out[key] = stripTombstoned(value[key], tombstonedIds);
       });
       return out;

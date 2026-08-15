@@ -604,3 +604,43 @@ test("snapshot(update): tombstone stripping survives the mismatched-shape fallba
   const merged = JSON.parse(localStorage.getItem("assistant.schedules.v1"));
   assert.equal(merged.length, 0, "a tombstoned item must stay stripped even through the mismatched-shape fallback path");
 });
+
+test("snapshot(update): a tombstoned key is also stripped out of a plain id-keyed MAP, not just arrays — the actual bug fix (exercise.js's BodyPartRoutineStore)", () => {
+  // The real reported bug: deleting a body part (BodyPartStore, an array)
+  // already records a tombstone for its key — but BodyPartRoutineStone's
+  // {bodyPartKey: text} map isn't an array, so stripTombstoned's array-only
+  // filtering never looked at ITS keys. A stale remote snapshot that still
+  // had the orphaned note merged it right back in, which the next load's
+  // migrateBodyPartsToKeys() then mistook for still-unmigrated free text —
+  // silently respawning a brand-new zombie body part on every reload.
+  const tombstones = JSON.stringify([{ id: "bp_deleted", deletedAt: Date.now() }]);
+  const localParts = JSON.stringify([{ key: "chest", label: "가슴" }]);
+  const localRoutines = JSON.stringify({ chest: "벤치프레스" }); // bp_deleted already gone locally
+  const { localStorage, triggerRemoteUpdate } = loadCloudSyncModuleWithFakeFirebase({
+    docExists: true,
+    docPayload: JSON.stringify({
+      "assistant.exerciseBodyParts.v1": localParts,
+      "assistant.bodyPartRoutines.v1": localRoutines,
+      "assistant.deletionTombstones.v1": tombstones,
+    }),
+    seedLocalStorage: {
+      "assistant.exerciseBodyParts.v1": localParts,
+      "assistant.bodyPartRoutines.v1": localRoutines,
+      "assistant.deletionTombstones.v1": tombstones,
+    },
+  });
+
+  // A remote update from a stale device that hasn't caught up to the
+  // deletion yet — its routine-notes map still has the orphaned key.
+  const staleRemoteRoutines = JSON.stringify({ chest: "벤치프레스", bp_deleted: "예전 루틴 메모" });
+  triggerRemoteUpdate(
+    JSON.stringify({
+      "assistant.bodyPartRoutines.v1": staleRemoteRoutines,
+      "assistant.deletionTombstones.v1": tombstones,
+    })
+  );
+
+  const merged = JSON.parse(localStorage.getItem("assistant.bodyPartRoutines.v1"));
+  assert.equal(merged.bp_deleted, undefined, "a tombstoned key must be stripped out of a plain map, not just filtered out of arrays");
+  assert.equal(merged.chest, "벤치프레스", "an unrelated, non-tombstoned key must survive the merge untouched");
+});
