@@ -19,7 +19,14 @@ service cloud.firestore {
     }
 
     // Default deny — nothing outside users/{uid} (and its explicitly-denied
-    // pushSubscriptions) is ever read or written by this app.
+    // pushSubscriptions) is ever read or written by this app. This also
+    // covers the KakaoTalk chatbot link collections (kakaoLinkCodes,
+    // kakaoLinks, kakaoUserLinks — see api/kakao-link-code.js,
+    // api/kakao-link-status.js, api/kakao-unlink.js, api/kakao-webhook.js)
+    // without needing an explicit match block of their own: every one of
+    // them is only ever read/written by those Admin-SDK endpoints, never
+    // by the client SDK, and this wildcard already denies anything not
+    // explicitly allowed above.
     match /{document=**} {
       allow read, write: if false;
     }

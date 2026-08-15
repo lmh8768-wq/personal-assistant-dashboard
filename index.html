@@ -1,1042 +1,1289 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>비서 | 개인 대시보드</title>
-<!-- Sets data-theme before styles/base.css is even requested, so a saved
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>비서 | 개인 대시보드</title>
+    <!-- Sets data-theme before styles/base.css is even requested, so a saved
      "light" preference never flashes dark first — main.js's theme code
      runs at the end of body, long after the first paint would've happened. -->
-<script>
-  (function () {
-    var theme = "dark";
-    try {
-      theme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
-    } catch (e) {
-      theme = "dark";
-    }
-    document.documentElement.setAttribute("data-theme", theme);
-  })();
-</script>
-<!-- The three Firebase compat scripts (loaded at the end of body) all come
+    <script>
+      (function () {
+        var theme = "dark";
+        try {
+          theme =
+            localStorage.getItem("theme") ||
+            (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+        } catch (e) {
+          theme = "dark";
+        }
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
+    <!-- The three Firebase compat scripts (loaded at the end of body) all come
      from this same origin — warming up the connection this early shaves
      the DNS/TLS/TCP handshake off whichever of them is first to actually
      be requested. -->
-<link rel="preconnect" href="https://www.gstatic.com" crossorigin />
-<link rel="dns-prefetch" href="https://www.gstatic.com" />
-<link rel="manifest" href="manifest.json" />
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-<link rel="icon" href="icons/icon-192.png" />
-<meta name="theme-color" content="#0f1115" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="비서" />
-<!-- Split from a single styles/main.css into per-feature partials — order
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://www.gstatic.com" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="icon" href="icons/icon-192.png" />
+    <meta name="theme-color" content="#0f1115" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="비서" />
+    <!-- Split from a single styles/main.css into per-feature partials — order
      matters here (matches the original file's section order) since later
      rules can override earlier ones of equal specificity. -->
-<link rel="stylesheet" href="styles/base.css" />
-<link rel="stylesheet" href="styles/vongole.css" />
-<link rel="stylesheet" href="styles/schedule.css" />
-<link rel="stylesheet" href="styles/practice.css" />
-<link rel="stylesheet" href="styles/study.css" />
-<link rel="stylesheet" href="styles/routine.css" />
-<link rel="stylesheet" href="styles/exercise.css" />
-<link rel="stylesheet" href="styles/ledger.css" />
-<link rel="stylesheet" href="styles/settings.css" />
-<link rel="stylesheet" href="styles/components.css" />
-<link rel="stylesheet" href="styles/responsive.css" />
-</head>
-<body>
-
-  <!-- 로그인 / 동기화 게이트 -->
-  <div class="modal-overlay auth-gate" id="authGate">
-    <div class="modal auth-modal">
-      <div id="authLoading">
-        <p class="auth-loading-text">동기화 중...</p>
-        <button type="button" class="ghost-btn" id="authOfflineBtn" hidden>오프라인으로 계속하기</button>
+    <link rel="stylesheet" href="styles/base.css" />
+    <link rel="stylesheet" href="styles/vongole.css" />
+    <link rel="stylesheet" href="styles/schedule.css" />
+    <link rel="stylesheet" href="styles/practice.css" />
+    <link rel="stylesheet" href="styles/study.css" />
+    <link rel="stylesheet" href="styles/routine.css" />
+    <link rel="stylesheet" href="styles/exercise.css" />
+    <link rel="stylesheet" href="styles/ledger.css" />
+    <link rel="stylesheet" href="styles/settings.css" />
+    <link rel="stylesheet" href="styles/components.css" />
+    <link rel="stylesheet" href="styles/responsive.css" />
+  </head>
+  <body>
+    <!-- 로그인 / 동기화 게이트 -->
+    <div class="modal-overlay auth-gate" id="authGate">
+      <div class="modal auth-modal">
+        <div id="authLoading">
+          <p class="auth-loading-text">동기화 중...</p>
+          <button type="button" class="ghost-btn" id="authOfflineBtn" hidden>오프라인으로 계속하기</button>
+        </div>
+        <form id="authLoginForm" hidden>
+          <h3>로그인</h3>
+          <label>
+            이메일
+            <input type="email" id="authEmailInput" required autocomplete="username" />
+          </label>
+          <label>
+            비밀번호
+            <input type="password" id="authPasswordInput" required autocomplete="current-password" />
+          </label>
+          <p class="auth-error" id="authError" role="alert"></p>
+          <button type="submit" class="primary-btn">로그인</button>
+        </form>
       </div>
-      <form id="authLoginForm" hidden>
-        <h3>로그인</h3>
-        <label>
-          이메일
-          <input type="email" id="authEmailInput" required autocomplete="username" />
-        </label>
-        <label>
-          비밀번호
-          <input type="password" id="authPasswordInput" required autocomplete="current-password" />
-        </label>
-        <p class="auth-error" id="authError" role="alert"></p>
-        <button type="submit" class="primary-btn">로그인</button>
-      </form>
     </div>
-  </div>
 
-  <div class="app" id="appRoot" hidden>
-
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <div class="brand">
-          <span class="brand-mark">●</span>
-          <span class="brand-name">비서</span>
-        </div>
-        <button class="icon-btn sidebar-toggle" id="sidebarToggle" aria-label="사이드바 접기/펼치기">
-          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
-        </button>
-      </div>
-
-      <nav class="nav">
-        <a class="nav-item active" href="#dashboard" data-view="dashboard">
-          <span class="nav-icon">📊</span><span class="nav-label">대시보드</span>
-        </a>
-        <a class="nav-item" href="#routine" data-view="routine">
-          <span class="nav-icon">🌗</span><span class="nav-label">루틴 · 생활</span>
-        </a>
-        <a class="nav-item" href="#schedule" data-view="schedule">
-          <span class="nav-icon">📅</span><span class="nav-label">일정 · 할 일</span>
-        </a>
-        <a class="nav-item" href="#practice" data-view="practice">
-          <span class="nav-icon">🎸</span><span class="nav-label">베이스 연습</span>
-        </a>
-        <a class="nav-item" href="#study" data-view="study">
-          <span class="nav-icon">📚</span><span class="nav-label">학업</span>
-        </a>
-        <a class="nav-item" href="#exercise" data-view="exercise">
-          <span class="nav-icon">💪</span><span class="nav-label">운동</span>
-        </a>
-        <a class="nav-item" href="#ledger" data-view="ledger">
-          <span class="nav-icon">💰</span><span class="nav-label">가계부</span>
-        </a>
-        <a class="nav-item" href="#vongole" data-view="vongole">
-          <span class="nav-icon">🍝</span><span class="nav-label">봉골레 파스타</span>
-        </a>
-        <a class="nav-item" href="#assistant" data-view="assistant">
-          <span class="nav-icon">✦</span><span class="nav-label">비서에게 묻기</span>
-        </a>
-      </nav>
-
-      <div class="shortcut-group">
-        <p class="shortcut-group-label">바로가기</p>
-        <button type="button" class="nav-item" id="shortcutBlog">
-          <span class="nav-icon">📝</span><span class="nav-label">네이버 블로그</span>
-        </button>
-        <button type="button" class="nav-item" id="shortcutCafe">
-          <span class="nav-icon">☕</span><span class="nav-label">네이버 카페</span>
-        </button>
-        <button type="button" class="nav-item" id="shortcutInstagram">
-          <span class="nav-icon">📷</span><span class="nav-label">인스타그램</span>
-        </button>
-        <div id="sidebarCustomShortcuts"></div>
-      </div>
-
-      <div class="sidebar-footer">
-        <div class="sync-status" id="syncStatus" hidden role="status" aria-live="polite">
-          <span class="sync-status-dot"></span>
-          <span class="sync-status-text" id="syncStatusText"></span>
-        </div>
-        <a class="nav-item" href="#settings" data-view="settings">
-          <span class="nav-icon">⚙</span><span class="nav-label">설정</span>
-        </a>
-      </div>
-    </aside>
-    <div class="sidebar-backdrop" aria-hidden="true"></div>
-
-    <!-- Main column -->
-    <div class="main">
-
-      <!-- Top bar -->
-      <header class="topbar">
-        <div class="topbar-left">
-          <button class="icon-btn mobile-menu-btn" id="mobileMenuBtn" aria-label="메뉴 열기">
-            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
-          </button>
-          <div class="page-title">
-            <h1 id="pageTitle" tabindex="-1">대시보드</h1>
-            <p class="page-subtitle" id="pageDate"></p>
+    <div class="app" id="appRoot" hidden>
+      <!-- Sidebar -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <div class="brand">
+            <span class="brand-mark">●</span>
+            <span class="brand-name">비서</span>
           </div>
+          <button class="icon-btn sidebar-toggle" id="sidebarToggle" aria-label="사이드바 접기/펼치기">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path
+                d="M4 6h16M4 12h16M4 18h16"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                fill="none"
+              />
+            </svg>
+          </button>
         </div>
 
-        <div class="topbar-right">
-          <div class="search-box" id="searchBox">
-            <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-            <input
-              type="text"
-              id="globalSearchInput"
-              placeholder="검색..."
-              aria-label="검색"
-              autocomplete="off"
-              role="combobox"
-              aria-expanded="false"
-              aria-controls="searchResults"
-              aria-autocomplete="list"
-            />
-            <div class="search-results" id="searchResults" role="listbox" hidden></div>
+        <nav class="nav">
+          <a class="nav-item active" href="#dashboard" data-view="dashboard">
+            <span class="nav-icon">📊</span><span class="nav-label">대시보드</span>
+          </a>
+          <a class="nav-item" href="#routine" data-view="routine">
+            <span class="nav-icon">🌗</span><span class="nav-label">루틴 · 생활</span>
+          </a>
+          <a class="nav-item" href="#schedule" data-view="schedule">
+            <span class="nav-icon">📅</span><span class="nav-label">일정 · 할 일</span>
+          </a>
+          <a class="nav-item" href="#practice" data-view="practice">
+            <span class="nav-icon">🎸</span><span class="nav-label">베이스 연습</span>
+          </a>
+          <a class="nav-item" href="#study" data-view="study">
+            <span class="nav-icon">📚</span><span class="nav-label">학업</span>
+          </a>
+          <a class="nav-item" href="#exercise" data-view="exercise">
+            <span class="nav-icon">💪</span><span class="nav-label">운동</span>
+          </a>
+          <a class="nav-item" href="#ledger" data-view="ledger">
+            <span class="nav-icon">💰</span><span class="nav-label">가계부</span>
+          </a>
+          <a class="nav-item" href="#vongole" data-view="vongole">
+            <span class="nav-icon">🍝</span><span class="nav-label">봉골레 파스타</span>
+          </a>
+          <a class="nav-item" href="#assistant" data-view="assistant">
+            <span class="nav-icon">✦</span><span class="nav-label">비서에게 묻기</span>
+          </a>
+        </nav>
+
+        <div class="shortcut-group">
+          <p class="shortcut-group-label">바로가기</p>
+          <button type="button" class="nav-item" id="shortcutBlog">
+            <span class="nav-icon">📝</span><span class="nav-label">네이버 블로그</span>
+          </button>
+          <button type="button" class="nav-item" id="shortcutCafe">
+            <span class="nav-icon">☕</span><span class="nav-label">네이버 카페</span>
+          </button>
+          <button type="button" class="nav-item" id="shortcutInstagram">
+            <span class="nav-icon">📷</span><span class="nav-label">인스타그램</span>
+          </button>
+          <div id="sidebarCustomShortcuts"></div>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="sync-status" id="syncStatus" hidden role="status" aria-live="polite">
+            <span class="sync-status-dot"></span>
+            <span class="sync-status-text" id="syncStatusText"></span>
           </div>
-          <button class="icon-btn mobile-search-btn" id="mobileSearchBtn" aria-label="검색 열기">
-            <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          </button>
-          <button class="icon-btn" id="themeToggle" aria-label="테마 전환">
-            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
-          </button>
-          <div class="avatar" id="userAvatar" aria-label="내 프로필">나</div>
+          <a class="nav-item" href="#settings" data-view="settings">
+            <span class="nav-icon">⚙</span><span class="nav-label">설정</span>
+          </a>
         </div>
-      </header>
+      </aside>
+      <div class="sidebar-backdrop" aria-hidden="true"></div>
 
-      <!-- Content -->
-      <main class="content">
-
-        <!-- 대시보드 뷰 -->
-        <div class="view" id="view-dashboard">
-
-          <p class="dashboard-greeting" id="dashboardGreeting" hidden></p>
-
-          <!-- 완료율 -->
-          <section class="completion-rate-section">
-            <div class="completion-rate-header">
-              <span class="completion-rate-title">오늘 일정 완료율</span>
-              <span class="completion-rate-value" id="completionRateValue">—</span>
+      <!-- Main column -->
+      <div class="main">
+        <!-- Top bar -->
+        <header class="topbar">
+          <div class="topbar-left">
+            <button class="icon-btn mobile-menu-btn" id="mobileMenuBtn" aria-label="메뉴 열기">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path
+                  d="M4 6h16M4 12h16M4 18h16"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  fill="none"
+                />
+              </svg>
+            </button>
+            <div class="page-title">
+              <h1 id="pageTitle" tabindex="-1">대시보드</h1>
+              <p class="page-subtitle" id="pageDate"></p>
             </div>
-            <div class="completion-rate-track">
-              <div class="completion-rate-fill" id="completionRateFill"></div>
-            </div>
-          </section>
+          </div>
 
-          <!-- 목표 소비 -->
-          <section class="completion-rate-section">
-            <div class="completion-rate-header">
-              <span class="completion-rate-title" id="budgetRateTitle">이번 달 목표 소비</span>
-              <span class="completion-rate-value" id="budgetRateValue">—</span>
+          <div class="topbar-right">
+            <div class="search-box" id="searchBox">
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8" fill="none" />
+                <path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              </svg>
+              <input
+                type="text"
+                id="globalSearchInput"
+                placeholder="검색..."
+                aria-label="검색"
+                autocomplete="off"
+                role="combobox"
+                aria-expanded="false"
+                aria-controls="searchResults"
+                aria-autocomplete="list"
+              />
+              <div class="search-results" id="searchResults" role="listbox" hidden></div>
             </div>
-            <div class="completion-rate-track">
-              <div class="completion-rate-fill" id="budgetRateFill"></div>
-            </div>
-          </section>
+            <button class="icon-btn mobile-search-btn" id="mobileSearchBtn" aria-label="검색 열기">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8" fill="none" />
+                <path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              </svg>
+            </button>
+            <button class="icon-btn" id="themeToggle" aria-label="테마 전환">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path
+                  d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+                <circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.6" fill="none" />
+              </svg>
+            </button>
+            <div class="avatar" id="userAvatar" aria-label="내 프로필">나</div>
+          </div>
+        </header>
 
-          <!-- 현재 구간 학업 완료율 -->
-          <section class="completion-rate-section">
-            <div class="completion-rate-header">
-              <span class="completion-rate-title" id="academicRateTitle">현재 구간 학업 완료율</span>
-              <span class="completion-rate-value" id="academicRateValue">—</span>
-            </div>
-            <div class="completion-rate-track">
-              <div class="completion-rate-fill" id="academicRateFill"></div>
-            </div>
-          </section>
+        <!-- Content -->
+        <main class="content">
+          <!-- 대시보드 뷰 -->
+          <div class="view" id="view-dashboard">
+            <p class="dashboard-greeting" id="dashboardGreeting" hidden></p>
 
-          <!-- 메인 그리드 -->
-          <section class="grid">
+            <!-- 완료율 -->
+            <section class="completion-rate-section">
+              <div class="completion-rate-header">
+                <span class="completion-rate-title">오늘 일정 완료율</span>
+                <span class="completion-rate-value" id="completionRateValue">—</span>
+              </div>
+              <div class="completion-rate-track">
+                <div class="completion-rate-fill" id="completionRateFill"></div>
+              </div>
+            </section>
 
-            <div class="panel panel-weather" aria-live="polite">
-              <div class="panel-header"><h2>오늘의 날씨</h2></div>
-              <div class="weather-body" id="weatherBody">
-                <span class="weather-icon" id="weatherIcon">—</span>
-                <div class="weather-info">
-                  <span class="weather-temp" id="weatherTemp">—</span>
-                  <span class="weather-desc" id="weatherDesc"></span>
-                  <span class="weather-range" id="weatherRange"></span>
+            <!-- 목표 소비 -->
+            <section class="completion-rate-section">
+              <div class="completion-rate-header">
+                <span class="completion-rate-title" id="budgetRateTitle">이번 달 목표 소비</span>
+                <span class="completion-rate-value" id="budgetRateValue">—</span>
+              </div>
+              <div class="completion-rate-track">
+                <div class="completion-rate-fill" id="budgetRateFill"></div>
+              </div>
+            </section>
+
+            <!-- 현재 구간 학업 완료율 -->
+            <section class="completion-rate-section">
+              <div class="completion-rate-header">
+                <span class="completion-rate-title" id="academicRateTitle">현재 구간 학업 완료율</span>
+                <span class="completion-rate-value" id="academicRateValue">—</span>
+              </div>
+              <div class="completion-rate-track">
+                <div class="completion-rate-fill" id="academicRateFill"></div>
+              </div>
+            </section>
+
+            <!-- 메인 그리드 -->
+            <section class="grid">
+              <div class="panel panel-weather" aria-live="polite">
+                <div class="panel-header"><h2>오늘의 날씨</h2></div>
+                <div class="weather-body" id="weatherBody">
+                  <span class="weather-icon" id="weatherIcon">—</span>
+                  <div class="weather-info">
+                    <span class="weather-temp" id="weatherTemp">—</span>
+                    <span class="weather-desc" id="weatherDesc"></span>
+                    <span class="weather-range" id="weatherRange"></span>
+                  </div>
+                </div>
+                <div class="weather-alerts" id="weatherAlerts"></div>
+                <p class="weather-note" id="weatherNote"></p>
+              </div>
+
+              <div class="panel panel-schedule">
+                <div class="panel-header">
+                  <h2>오늘의 일정</h2>
+                  <div>
+                    <button class="ghost-btn" id="dashboardAddScheduleBtn">+ 추가</button>
+                    <button class="ghost-btn" id="dashboardGoToScheduleBtn">전체보기</button>
+                  </div>
+                </div>
+                <ul class="schedule-list" id="dashboardScheduleList"></ul>
+              </div>
+
+              <div class="panel panel-upcoming">
+                <div class="panel-header">
+                  <h2>다가오는 일정</h2>
+                  <select id="upcomingRangeSelect" aria-label="다가오는 일정 범위">
+                    <option value="3">3일 뒤까지</option>
+                    <option value="7" selected>7일 뒤까지</option>
+                    <option value="30">30일 뒤까지</option>
+                  </select>
+                </div>
+                <ul class="schedule-list" id="dashboardUpcomingList"></ul>
+              </div>
+
+              <div class="panel panel-practice-status">
+                <div class="panel-header"><h2>베이스 연습</h2></div>
+                <div class="practice-streak-display">
+                  <div class="practice-streak-caption-col">
+                    <span class="practice-streak-caption">연속 연습</span>
+                  </div>
+                  <div class="practice-streak-main">
+                    <span class="practice-streak-number" id="dashboardPracticeStreak">0</span>
+                    <span class="practice-streak-unit">일째</span>
+                  </div>
                 </div>
               </div>
-              <div class="weather-alerts" id="weatherAlerts"></div>
-              <p class="weather-note" id="weatherNote"></p>
-            </div>
 
-            <div class="panel panel-schedule">
-              <div class="panel-header">
-                <h2>오늘의 일정</h2>
-                <div>
-                  <button class="ghost-btn" id="dashboardAddScheduleBtn">+ 추가</button>
-                  <button class="ghost-btn" id="dashboardGoToScheduleBtn">전체보기</button>
+              <div class="panel panel-exercise-status">
+                <div class="panel-header"><h2>운동 기록</h2></div>
+                <div id="dashboardExerciseBodyPartStatus"></div>
+              </div>
+
+              <div class="panel panel-vongole-status">
+                <div class="panel-header">
+                  <h2><span class="panel-icon">🍝</span> 봉골레 파스타</h2>
+                </div>
+                <div class="practice-status-row">
+                  <strong>대성공 레시피</strong>
+                  <span id="dashboardVongoleSuccessCount"></span>
+                </div>
+                <div class="practice-status-row">
+                  <strong>수집한 레시피</strong>
+                  <span id="dashboardVongoleCollectedCount"></span>
+                </div>
+                <div class="practice-status-row">
+                  <strong>최근 시도</strong>
+                  <span id="dashboardVongoleLastAttempt"></span>
                 </div>
               </div>
-              <ul class="schedule-list" id="dashboardScheduleList"></ul>
-            </div>
+            </section>
+          </div>
 
-            <div class="panel panel-upcoming">
-              <div class="panel-header">
-                <h2>다가오는 일정</h2>
-                <select id="upcomingRangeSelect" aria-label="다가오는 일정 범위">
-                  <option value="3">3일 뒤까지</option>
-                  <option value="7" selected>7일 뒤까지</option>
-                  <option value="30">30일 뒤까지</option>
-                </select>
-              </div>
-              <ul class="schedule-list" id="dashboardUpcomingList"></ul>
-            </div>
-
-            <div class="panel panel-practice-status">
-              <div class="panel-header"><h2>베이스 연습</h2></div>
-              <div class="practice-streak-display">
-                <div class="practice-streak-caption-col">
-                  <span class="practice-streak-caption">연속 연습</span>
+          <!-- 루틴 뷰 -->
+          <div class="view" id="view-routine" hidden>
+            <div class="routine-layout" id="routineLayout">
+              <div class="panel routine-week-panel" id="routineWeekPanel">
+                <div class="panel-header">
+                  <h2>이번 주 달성률</h2>
+                  <div class="diary-card-header-actions">
+                    <span class="routine-week-average" id="routineWeekAverage"></span>
+                    <button
+                      type="button"
+                      class="icon-btn section-toggle-btn"
+                      id="toggleRoutineCalendarBtn"
+                      aria-expanded="false"
+                      aria-label="달성률 캘린더 펼치기/접기"
+                    >
+                      ▸
+                    </button>
+                  </div>
                 </div>
-                <div class="practice-streak-main">
-                  <span class="practice-streak-number" id="dashboardPracticeStreak">0</span>
-                  <span class="practice-streak-unit">일째</span>
+                <div class="routine-week-rate" id="routineWeekRate"></div>
+
+                <div class="routine-calendar-section" id="routineCalendarSection" hidden>
+                  <div class="routine-calendar-nav">
+                    <button type="button" class="icon-btn" id="routinePrevMonthBtn" aria-label="이전 달">‹</button>
+                    <span id="routineCalendarTitle"></span>
+                    <button type="button" class="icon-btn" id="routineNextMonthBtn" aria-label="다음 달">›</button>
+                  </div>
+                  <div class="calendar-weekdays">
+                    <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span
+                    ><span>토</span>
+                  </div>
+                  <div class="routine-calendar-grid" id="routineCalendarGrid"></div>
+                </div>
+              </div>
+
+              <div class="routine-checklists" id="routineChecklists">
+                <div class="panel routine-panel">
+                  <div class="panel-header"><h2>루틴 체크리스트</h2></div>
+                  <ul class="checklist-items" id="routineChecklistList"></ul>
+                  <div class="checklist-add-row" id="routineChecklistAddRow"></div>
+                </div>
+
+                <div class="panel routine-panel">
+                  <div class="panel-header"><h2>생활 체크리스트</h2></div>
+                  <ul class="checklist-items" id="lifeChecklistList"></ul>
+                  <div class="checklist-add-row" id="lifeChecklistAddRow"></div>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div class="panel panel-exercise-status">
-              <div class="panel-header"><h2>운동 기록</h2></div>
-              <div id="dashboardExerciseBodyPartStatus"></div>
-            </div>
-
-            <div class="panel panel-vongole-status">
-              <div class="panel-header"><h2><span class="panel-icon">🍝</span> 봉골레 파스타</h2></div>
-              <div class="practice-status-row">
-                <strong>대성공 레시피</strong>
-                <span id="dashboardVongoleSuccessCount"></span>
+          <!-- 일정 뷰 -->
+          <div class="view" id="view-schedule" hidden>
+            <div class="schedule-layout" id="scheduleLayout">
+              <div class="calendar-panel" id="calendarPanel">
+                <div class="calendar-header">
+                  <button class="icon-btn" id="prevMonthBtn" aria-label="이전">‹</button>
+                  <h2 id="calendarTitle"></h2>
+                  <button class="icon-btn" id="nextMonthBtn" aria-label="다음">›</button>
+                  <button class="ghost-btn" id="todayBtn">오늘</button>
+                </div>
+                <div class="calendar-weekdays" id="calendarWeekdays">
+                  <span class="weekday-sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span
+                  ><span>금</span><span class="weekday-sat">토</span>
+                </div>
+                <div class="calendar-grid-viewport">
+                  <div class="calendar-grid" id="calendarGrid"></div>
+                  <div class="calendar-range-bars" id="calendarRangeBars" aria-hidden="true"></div>
+                </div>
               </div>
-              <div class="practice-status-row">
-                <strong>수집한 레시피</strong>
-                <span id="dashboardVongoleCollectedCount"></span>
-              </div>
-              <div class="practice-status-row">
-                <strong>최근 시도</strong>
-                <span id="dashboardVongoleLastAttempt"></span>
-              </div>
-            </div>
 
-          </section>
-
-        </div>
-
-        <!-- 루틴 뷰 -->
-        <div class="view" id="view-routine" hidden>
-          <div class="routine-layout" id="routineLayout">
-            <div class="panel routine-week-panel" id="routineWeekPanel">
-              <div class="panel-header">
-                <h2>이번 주 달성률</h2>
-                <div class="diary-card-header-actions">
-                  <span class="routine-week-average" id="routineWeekAverage"></span>
+              <div class="day-panel">
+                <div class="day-panel-header">
+                  <h2 id="selectedDateLabel"></h2>
+                  <div class="day-panel-header-actions">
+                    <button type="button" class="ghost-btn" id="scheduleSelectModeBtn">선택</button>
+                    <button class="primary-btn" id="addScheduleBtn">+ 일정 추가</button>
+                  </div>
+                </div>
+                <div class="schedule-select-toolbar" id="scheduleSelectToolbar" hidden>
+                  <span id="scheduleSelectCount">0개 선택됨</span>
+                  <div>
+                    <button type="button" class="ghost-btn" id="scheduleSelectAllBtn">전체 선택</button>
+                    <button type="button" class="ghost-btn" id="scheduleBulkCompleteBtn">완료 처리</button>
+                    <button type="button" class="ghost-btn danger" id="scheduleBulkDeleteBtn">삭제</button>
+                  </div>
+                </div>
+                <div class="template-chip-row" id="templateChipRow"></div>
+                <div class="schedule-filter-row">
+                  <div class="schedule-filter-bar" id="scheduleFilterBar"></div>
                   <button
                     type="button"
-                    class="icon-btn section-toggle-btn"
-                    id="toggleRoutineCalendarBtn"
-                    aria-expanded="false"
-                    aria-label="달성률 캘린더 펼치기/접기"
-                  >▸</button>
+                    class="schedule-category-manage-btn"
+                    id="scheduleCategoryManageBtn"
+                    aria-label="카테고리 관리"
+                  >
+                    ⚙️
+                  </button>
+                </div>
+                <div class="day-panel-toolbar">
+                  <button type="button" class="ghost-btn" id="toggleHideCompletedBtn">완료 항목 숨기기</button>
+                </div>
+                <ul class="schedule-list" id="scheduleList"></ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="view" id="view-practice" hidden>
+            <div class="practice-columns">
+              <div class="practice-column">
+                <div class="diary-header">
+                  <h2>커리큘럼</h2>
+                  <div class="diary-header-actions">
+                    <button type="button" class="ghost-btn" id="curriculumSelectModeBtn">선택</button>
+                    <button
+                      type="button"
+                      class="icon-btn section-toggle-btn"
+                      id="toggleCurriculumBtn"
+                      aria-expanded="true"
+                      aria-label="커리큘럼 접기/펼치기"
+                    >
+                      ▾
+                    </button>
+                  </div>
+                </div>
+                <div class="schedule-select-toolbar" id="curriculumSelectToolbar" hidden>
+                  <span id="curriculumSelectCount">0개 선택됨</span>
+                  <div>
+                    <button type="button" class="ghost-btn" id="curriculumSelectAllBtn">전체 선택</button>
+                    <button type="button" class="ghost-btn" id="curriculumCopyBtn">복사</button>
+                    <button type="button" class="ghost-btn danger" id="curriculumDeleteBtn">삭제</button>
+                    <button type="button" class="ghost-btn danger" id="curriculumCancelSelectBtn">취소</button>
+                  </div>
+                </div>
+                <div class="curriculum-clipboard-note" id="curriculumClipboardNote" hidden></div>
+                <div class="collapse-region" id="practiceCurriculumRegion">
+                  <div class="collapse-region-inner">
+                    <div id="practiceCurriculum"></div>
+                  </div>
                 </div>
               </div>
-              <div class="routine-week-rate" id="routineWeekRate"></div>
 
-              <div class="routine-calendar-section" id="routineCalendarSection" hidden>
-                <div class="routine-calendar-nav">
-                  <button type="button" class="icon-btn" id="routinePrevMonthBtn" aria-label="이전 달">‹</button>
-                  <span id="routineCalendarTitle"></span>
-                  <button type="button" class="icon-btn" id="routineNextMonthBtn" aria-label="다음 달">›</button>
+              <div class="practice-column">
+                <div class="diary-header">
+                  <h2>연습 기록</h2>
+                  <div class="diary-header-actions">
+                    <span class="diary-streak" id="practiceStreak" hidden></span>
+                    <button class="primary-btn" id="addPracticeBtn">+ 연습 기록 추가</button>
+                    <button
+                      type="button"
+                      class="icon-btn section-toggle-btn"
+                      id="toggleFeedBtn"
+                      aria-expanded="true"
+                      aria-label="연습 기록 접기/펼치기"
+                    >
+                      ▾
+                    </button>
+                  </div>
+                </div>
+                <div class="collapse-region" id="practiceFeedRegion">
+                  <div class="collapse-region-inner">
+                    <div class="diary-feed" id="practiceFeed"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="view" id="view-study" hidden>
+            <div class="diary-header">
+              <h2>학업 목표</h2>
+              <div class="diary-header-actions">
+                <div id="studyAddYearRow"></div>
+              </div>
+            </div>
+            <div class="schedule-select-toolbar" id="studySelectToolbar" hidden>
+              <span id="studySelectCount">0개 선택됨</span>
+              <div>
+                <button type="button" class="ghost-btn" id="studySelectAllBtn">전체 선택</button>
+                <button type="button" class="ghost-btn" id="studyCopyBtn">복사</button>
+                <button type="button" class="ghost-btn danger" id="studyDeleteBtn">삭제</button>
+                <button type="button" class="ghost-btn danger" id="studyCancelSelectBtn">취소</button>
+              </div>
+            </div>
+            <div class="curriculum-clipboard-note" id="studyClipboardNote" hidden></div>
+            <div class="goal-periods" id="goalPeriods"></div>
+          </div>
+
+          <div class="view" id="view-exercise" hidden>
+            <div class="exercise-last-worked-summary" id="exerciseLastWorkedSummary"></div>
+
+            <div class="exercise-records-panel" id="exerciseRecordsPanel">
+              <div class="exercise-record-group">
+                <span class="checklist-label">러닝</span>
+                <div class="exercise-record-row">
+                  <label>
+                    거리 (km)
+                    <input
+                      type="number"
+                      min="0"
+                      max="500"
+                      step="0.01"
+                      id="exerciseRecordRunDistanceInput"
+                      placeholder="예: 10"
+                    />
+                  </label>
+                  <label>
+                    페이스 (분'초"/km)
+                    <input
+                      type="text"
+                      inputmode="numeric"
+                      id="exerciseRecordRunPaceInput"
+                      placeholder="예: 5'30&quot;"
+                      title="분'초&quot; 형식으로 입력해주세요 (예: 5'30&quot;)"
+                    />
+                  </label>
+                </div>
+              </div>
+              <div class="exercise-record-group">
+                <span class="checklist-label">삼대운동 (10개 3세트 기준, 중량 kg)</span>
+                <div class="exercise-record-row">
+                  <label>
+                    스쿼트
+                    <input type="number" min="0" max="500" step="0.5" id="exerciseRecordSquatInput" placeholder="kg" />
+                  </label>
+                  <label>
+                    벤치프레스
+                    <input type="number" min="0" max="500" step="0.5" id="exerciseRecordBenchInput" placeholder="kg" />
+                  </label>
+                  <label>
+                    데드리프트
+                    <input
+                      type="number"
+                      min="0"
+                      max="500"
+                      step="0.5"
+                      id="exerciseRecordDeadliftInput"
+                      placeholder="kg"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="exercise-log-section" id="exerciseLogSection">
+              <div class="diary-header">
+                <h2>
+                  운동 기록
+                  <button type="button" class="icon-btn" id="exerciseLogCalendarBtn" aria-label="운동 기록 캘린더 보기">
+                    📅
+                  </button>
+                </h2>
+                <div class="diary-header-actions">
+                  <button type="button" class="ghost-btn" id="exerciseBodyPartManageBtn" aria-expanded="false">
+                    부위 관리
+                  </button>
+                </div>
+              </div>
+              <div class="exercise-body-part-manager" id="exerciseBodyPartManager" hidden>
+                <ul class="checklist-items" id="exerciseBodyPartManagerList"></ul>
+                <button type="button" class="ghost-btn" id="exerciseBodyPartAddBtn">+ 부위 추가</button>
+              </div>
+              <div class="checklist-add-row">
+                <input type="date" id="exerciseLogDateInput" min="2000-01-01" max="2100-12-31" aria-label="날짜" />
+                <select id="exerciseLogBodyPartInput" aria-label="부위"></select>
+                <button type="button" class="ghost-btn" id="exerciseLogAddBtn">기록</button>
+              </div>
+            </div>
+
+            <div class="diary-header">
+              <h2>
+                부위별 운동 루틴
+                <button
+                  type="button"
+                  class="icon-btn section-toggle-btn"
+                  id="toggleBodyPartRoutinesBtn"
+                  aria-expanded="true"
+                  aria-label="부위별 운동 루틴 접기/펼치기"
+                >
+                  ▾
+                </button>
+              </h2>
+            </div>
+            <div class="collapse-region" id="bodyPartRoutineRegion">
+              <div class="collapse-region-inner">
+                <ul class="body-part-routine-list" id="bodyPartRoutineList"></ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-overlay" id="exerciseLogCalendarModalOverlay" hidden>
+            <div
+              class="modal exercise-log-calendar-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="exerciseLogCalendarModalTitle"
+            >
+              <button type="button" class="modal-close-btn" id="closeExerciseLogCalendarModalBtn" aria-label="닫기">
+                ×
+              </button>
+              <h3 id="exerciseLogCalendarModalTitle">최근 3주 운동 기록</h3>
+              <div class="calendar-weekdays exercise-log-calendar-weekdays">
+                <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span
+                ><span>토</span>
+              </div>
+              <div class="calendar-grid exercise-log-calendar-grid" id="exerciseLogCalendarGrid"></div>
+            </div>
+          </div>
+
+          <div class="view" id="view-ledger" hidden>
+            <section class="ledger-total-budget-section" id="ledgerTotalBudgetSection">
+              <div class="ledger-total-budget-row" id="ledgerTotalBudgetRow"></div>
+              <div class="collapse-region" id="ledgerCategoryRowsRegion">
+                <div class="collapse-region-inner">
+                  <div class="ledger-category-rows" id="ledgerCategoryRows"></div>
+                </div>
+              </div>
+            </section>
+
+            <div class="schedule-layout" id="ledgerLayout">
+              <div class="calendar-panel" id="ledgerCalendarPanel">
+                <div class="calendar-header">
+                  <button class="icon-btn" id="ledgerPrevMonthBtn" aria-label="이전">‹</button>
+                  <h2 id="ledgerCalendarTitle"></h2>
+                  <button class="icon-btn" id="ledgerNextMonthBtn" aria-label="다음">›</button>
+                  <button class="ghost-btn" id="ledgerTodayBtn">오늘</button>
                 </div>
                 <div class="calendar-weekdays">
-                  <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+                  <span class="weekday-sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span
+                  ><span>금</span><span class="weekday-sat">토</span>
                 </div>
-                <div class="routine-calendar-grid" id="routineCalendarGrid"></div>
-              </div>
-            </div>
-
-            <div class="routine-checklists" id="routineChecklists">
-              <div class="panel routine-panel">
-                <div class="panel-header"><h2>루틴 체크리스트</h2></div>
-                <ul class="checklist-items" id="routineChecklistList"></ul>
-                <div class="checklist-add-row" id="routineChecklistAddRow"></div>
-              </div>
-
-              <div class="panel routine-panel">
-                <div class="panel-header"><h2>생활 체크리스트</h2></div>
-                <ul class="checklist-items" id="lifeChecklistList"></ul>
-                <div class="checklist-add-row" id="lifeChecklistAddRow"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 일정 뷰 -->
-        <div class="view" id="view-schedule" hidden>
-          <div class="schedule-layout" id="scheduleLayout">
-
-            <div class="calendar-panel" id="calendarPanel">
-              <div class="calendar-header">
-                <button class="icon-btn" id="prevMonthBtn" aria-label="이전">‹</button>
-                <h2 id="calendarTitle"></h2>
-                <button class="icon-btn" id="nextMonthBtn" aria-label="다음">›</button>
-                <button class="ghost-btn" id="todayBtn">오늘</button>
-              </div>
-              <div class="calendar-weekdays" id="calendarWeekdays">
-                <span class="weekday-sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="weekday-sat">토</span>
-              </div>
-              <div class="calendar-grid-viewport">
-                <div class="calendar-grid" id="calendarGrid"></div>
-                <div class="calendar-range-bars" id="calendarRangeBars" aria-hidden="true"></div>
-              </div>
-            </div>
-
-            <div class="day-panel">
-              <div class="day-panel-header">
-                <h2 id="selectedDateLabel"></h2>
-                <div class="day-panel-header-actions">
-                  <button type="button" class="ghost-btn" id="scheduleSelectModeBtn">선택</button>
-                  <button class="primary-btn" id="addScheduleBtn">+ 일정 추가</button>
+                <div class="calendar-grid-viewport">
+                  <div class="calendar-grid" id="ledgerCalendarGrid"></div>
                 </div>
               </div>
-              <div class="schedule-select-toolbar" id="scheduleSelectToolbar" hidden>
-                <span id="scheduleSelectCount">0개 선택됨</span>
-                <div>
-                  <button type="button" class="ghost-btn" id="scheduleSelectAllBtn">전체 선택</button>
-                  <button type="button" class="ghost-btn" id="scheduleBulkCompleteBtn">완료 처리</button>
-                  <button type="button" class="ghost-btn danger" id="scheduleBulkDeleteBtn">삭제</button>
-                </div>
-              </div>
-              <div class="template-chip-row" id="templateChipRow"></div>
-              <div class="schedule-filter-row">
-                <div class="schedule-filter-bar" id="scheduleFilterBar"></div>
-                <button type="button" class="schedule-category-manage-btn" id="scheduleCategoryManageBtn" aria-label="카테고리 관리">⚙️</button>
-              </div>
-              <div class="day-panel-toolbar">
-                <button type="button" class="ghost-btn" id="toggleHideCompletedBtn">완료 항목 숨기기</button>
-              </div>
-              <ul class="schedule-list" id="scheduleList"></ul>
-            </div>
 
-          </div>
-        </div>
-
-        <div class="view" id="view-practice" hidden>
-          <div class="practice-columns">
-            <div class="practice-column">
-              <div class="diary-header">
-                <h2>커리큘럼</h2>
-                <div class="diary-header-actions">
-                  <button type="button" class="ghost-btn" id="curriculumSelectModeBtn">선택</button>
-                  <button type="button" class="icon-btn section-toggle-btn" id="toggleCurriculumBtn" aria-expanded="true" aria-label="커리큘럼 접기/펼치기">▾</button>
+              <div class="day-panel">
+                <div class="day-panel-header">
+                  <h2 id="ledgerSelectedDateLabel"></h2>
+                  <div class="day-panel-header-actions">
+                    <button type="button" class="ghost-btn" id="ledgerSelectModeBtn">선택</button>
+                    <button class="primary-btn" id="addLedgerEntryBtn">+ 추가</button>
+                  </div>
                 </div>
-              </div>
-              <div class="schedule-select-toolbar" id="curriculumSelectToolbar" hidden>
-                <span id="curriculumSelectCount">0개 선택됨</span>
-                <div>
-                  <button type="button" class="ghost-btn" id="curriculumSelectAllBtn">전체 선택</button>
-                  <button type="button" class="ghost-btn" id="curriculumCopyBtn">복사</button>
-                  <button type="button" class="ghost-btn danger" id="curriculumDeleteBtn">삭제</button>
-                  <button type="button" class="ghost-btn danger" id="curriculumCancelSelectBtn">취소</button>
+                <div class="schedule-select-toolbar" id="ledgerSelectToolbar" hidden>
+                  <span id="ledgerSelectCount">0개 선택됨</span>
+                  <div>
+                    <button type="button" class="ghost-btn" id="ledgerSelectAllBtn">전체 선택</button>
+                    <button type="button" class="ghost-btn danger" id="ledgerBulkDeleteBtn">삭제</button>
+                  </div>
                 </div>
-              </div>
-              <div class="curriculum-clipboard-note" id="curriculumClipboardNote" hidden></div>
-              <div class="collapse-region" id="practiceCurriculumRegion">
-                <div class="collapse-region-inner">
-                  <div id="practiceCurriculum"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="practice-column">
-              <div class="diary-header">
-                <h2>연습 기록</h2>
-                <div class="diary-header-actions">
-                  <span class="diary-streak" id="practiceStreak" hidden></span>
-                  <button class="primary-btn" id="addPracticeBtn">+ 연습 기록 추가</button>
-                  <button type="button" class="icon-btn section-toggle-btn" id="toggleFeedBtn" aria-expanded="true" aria-label="연습 기록 접기/펼치기">▾</button>
-                </div>
-              </div>
-              <div class="collapse-region" id="practiceFeedRegion">
-                <div class="collapse-region-inner">
-                  <div class="diary-feed" id="practiceFeed"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="view" id="view-study" hidden>
-          <div class="diary-header">
-            <h2>학업 목표</h2>
-            <div class="diary-header-actions">
-              <div id="studyAddYearRow"></div>
-            </div>
-          </div>
-          <div class="schedule-select-toolbar" id="studySelectToolbar" hidden>
-            <span id="studySelectCount">0개 선택됨</span>
-            <div>
-              <button type="button" class="ghost-btn" id="studySelectAllBtn">전체 선택</button>
-              <button type="button" class="ghost-btn" id="studyCopyBtn">복사</button>
-              <button type="button" class="ghost-btn danger" id="studyDeleteBtn">삭제</button>
-              <button type="button" class="ghost-btn danger" id="studyCancelSelectBtn">취소</button>
-            </div>
-          </div>
-          <div class="curriculum-clipboard-note" id="studyClipboardNote" hidden></div>
-          <div class="goal-periods" id="goalPeriods"></div>
-        </div>
-
-        <div class="view" id="view-exercise" hidden>
-          <div class="exercise-last-worked-summary" id="exerciseLastWorkedSummary"></div>
-
-          <div class="exercise-records-panel" id="exerciseRecordsPanel">
-            <div class="exercise-record-group">
-              <span class="checklist-label">러닝</span>
-              <div class="exercise-record-row">
-                <label>
-                  거리 (km)
-                  <input type="number" min="0" max="500" step="0.01" id="exerciseRecordRunDistanceInput" placeholder="예: 10" />
-                </label>
-                <label>
-                  페이스 (분'초"/km)
-                  <input type="text" inputmode="numeric" id="exerciseRecordRunPaceInput" placeholder="예: 5'30&quot;" title="분'초&quot; 형식으로 입력해주세요 (예: 5'30&quot;)" />
-                </label>
-              </div>
-            </div>
-            <div class="exercise-record-group">
-              <span class="checklist-label">삼대운동 (10개 3세트 기준, 중량 kg)</span>
-              <div class="exercise-record-row">
-                <label>
-                  스쿼트
-                  <input type="number" min="0" max="500" step="0.5" id="exerciseRecordSquatInput" placeholder="kg" />
-                </label>
-                <label>
-                  벤치프레스
-                  <input type="number" min="0" max="500" step="0.5" id="exerciseRecordBenchInput" placeholder="kg" />
-                </label>
-                <label>
-                  데드리프트
-                  <input type="number" min="0" max="500" step="0.5" id="exerciseRecordDeadliftInput" placeholder="kg" />
-                </label>
+                <div class="ledger-day-summary" id="ledgerDaySummary"></div>
+                <ul class="schedule-list" id="ledgerDayEntryList"></ul>
               </div>
             </div>
           </div>
 
-          <div class="exercise-log-section" id="exerciseLogSection">
+          <div class="view" id="view-vongole" hidden>
+            <div class="vongole-filter-row">
+              <input
+                type="text"
+                id="vongoleFilterInput"
+                placeholder="레시피 · 시도 기록 검색"
+                aria-label="레시피 · 시도 기록 검색"
+              />
+            </div>
+
             <div class="diary-header">
-              <h2>운동 기록 <button type="button" class="icon-btn" id="exerciseLogCalendarBtn" aria-label="운동 기록 캘린더 보기">📅</button></h2>
-              <div class="diary-header-actions">
-                <button type="button" class="ghost-btn" id="exerciseBodyPartManageBtn" aria-expanded="false">부위 관리</button>
+              <h2><span class="panel-icon">🏆</span> 대성공 레시피</h2>
+              <button type="button" class="vongole-add-btn" id="addVongoleRecipeBtn" aria-label="레시피 추가">+</button>
+            </div>
+            <div id="vongoleRecipeList" class="vongole-recipe-list"></div>
+
+            <div class="diary-header vongole-log-header">
+              <h2><span class="panel-icon">📎</span> 수집한 레시피</h2>
+              <button type="button" class="vongole-add-btn" id="addVongoleCollectedRecipeBtn" aria-label="레시피 추가">
+                +
+              </button>
+            </div>
+            <div id="vongoleCollectedRecipeList" class="vongole-recipe-list"></div>
+
+            <div class="diary-header vongole-log-header">
+              <h2><span class="panel-icon">🍝</span> 시도 기록</h2>
+              <button class="primary-btn" id="addVongoleLogBtn">+ 기록 추가</button>
+            </div>
+            <div class="diary-feed" id="vongoleLogFeed"></div>
+          </div>
+
+          <div class="view" id="view-assistant" hidden>
+            <div class="panel assistant-panel-full">
+              <div class="assistant-box">
+                <span class="empty-icon" aria-hidden="true">✦</span>
+                <p class="assistant-placeholder">
+                  건강 상담, 공부 질문, 그 밖에 무엇이든<br />Claude 앱에서 바로 물어보세요
+                </p>
+                <button class="primary-btn open-claude-btn">✦ Claude 앱 열기</button>
               </div>
             </div>
-            <div class="exercise-body-part-manager" id="exerciseBodyPartManager" hidden>
-              <ul class="checklist-items" id="exerciseBodyPartManagerList"></ul>
-              <button type="button" class="ghost-btn" id="exerciseBodyPartAddBtn">+ 부위 추가</button>
-            </div>
-            <div class="checklist-add-row">
-              <input type="date" id="exerciseLogDateInput" min="2000-01-01" max="2100-12-31" aria-label="날짜" />
-              <select id="exerciseLogBodyPartInput" aria-label="부위"></select>
-              <button type="button" class="ghost-btn" id="exerciseLogAddBtn">기록</button>
-            </div>
           </div>
 
-          <div class="diary-header">
-            <h2>부위별 운동 루틴 <button type="button" class="icon-btn section-toggle-btn" id="toggleBodyPartRoutinesBtn" aria-expanded="true" aria-label="부위별 운동 루틴 접기/펼치기">▾</button></h2>
-          </div>
-          <div class="collapse-region" id="bodyPartRoutineRegion">
-            <div class="collapse-region-inner">
-              <ul class="body-part-routine-list" id="bodyPartRoutineList"></ul>
+          <div class="view" id="view-settings" hidden>
+            <div class="panel">
+              <div class="panel-header"><h2>프로필</h2></div>
+              <form id="profileForm" class="settings-form">
+                <label>
+                  이름
+                  <input type="text" id="settingsNameInput" placeholder="이름을 입력하세요" maxlength="20" />
+                </label>
+                <button type="submit" class="primary-btn">저장</button>
+              </form>
             </div>
-          </div>
-        </div>
 
-        <div class="modal-overlay" id="exerciseLogCalendarModalOverlay" hidden>
-          <div class="modal exercise-log-calendar-modal" role="dialog" aria-modal="true" aria-labelledby="exerciseLogCalendarModalTitle">
-            <button type="button" class="modal-close-btn" id="closeExerciseLogCalendarModalBtn" aria-label="닫기">×</button>
-            <h3 id="exerciseLogCalendarModalTitle">최근 3주 운동 기록</h3>
-            <div class="calendar-weekdays exercise-log-calendar-weekdays">
-              <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
-            </div>
-            <div class="calendar-grid exercise-log-calendar-grid" id="exerciseLogCalendarGrid"></div>
-          </div>
-        </div>
-
-        <div class="view" id="view-ledger" hidden>
-          <section class="ledger-total-budget-section" id="ledgerTotalBudgetSection">
-            <div class="ledger-total-budget-row" id="ledgerTotalBudgetRow"></div>
-            <div class="collapse-region" id="ledgerCategoryRowsRegion">
-              <div class="collapse-region-inner">
-                <div class="ledger-category-rows" id="ledgerCategoryRows"></div>
+            <div class="panel">
+              <div class="panel-header"><h2>알림</h2></div>
+              <div class="settings-form">
+                <p class="modal-note">매일 아침 8시에 오늘의 일정을 휴대폰 알림으로 받아볼 수 있어요.</p>
+                <p class="settings-notification-status" id="notificationStatusText"></p>
+                <button type="button" class="primary-btn" id="notificationToggleBtn">알림 켜기</button>
               </div>
             </div>
-          </section>
 
-          <div class="schedule-layout" id="ledgerLayout">
-            <div class="calendar-panel" id="ledgerCalendarPanel">
-              <div class="calendar-header">
-                <button class="icon-btn" id="ledgerPrevMonthBtn" aria-label="이전">‹</button>
-                <h2 id="ledgerCalendarTitle"></h2>
-                <button class="icon-btn" id="ledgerNextMonthBtn" aria-label="다음">›</button>
-                <button class="ghost-btn" id="ledgerTodayBtn">오늘</button>
+            <div class="panel">
+              <div class="panel-header"><h2>카카오톡 연동</h2></div>
+              <div class="settings-form">
+                <p class="modal-note">
+                  카카오톡 채팅으로 "날씨", "오늘 일정"을 물어보거나 "지출 12000 식비", "일정추가 8/20 치과 예약",
+                  "베이스연습 스케일 30분", "운동 가슴"처럼 기록을 남길 수 있어요.
+                </p>
+                <p class="settings-kakao-status" id="kakaoLinkStatusText">연동 상태 확인 중...</p>
+                <div class="settings-kakao-code" id="kakaoLinkCodeBox" hidden>
+                  <p class="settings-kakao-code-desc">
+                    카카오톡 채널 채팅방에 아래 코드를 <strong>"연동 123456"</strong>처럼 보내주세요. (10분간 유효)
+                  </p>
+                  <p class="settings-kakao-code-value" id="kakaoLinkCodeValue"></p>
+                </div>
+                <button type="button" class="primary-btn" id="kakaoLinkBtn">연동 코드 받기</button>
+                <button type="button" class="ghost-btn" id="kakaoUnlinkBtn" hidden>연동 해제</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header"><h2>바로가기 주소</h2></div>
+              <form id="settingsForm" class="settings-form">
+                <label>
+                  네이버 블로그 주소
+                  <input type="url" id="settingsBlogInput" placeholder="https://blog.naver.com/아이디" />
+                </label>
+                <label>
+                  네이버 카페 주소
+                  <input type="url" id="settingsCafeInput" placeholder="https://cafe.naver.com/카페이름" />
+                </label>
+                <label>
+                  인스타그램 주소
+                  <input type="url" id="settingsInstagramInput" placeholder="https://instagram.com/아이디" />
+                </label>
+                <button type="submit" class="primary-btn">저장</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header"><h2>화면</h2></div>
+              <div class="settings-form">
+                <span class="settings-subtitle">강조색</span>
+                <div class="accent-swatch-row" id="accentSwatchRow">
+                  <button
+                    type="button"
+                    class="accent-swatch"
+                    data-accent="#7c9eff"
+                    style="background: #7c9eff"
+                    aria-label="강조색: 파랑"
+                    aria-pressed="false"
+                  ></button>
+                  <button
+                    type="button"
+                    class="accent-swatch"
+                    data-accent="#4ade80"
+                    style="background: #4ade80"
+                    aria-label="강조색: 초록"
+                    aria-pressed="false"
+                  ></button>
+                  <button
+                    type="button"
+                    class="accent-swatch"
+                    data-accent="#f472b6"
+                    style="background: #f472b6"
+                    aria-label="강조색: 분홍"
+                    aria-pressed="false"
+                  ></button>
+                  <button
+                    type="button"
+                    class="accent-swatch"
+                    data-accent="#fb923c"
+                    style="background: #fb923c"
+                    aria-label="강조색: 주황"
+                    aria-pressed="false"
+                  ></button>
+                  <button
+                    type="button"
+                    class="accent-swatch"
+                    data-accent="#a78bfa"
+                    style="background: #a78bfa"
+                    aria-label="강조색: 보라"
+                    aria-pressed="false"
+                  ></button>
+                  <button
+                    type="button"
+                    class="accent-swatch"
+                    data-accent="#f87171"
+                    style="background: #f87171"
+                    aria-label="강조색: 빨강"
+                    aria-pressed="false"
+                  ></button>
+                </div>
+                <label>
+                  글자 크기
+                  <select id="fontSizeSelect">
+                    <option value="small">작게</option>
+                    <option value="medium" selected>보통</option>
+                    <option value="large">크게</option>
+                  </select>
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" id="keyboardShortcutsEnabledInput" checked />
+                  <span>단축키 사용 (/ 검색, n 새 일정)</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header"><h2>일정 카테고리</h2></div>
+              <div class="category-settings-form">
+                <div id="categoryEditRows"></div>
+                <button type="button" class="ghost-btn" id="addScheduleCategoryBtn">+ 카테고리 추가</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header"><h2>나만의 바로가기</h2></div>
+              <ul class="custom-shortcut-list" id="customShortcutList"></ul>
+              <form id="customShortcutForm" class="custom-shortcut-form">
+                <input
+                  type="text"
+                  id="customShortcutNameInput"
+                  placeholder="이름 (예: 유튜브)"
+                  aria-label="바로가기 이름"
+                  maxlength="50"
+                  required
+                />
+                <input
+                  type="url"
+                  id="customShortcutUrlInput"
+                  placeholder="https://..."
+                  aria-label="바로가기 URL"
+                  maxlength="1000"
+                  required
+                />
+                <button type="submit" class="ghost-btn">+ 추가</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header"><h2>데이터 관리</h2></div>
+              <div class="storage-usage" id="storageUsage"></div>
+              <div class="data-actions">
+                <button type="button" class="ghost-btn" id="exportDataBtn">데이터 내보내기</button>
+                <input type="file" id="importDataInput" accept="application/json" hidden />
+                <button type="button" class="ghost-btn" id="importDataBtn">데이터 가져오기</button>
+              </div>
+              <label class="checkbox-row">
+                <input type="checkbox" id="importMergeInput" />
+                <span>가져올 때 기존 데이터와 병합 (해제 시 덮어쓰기)</span>
+              </label>
+              <div class="danger-zone">
+                <button type="button" class="ghost-btn danger" id="resetDataBtn">전체 데이터 초기화</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h2>동기화 디버그</h2>
+                <button type="button" class="ghost-btn" id="copySyncLogBtn">로그 복사</button>
+              </div>
+              <pre class="sync-debug-log" id="cloudSyncLog">(로그 없음)</pre>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- 일정 추가/수정 모달 -->
+    <div class="modal-overlay" id="scheduleModalOverlay" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <button type="button" class="modal-close-btn" id="closeScheduleModalBtn" aria-label="닫기">×</button>
+        <h3 id="modalTitle">일정 추가</h3>
+        <form id="scheduleForm">
+          <label>
+            제목
+            <input type="text" id="scheduleTitleInput" placeholder="일정 제목" maxlength="200" required />
+          </label>
+          <div class="schedule-date-range-field">
+            <div class="schedule-date-range-header">
+              <span class="field-label">날짜</span>
+              <span class="date-range-summary" id="scheduleDateRangeSummary"></span>
+            </div>
+            <div class="schedule-range-picker">
+              <div class="date-range-picker-nav">
+                <button type="button" class="icon-btn" id="scheduleRangePrevMonthBtn" aria-label="이전 달">‹</button>
+                <span id="scheduleRangePickerTitle"></span>
+                <button type="button" class="icon-btn" id="scheduleRangeNextMonthBtn" aria-label="다음 달">›</button>
               </div>
               <div class="calendar-weekdays">
-                <span class="weekday-sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="weekday-sat">토</span>
+                <span class="weekday-sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span
+                ><span>금</span><span class="weekday-sat">토</span>
               </div>
-              <div class="calendar-grid-viewport">
-                <div class="calendar-grid" id="ledgerCalendarGrid"></div>
-              </div>
+              <div class="calendar-grid" id="scheduleRangePickerGrid"></div>
             </div>
-
-            <div class="day-panel">
-              <div class="day-panel-header">
-                <h2 id="ledgerSelectedDateLabel"></h2>
-                <div class="day-panel-header-actions">
-                  <button type="button" class="ghost-btn" id="ledgerSelectModeBtn">선택</button>
-                  <button class="primary-btn" id="addLedgerEntryBtn">+ 추가</button>
-                </div>
-              </div>
-              <div class="schedule-select-toolbar" id="ledgerSelectToolbar" hidden>
-                <span id="ledgerSelectCount">0개 선택됨</span>
-                <div>
-                  <button type="button" class="ghost-btn" id="ledgerSelectAllBtn">전체 선택</button>
-                  <button type="button" class="ghost-btn danger" id="ledgerBulkDeleteBtn">삭제</button>
-                </div>
-              </div>
-              <div class="ledger-day-summary" id="ledgerDaySummary"></div>
-              <ul class="schedule-list" id="ledgerDayEntryList"></ul>
-            </div>
+            <p class="schedule-date-range-hint">
+              시작일을 클릭한 뒤 종료일을 클릭하면 여러 날에 걸친 일정을 만들 수 있어요.
+            </p>
           </div>
-        </div>
-
-        <div class="view" id="view-vongole" hidden>
-          <div class="vongole-filter-row">
-            <input type="text" id="vongoleFilterInput" placeholder="레시피 · 시도 기록 검색" aria-label="레시피 · 시도 기록 검색" />
-          </div>
-
-          <div class="diary-header">
-            <h2><span class="panel-icon">🏆</span> 대성공 레시피</h2>
-            <button type="button" class="vongole-add-btn" id="addVongoleRecipeBtn" aria-label="레시피 추가">+</button>
-          </div>
-          <div id="vongoleRecipeList" class="vongole-recipe-list"></div>
-
-          <div class="diary-header vongole-log-header">
-            <h2><span class="panel-icon">📎</span> 수집한 레시피</h2>
-            <button type="button" class="vongole-add-btn" id="addVongoleCollectedRecipeBtn" aria-label="레시피 추가">+</button>
-          </div>
-          <div id="vongoleCollectedRecipeList" class="vongole-recipe-list"></div>
-
-          <div class="diary-header vongole-log-header">
-            <h2><span class="panel-icon">🍝</span> 시도 기록</h2>
-            <button class="primary-btn" id="addVongoleLogBtn">+ 기록 추가</button>
-          </div>
-          <div class="diary-feed" id="vongoleLogFeed"></div>
-        </div>
-
-        <div class="view" id="view-assistant" hidden>
-          <div class="panel assistant-panel-full">
-            <div class="assistant-box">
-              <span class="empty-icon" aria-hidden="true">✦</span>
-              <p class="assistant-placeholder">건강 상담, 공부 질문, 그 밖에 무엇이든<br />Claude 앱에서 바로 물어보세요</p>
-              <button class="primary-btn open-claude-btn">✦ Claude 앱 열기</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="view" id="view-settings" hidden>
-          <div class="panel">
-            <div class="panel-header"><h2>프로필</h2></div>
-            <form id="profileForm" class="settings-form">
-              <label>
-                이름
-                <input type="text" id="settingsNameInput" placeholder="이름을 입력하세요" maxlength="20" />
-              </label>
-              <button type="submit" class="primary-btn">저장</button>
-            </form>
-          </div>
-
-          <div class="panel">
-            <div class="panel-header"><h2>알림</h2></div>
-            <div class="settings-form">
-              <p class="modal-note">매일 아침 8시에 오늘의 일정을 휴대폰 알림으로 받아볼 수 있어요.</p>
-              <p class="settings-notification-status" id="notificationStatusText"></p>
-              <button type="button" class="primary-btn" id="notificationToggleBtn">알림 켜기</button>
-            </div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-header"><h2>바로가기 주소</h2></div>
-            <form id="settingsForm" class="settings-form">
-              <label>
-                네이버 블로그 주소
-                <input type="url" id="settingsBlogInput" placeholder="https://blog.naver.com/아이디" />
-              </label>
-              <label>
-                네이버 카페 주소
-                <input type="url" id="settingsCafeInput" placeholder="https://cafe.naver.com/카페이름" />
-              </label>
-              <label>
-                인스타그램 주소
-                <input type="url" id="settingsInstagramInput" placeholder="https://instagram.com/아이디" />
-              </label>
-              <button type="submit" class="primary-btn">저장</button>
-            </form>
-          </div>
-
-          <div class="panel">
-            <div class="panel-header"><h2>화면</h2></div>
-            <div class="settings-form">
-              <span class="settings-subtitle">강조색</span>
-              <div class="accent-swatch-row" id="accentSwatchRow">
-                <button type="button" class="accent-swatch" data-accent="#7c9eff" style="background:#7c9eff" aria-label="강조색: 파랑" aria-pressed="false"></button>
-                <button type="button" class="accent-swatch" data-accent="#4ade80" style="background:#4ade80" aria-label="강조색: 초록" aria-pressed="false"></button>
-                <button type="button" class="accent-swatch" data-accent="#f472b6" style="background:#f472b6" aria-label="강조색: 분홍" aria-pressed="false"></button>
-                <button type="button" class="accent-swatch" data-accent="#fb923c" style="background:#fb923c" aria-label="강조색: 주황" aria-pressed="false"></button>
-                <button type="button" class="accent-swatch" data-accent="#a78bfa" style="background:#a78bfa" aria-label="강조색: 보라" aria-pressed="false"></button>
-                <button type="button" class="accent-swatch" data-accent="#f87171" style="background:#f87171" aria-label="강조색: 빨강" aria-pressed="false"></button>
-              </div>
-              <label>
-                글자 크기
-                <select id="fontSizeSelect">
-                  <option value="small">작게</option>
-                  <option value="medium" selected>보통</option>
-                  <option value="large">크게</option>
-                </select>
-              </label>
-              <label class="checkbox-row">
-                <input type="checkbox" id="keyboardShortcutsEnabledInput" checked />
-                <span>단축키 사용 (/ 검색, n 새 일정)</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-header"><h2>일정 카테고리</h2></div>
-            <div class="category-settings-form">
-              <div id="categoryEditRows"></div>
-              <button type="button" class="ghost-btn" id="addScheduleCategoryBtn">+ 카테고리 추가</button>
-            </div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-header"><h2>나만의 바로가기</h2></div>
-            <ul class="custom-shortcut-list" id="customShortcutList"></ul>
-            <form id="customShortcutForm" class="custom-shortcut-form">
-              <input type="text" id="customShortcutNameInput" placeholder="이름 (예: 유튜브)" aria-label="바로가기 이름" maxlength="50" required />
-              <input type="url" id="customShortcutUrlInput" placeholder="https://..." aria-label="바로가기 URL" maxlength="1000" required />
-              <button type="submit" class="ghost-btn">+ 추가</button>
-            </form>
-          </div>
-
-          <div class="panel">
-            <div class="panel-header"><h2>데이터 관리</h2></div>
-            <div class="storage-usage" id="storageUsage"></div>
-            <div class="data-actions">
-              <button type="button" class="ghost-btn" id="exportDataBtn">데이터 내보내기</button>
-              <input type="file" id="importDataInput" accept="application/json" hidden />
-              <button type="button" class="ghost-btn" id="importDataBtn">데이터 가져오기</button>
-            </div>
-            <label class="checkbox-row">
-              <input type="checkbox" id="importMergeInput" />
-              <span>가져올 때 기존 데이터와 병합 (해제 시 덮어쓰기)</span>
-            </label>
-            <div class="danger-zone">
-              <button type="button" class="ghost-btn danger" id="resetDataBtn">전체 데이터 초기화</button>
-            </div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-header">
-              <h2>동기화 디버그</h2>
-              <button type="button" class="ghost-btn" id="copySyncLogBtn">로그 복사</button>
-            </div>
-            <pre class="sync-debug-log" id="cloudSyncLog">(로그 없음)</pre>
-          </div>
-        </div>
-
-      </main>
-    </div>
-  </div>
-
-  <!-- 일정 추가/수정 모달 -->
-  <div class="modal-overlay" id="scheduleModalOverlay" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <button type="button" class="modal-close-btn" id="closeScheduleModalBtn" aria-label="닫기">×</button>
-      <h3 id="modalTitle">일정 추가</h3>
-      <form id="scheduleForm">
-        <label>
-          제목
-          <input type="text" id="scheduleTitleInput" placeholder="일정 제목" maxlength="200" required />
-        </label>
-        <div class="schedule-date-range-field">
-          <div class="schedule-date-range-header">
-            <span class="field-label">날짜</span>
-            <span class="date-range-summary" id="scheduleDateRangeSummary"></span>
-          </div>
-          <div class="schedule-range-picker">
-            <div class="date-range-picker-nav">
-              <button type="button" class="icon-btn" id="scheduleRangePrevMonthBtn" aria-label="이전 달">‹</button>
-              <span id="scheduleRangePickerTitle"></span>
-              <button type="button" class="icon-btn" id="scheduleRangeNextMonthBtn" aria-label="다음 달">›</button>
-            </div>
-            <div class="calendar-weekdays">
-              <span class="weekday-sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="weekday-sat">토</span>
-            </div>
-            <div class="calendar-grid" id="scheduleRangePickerGrid"></div>
-          </div>
-          <p class="schedule-date-range-hint">시작일을 클릭한 뒤 종료일을 클릭하면 여러 날에 걸친 일정을 만들 수 있어요.</p>
-        </div>
-        <label>
-          카테고리
-          <div class="category-select-row">
-            <span class="category-select-dot" id="scheduleCategoryDot" aria-hidden="true"></span>
-            <select id="scheduleCategoryInput"></select>
-          </div>
-        </label>
-        <div class="star-rating" id="scheduleImportanceStars">
-          <span class="star-rating-label">중요도</span>
-          <button type="button" class="star-btn" data-value="1" aria-label="중요도 1점">★</button>
-          <button type="button" class="star-btn" data-value="2" aria-label="중요도 2점">★</button>
-          <button type="button" class="star-btn" data-value="3" aria-label="중요도 3점">★</button>
-          <button type="button" class="star-btn" data-value="4" aria-label="중요도 4점">★</button>
-          <button type="button" class="star-btn" data-value="5" aria-label="중요도 5점">★</button>
-          <input type="hidden" id="scheduleImportanceInput" value="3" />
-        </div>
-        <label>
-          반복
-          <select id="scheduleRepeatInput">
-            <option value="none">반복 안 함</option>
-            <option value="daily">매일</option>
-            <option value="weekdays">매일 (평일만)</option>
-            <option value="every10days">10일마다</option>
-            <option value="weekly">매주</option>
-            <option value="monthly">매월</option>
-            <option value="yearly">매년</option>
-          </select>
-        </label>
-        <div class="time-row" id="repeatUntilRow" hidden>
           <label>
-            반복 종료
-            <select id="scheduleRepeatUntilModeInput">
-              <option value="never" selected>종료 없음</option>
-              <option value="date">날짜 지정</option>
+            카테고리
+            <div class="category-select-row">
+              <span class="category-select-dot" id="scheduleCategoryDot" aria-hidden="true"></span>
+              <select id="scheduleCategoryInput"></select>
+            </div>
+          </label>
+          <div class="star-rating" id="scheduleImportanceStars">
+            <span class="star-rating-label">중요도</span>
+            <button type="button" class="star-btn" data-value="1" aria-label="중요도 1점">★</button>
+            <button type="button" class="star-btn" data-value="2" aria-label="중요도 2점">★</button>
+            <button type="button" class="star-btn" data-value="3" aria-label="중요도 3점">★</button>
+            <button type="button" class="star-btn" data-value="4" aria-label="중요도 4점">★</button>
+            <button type="button" class="star-btn" data-value="5" aria-label="중요도 5점">★</button>
+            <input type="hidden" id="scheduleImportanceInput" value="3" />
+          </div>
+          <label>
+            반복
+            <select id="scheduleRepeatInput">
+              <option value="none">반복 안 함</option>
+              <option value="daily">매일</option>
+              <option value="weekdays">매일 (평일만)</option>
+              <option value="every10days">10일마다</option>
+              <option value="weekly">매주</option>
+              <option value="monthly">매월</option>
+              <option value="yearly">매년</option>
             </select>
           </label>
-          <label id="repeatUntilDateRow" hidden>
-            종료일
-            <input type="date" id="scheduleRepeatUntilInput" min="2000-01-01" max="2100-12-31" />
+          <div class="time-row" id="repeatUntilRow" hidden>
+            <label>
+              반복 종료
+              <select id="scheduleRepeatUntilModeInput">
+                <option value="never" selected>종료 없음</option>
+                <option value="date">날짜 지정</option>
+              </select>
+            </label>
+            <label id="repeatUntilDateRow" hidden>
+              종료일
+              <input type="date" id="scheduleRepeatUntilInput" min="2000-01-01" max="2100-12-31" />
+            </label>
+          </div>
+          <p class="modal-note" id="repeatNote" hidden>반복 일정은 시리즈 전체가 함께 수정·삭제돼요.</p>
+          <label class="checkbox-row" id="schedulePinnedRow" hidden>
+            <input type="checkbox" id="schedulePinnedInput" />
+            <span>목록 맨 위에 고정</span>
           </label>
+          <label>
+            메모
+            <textarea id="scheduleMemoInput" rows="3" placeholder="메모 (선택)" maxlength="1000"></textarea>
+          </label>
+          <div class="modal-actions-secondary">
+            <button type="button" class="ghost-btn" id="saveAsTemplateBtn">📌 템플릿으로 저장</button>
+            <button type="button" class="ghost-btn" id="duplicateScheduleBtn" hidden>⧉ 복제</button>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="ghost-btn danger" id="deleteScheduleBtn" hidden>삭제</button>
+            <div class="modal-actions-right">
+              <button type="button" class="ghost-btn" id="cancelScheduleBtn">취소</button>
+              <button type="submit" class="primary-btn">저장</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 가계부: 지출 추가/수정 모달 -->
+    <div class="modal-overlay" id="ledgerModalOverlay" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ledgerModalTitle">
+        <button type="button" class="modal-close-btn" id="closeLedgerModalBtn" aria-label="닫기">×</button>
+        <h3 id="ledgerModalTitle">지출 추가</h3>
+        <form id="ledgerForm">
+          <div class="ledger-type-tabs" id="ledgerTypeTabs" role="tablist" aria-label="지출/수입">
+            <button type="button" class="ledger-period-tab active" data-type="expense" role="tab" aria-selected="true">
+              지출
+            </button>
+            <button type="button" class="ledger-period-tab" data-type="income" role="tab" aria-selected="false">
+              수입
+            </button>
+          </div>
+          <input type="hidden" id="ledgerDateInput" />
+          <div class="ledger-entry-rows" id="ledgerEntryRows"></div>
+          <button type="button" class="ghost-btn ledger-add-row-btn" id="ledgerAddRowBtn" aria-label="항목 추가">
+            +
+          </button>
+          <div class="modal-actions-secondary">
+            <button type="button" class="ghost-btn" id="duplicateLedgerEntryBtn" hidden>⧉ 복제</button>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="ghost-btn danger" id="deleteLedgerEntryBtn" hidden>삭제</button>
+            <div class="modal-actions-right">
+              <button type="button" class="ghost-btn" id="cancelLedgerBtn">취소</button>
+              <button type="submit" class="primary-btn">저장</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="ledgerCategoryModalOverlay" hidden>
+      <div
+        class="modal ledger-category-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ledgerCategoryModalTitle"
+      >
+        <button type="button" class="modal-close-btn" id="closeLedgerCategoryModalTopBtn" aria-label="닫기">×</button>
+        <h3 id="ledgerCategoryModalTitle">설정</h3>
+
+        <div class="ledger-settings-tabs" id="ledgerSettingsTabs" role="tablist" aria-label="설정 메뉴">
+          <button
+            type="button"
+            class="ledger-period-tab active"
+            data-tab="categories"
+            role="tab"
+            aria-selected="true"
+            aria-controls="ledgerSettingsCategoriesPanel"
+          >
+            카테고리 관리
+          </button>
+          <button
+            type="button"
+            class="ledger-period-tab"
+            data-tab="analysis"
+            role="tab"
+            aria-selected="false"
+            aria-controls="ledgerSettingsAnalysisPanel"
+          >
+            분석
+          </button>
         </div>
-        <p class="modal-note" id="repeatNote" hidden>반복 일정은 시리즈 전체가 함께 수정·삭제돼요.</p>
-        <label class="checkbox-row" id="schedulePinnedRow" hidden>
-          <input type="checkbox" id="schedulePinnedInput" />
-          <span>목록 맨 위에 고정</span>
-        </label>
-        <label>
-          메모
-          <textarea id="scheduleMemoInput" rows="3" placeholder="메모 (선택)" maxlength="1000"></textarea>
-        </label>
-        <div class="modal-actions-secondary">
-          <button type="button" class="ghost-btn" id="saveAsTemplateBtn">📌 템플릿으로 저장</button>
-          <button type="button" class="ghost-btn" id="duplicateScheduleBtn" hidden>⧉ 복제</button>
+
+        <div id="ledgerSettingsCategoriesPanel" role="tabpanel">
+          <p class="ledger-category-manager-subheading">지출 카테고리</p>
+          <div id="ledgerExpenseCategoryEditRows"></div>
+          <button type="button" class="ghost-btn" id="addLedgerExpenseCategoryBtn">+ 지출 카테고리 추가</button>
+
+          <p class="ledger-category-manager-subheading">수입 카테고리</p>
+          <div id="ledgerIncomeCategoryEditRows"></div>
+          <button type="button" class="ghost-btn" id="addLedgerIncomeCategoryBtn">+ 수입 카테고리 추가</button>
         </div>
+
+        <div id="ledgerSettingsAnalysisPanel" role="tabpanel" hidden>
+          <div class="ledger-period-tabs" id="ledgerPeriodTabs" role="tablist" aria-label="월간/연간">
+            <button type="button" class="ledger-period-tab active" data-period="month" role="tab" aria-selected="true">
+              월간
+            </button>
+            <button type="button" class="ledger-period-tab" data-period="year" role="tab" aria-selected="false">
+              연간
+            </button>
+          </div>
+          <div class="ledger-total-row">
+            <span class="ledger-total-label" id="ledgerTotalLabel">이번 달 지출</span>
+            <span class="ledger-total-value" id="ledgerTotalValue">0원</span>
+          </div>
+          <div id="ledgerAnalysisBody"></div>
+        </div>
+
         <div class="modal-actions">
-          <button type="button" class="ghost-btn danger" id="deleteScheduleBtn" hidden>삭제</button>
           <div class="modal-actions-right">
-            <button type="button" class="ghost-btn" id="cancelScheduleBtn">취소</button>
-            <button type="submit" class="primary-btn">저장</button>
+            <button type="button" class="primary-btn" id="closeLedgerCategoryModalBtn">완료</button>
           </div>
         </div>
-      </form>
+      </div>
     </div>
-  </div>
 
-  <!-- 가계부: 지출 추가/수정 모달 -->
-  <div class="modal-overlay" id="ledgerModalOverlay" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ledgerModalTitle">
-      <button type="button" class="modal-close-btn" id="closeLedgerModalBtn" aria-label="닫기">×</button>
-      <h3 id="ledgerModalTitle">지출 추가</h3>
-      <form id="ledgerForm">
-        <div class="ledger-type-tabs" id="ledgerTypeTabs" role="tablist" aria-label="지출/수입">
-          <button type="button" class="ledger-period-tab active" data-type="expense" role="tab" aria-selected="true">지출</button>
-          <button type="button" class="ledger-period-tab" data-type="income" role="tab" aria-selected="false">수입</button>
-        </div>
-        <input type="hidden" id="ledgerDateInput" />
-        <div class="ledger-entry-rows" id="ledgerEntryRows"></div>
-        <button type="button" class="ghost-btn ledger-add-row-btn" id="ledgerAddRowBtn" aria-label="항목 추가">+</button>
-        <div class="modal-actions-secondary">
-          <button type="button" class="ghost-btn" id="duplicateLedgerEntryBtn" hidden>⧉ 복제</button>
-        </div>
+    <!-- 일정 카테고리 관리 모달 -->
+    <div class="modal-overlay" id="scheduleCategoryModalOverlay" hidden>
+      <div
+        class="modal ledger-category-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scheduleCategoryModalTitle"
+      >
+        <button type="button" class="modal-close-btn" id="closeScheduleCategoryModalTopBtn" aria-label="닫기">×</button>
+        <h3 id="scheduleCategoryModalTitle">카테고리 관리</h3>
+        <div id="scheduleCategoryEditRows"></div>
+        <button type="button" class="ghost-btn" id="addScheduleCategoryModalBtn">+ 카테고리 추가</button>
         <div class="modal-actions">
-          <button type="button" class="ghost-btn danger" id="deleteLedgerEntryBtn" hidden>삭제</button>
           <div class="modal-actions-right">
-            <button type="button" class="ghost-btn" id="cancelLedgerBtn">취소</button>
-            <button type="submit" class="primary-btn">저장</button>
+            <button type="button" class="primary-btn" id="closeScheduleCategoryModalBtn">완료</button>
           </div>
         </div>
-      </form>
+      </div>
     </div>
-  </div>
 
-  <div class="modal-overlay" id="ledgerCategoryModalOverlay" hidden>
-    <div class="modal ledger-category-modal" role="dialog" aria-modal="true" aria-labelledby="ledgerCategoryModalTitle">
-      <button type="button" class="modal-close-btn" id="closeLedgerCategoryModalTopBtn" aria-label="닫기">×</button>
-      <h3 id="ledgerCategoryModalTitle">설정</h3>
-
-      <div class="ledger-settings-tabs" id="ledgerSettingsTabs" role="tablist" aria-label="설정 메뉴">
-        <button type="button" class="ledger-period-tab active" data-tab="categories" role="tab" aria-selected="true" aria-controls="ledgerSettingsCategoriesPanel">카테고리 관리</button>
-        <button type="button" class="ledger-period-tab" data-tab="analysis" role="tab" aria-selected="false" aria-controls="ledgerSettingsAnalysisPanel">분석</button>
-      </div>
-
-      <div id="ledgerSettingsCategoriesPanel" role="tabpanel">
-        <p class="ledger-category-manager-subheading">지출 카테고리</p>
-        <div id="ledgerExpenseCategoryEditRows"></div>
-        <button type="button" class="ghost-btn" id="addLedgerExpenseCategoryBtn">+ 지출 카테고리 추가</button>
-
-        <p class="ledger-category-manager-subheading">수입 카테고리</p>
-        <div id="ledgerIncomeCategoryEditRows"></div>
-        <button type="button" class="ghost-btn" id="addLedgerIncomeCategoryBtn">+ 수입 카테고리 추가</button>
-      </div>
-
-      <div id="ledgerSettingsAnalysisPanel" role="tabpanel" hidden>
-        <div class="ledger-period-tabs" id="ledgerPeriodTabs" role="tablist" aria-label="월간/연간">
-          <button type="button" class="ledger-period-tab active" data-period="month" role="tab" aria-selected="true">월간</button>
-          <button type="button" class="ledger-period-tab" data-period="year" role="tab" aria-selected="false">연간</button>
+    <!-- 반복 일정 삭제 범위 선택 모달 -->
+    <div class="modal-overlay" id="deleteScopeModalOverlay" hidden>
+      <div class="modal delete-scope-modal" role="dialog" aria-modal="true" aria-labelledby="deleteScopeTitle">
+        <button type="button" class="modal-close-btn" id="closeDeleteScopeModalBtn" aria-label="닫기">×</button>
+        <h3 id="deleteScopeTitle">반복 일정 삭제</h3>
+        <p class="modal-note">이 일정은 반복 설정되어 있어요. 어떻게 삭제할까요?</p>
+        <div class="delete-scope-actions">
+          <button type="button" class="ghost-btn" id="deleteScopeOccurrenceBtn">이 날짜만 삭제</button>
+          <button type="button" class="ghost-btn danger" id="deleteScopeAllBtn">전체 반복 삭제</button>
         </div>
-        <div class="ledger-total-row">
-          <span class="ledger-total-label" id="ledgerTotalLabel">이번 달 지출</span>
-          <span class="ledger-total-value" id="ledgerTotalValue">0원</span>
-        </div>
-        <div id="ledgerAnalysisBody"></div>
-      </div>
-
-      <div class="modal-actions">
-        <div class="modal-actions-right">
-          <button type="button" class="primary-btn" id="closeLedgerCategoryModalBtn">완료</button>
+        <div class="modal-actions-right delete-scope-cancel-row">
+          <button type="button" class="ghost-btn" id="deleteScopeCancelBtn">취소</button>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- 일정 카테고리 관리 모달 -->
-  <div class="modal-overlay" id="scheduleCategoryModalOverlay" hidden>
-    <div class="modal ledger-category-modal" role="dialog" aria-modal="true" aria-labelledby="scheduleCategoryModalTitle">
-      <button type="button" class="modal-close-btn" id="closeScheduleCategoryModalTopBtn" aria-label="닫기">×</button>
-      <h3 id="scheduleCategoryModalTitle">카테고리 관리</h3>
-      <div id="scheduleCategoryEditRows"></div>
-      <button type="button" class="ghost-btn" id="addScheduleCategoryModalBtn">+ 카테고리 추가</button>
-      <div class="modal-actions">
-        <div class="modal-actions-right">
-          <button type="button" class="primary-btn" id="closeScheduleCategoryModalBtn">완료</button>
+    <!-- 반복 일정 수정 범위 선택 모달 -->
+    <div class="modal-overlay" id="editScopeModalOverlay" hidden>
+      <div class="modal delete-scope-modal" role="dialog" aria-modal="true" aria-labelledby="editScopeTitle">
+        <button type="button" class="modal-close-btn" id="closeEditScopeModalBtn" aria-label="닫기">×</button>
+        <h3 id="editScopeTitle">반복 일정 수정</h3>
+        <p class="modal-note">이 일정은 반복 설정되어 있어요. 수정 내용을 어떻게 적용할까요?</p>
+        <div class="delete-scope-actions">
+          <button type="button" class="ghost-btn" id="editScopeOccurrenceBtn">이 일정만 수정</button>
+          <button type="button" class="ghost-btn" id="editScopeFollowingBtn">이후 일정에도 적용</button>
+        </div>
+        <div class="modal-actions-right delete-scope-cancel-row">
+          <button type="button" class="ghost-btn" id="editScopeCancelBtn">취소</button>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- 반복 일정 삭제 범위 선택 모달 -->
-  <div class="modal-overlay" id="deleteScopeModalOverlay" hidden>
-    <div class="modal delete-scope-modal" role="dialog" aria-modal="true" aria-labelledby="deleteScopeTitle">
-      <button type="button" class="modal-close-btn" id="closeDeleteScopeModalBtn" aria-label="닫기">×</button>
-      <h3 id="deleteScopeTitle">반복 일정 삭제</h3>
-      <p class="modal-note">이 일정은 반복 설정되어 있어요. 어떻게 삭제할까요?</p>
-      <div class="delete-scope-actions">
-        <button type="button" class="ghost-btn" id="deleteScopeOccurrenceBtn">이 날짜만 삭제</button>
-        <button type="button" class="ghost-btn danger" id="deleteScopeAllBtn">전체 반복 삭제</button>
-      </div>
-      <div class="modal-actions-right delete-scope-cancel-row">
-        <button type="button" class="ghost-btn" id="deleteScopeCancelBtn">취소</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 반복 일정 수정 범위 선택 모달 -->
-  <div class="modal-overlay" id="editScopeModalOverlay" hidden>
-    <div class="modal delete-scope-modal" role="dialog" aria-modal="true" aria-labelledby="editScopeTitle">
-      <button type="button" class="modal-close-btn" id="closeEditScopeModalBtn" aria-label="닫기">×</button>
-      <h3 id="editScopeTitle">반복 일정 수정</h3>
-      <p class="modal-note">이 일정은 반복 설정되어 있어요. 수정 내용을 어떻게 적용할까요?</p>
-      <div class="delete-scope-actions">
-        <button type="button" class="ghost-btn" id="editScopeOccurrenceBtn">이 일정만 수정</button>
-        <button type="button" class="ghost-btn" id="editScopeFollowingBtn">이후 일정에도 적용</button>
-      </div>
-      <div class="modal-actions-right delete-scope-cancel-row">
-        <button type="button" class="ghost-btn" id="editScopeCancelBtn">취소</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 베이스 연습 기록 추가/수정 모달 -->
-  <div class="modal-overlay" id="practiceModalOverlay" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="practiceModalTitle">
-      <button type="button" class="modal-close-btn" id="closePracticeModalBtn" aria-label="닫기">×</button>
-      <h3 id="practiceModalTitle">연습 기록</h3>
-      <form id="practiceForm">
-        <label>
-          날짜
-          <input type="date" id="practiceDateInput" min="2000-01-01" max="2100-12-31" required />
-        </label>
-        <div class="checklist-section">
-          <span class="checklist-label">기본기 체크리스트</span>
-          <ul class="checklist-items" id="practiceChecklistItems"></ul>
-          <div class="checklist-add-row">
-            <input type="text" id="practiceChecklistInput" placeholder="항목 추가 후 Enter (예: 슬랩 연습)" aria-label="체크리스트 항목 이름" />
-            <button type="button" class="ghost-btn" id="practiceChecklistAddBtn">추가</button>
+    <!-- 베이스 연습 기록 추가/수정 모달 -->
+    <div class="modal-overlay" id="practiceModalOverlay" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="practiceModalTitle">
+        <button type="button" class="modal-close-btn" id="closePracticeModalBtn" aria-label="닫기">×</button>
+        <h3 id="practiceModalTitle">연습 기록</h3>
+        <form id="practiceForm">
+          <label>
+            날짜
+            <input type="date" id="practiceDateInput" min="2000-01-01" max="2100-12-31" required />
+          </label>
+          <div class="checklist-section">
+            <span class="checklist-label">기본기 체크리스트</span>
+            <ul class="checklist-items" id="practiceChecklistItems"></ul>
+            <div class="checklist-add-row">
+              <input
+                type="text"
+                id="practiceChecklistInput"
+                placeholder="항목 추가 후 Enter (예: 슬랩 연습)"
+                aria-label="체크리스트 항목 이름"
+              />
+              <button type="button" class="ghost-btn" id="practiceChecklistAddBtn">추가</button>
+            </div>
           </div>
-        </div>
-        <label>
-          연습 내용 &amp; 소감
-          <textarea id="practiceTextInput" rows="6" placeholder="오늘 어떤 연습을 했고 소감이 어땠는지 적어보세요" maxlength="5000"></textarea>
-        </label>
-        <div class="modal-actions">
-          <button type="button" class="ghost-btn danger" id="deletePracticeBtn" hidden>삭제</button>
-          <div class="modal-actions-right">
-            <button type="button" class="ghost-btn" id="cancelPracticeBtn">취소</button>
-            <button type="submit" class="primary-btn">저장</button>
+          <label>
+            연습 내용 &amp; 소감
+            <textarea
+              id="practiceTextInput"
+              rows="6"
+              placeholder="오늘 어떤 연습을 했고 소감이 어땠는지 적어보세요"
+              maxlength="5000"
+            ></textarea>
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="ghost-btn danger" id="deletePracticeBtn" hidden>삭제</button>
+            <div class="modal-actions-right">
+              <button type="button" class="ghost-btn" id="cancelPracticeBtn">취소</button>
+              <button type="submit" class="primary-btn">저장</button>
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
-  </div>
 
-  <!-- 봉골레 파스타: 시도 기록 추가/수정 모달 -->
-  <div class="modal-overlay" id="vongoleLogModalOverlay" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vongoleLogModalTitle">
-      <button type="button" class="modal-close-btn" id="closeVongoleLogModalBtn" aria-label="닫기">×</button>
-      <h3 id="vongoleLogModalTitle">시도 기록 추가</h3>
-      <form id="vongoleLogForm">
-        <label>
-          날짜
-          <input type="date" id="vongoleLogDateInput" min="2000-01-01" max="2100-12-31" required />
-        </label>
-        <label>
-          레시피
-          <select id="vongoleLogRecipeSelectInput">
-            <option value="">선택 안 함</option>
-          </select>
-        </label>
-        <label>
-          메모
-          <textarea id="vongoleLogRecipeInput" rows="6" placeholder="그 날 어떤 재료 · 비율 · 방법으로 만들었는지 적어보세요" maxlength="5000"></textarea>
-        </label>
-        <label>
-          코멘트
-          <textarea id="vongoleLogCommentInput" rows="4" placeholder="맛이 어땠는지, 다음엔 뭘 바꿀지 적어보세요" maxlength="2000"></textarea>
-        </label>
-        <div class="modal-actions">
-          <button type="button" class="ghost-btn danger" id="deleteVongoleLogBtn" hidden>삭제</button>
-          <div class="modal-actions-right">
-            <button type="button" class="ghost-btn" id="cancelVongoleLogBtn">취소</button>
-            <button type="submit" class="primary-btn">저장</button>
+    <!-- 봉골레 파스타: 시도 기록 추가/수정 모달 -->
+    <div class="modal-overlay" id="vongoleLogModalOverlay" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vongoleLogModalTitle">
+        <button type="button" class="modal-close-btn" id="closeVongoleLogModalBtn" aria-label="닫기">×</button>
+        <h3 id="vongoleLogModalTitle">시도 기록 추가</h3>
+        <form id="vongoleLogForm">
+          <label>
+            날짜
+            <input type="date" id="vongoleLogDateInput" min="2000-01-01" max="2100-12-31" required />
+          </label>
+          <label>
+            레시피
+            <select id="vongoleLogRecipeSelectInput">
+              <option value="">선택 안 함</option>
+            </select>
+          </label>
+          <label>
+            메모
+            <textarea
+              id="vongoleLogRecipeInput"
+              rows="6"
+              placeholder="그 날 어떤 재료 · 비율 · 방법으로 만들었는지 적어보세요"
+              maxlength="5000"
+            ></textarea>
+          </label>
+          <label>
+            코멘트
+            <textarea
+              id="vongoleLogCommentInput"
+              rows="4"
+              placeholder="맛이 어땠는지, 다음엔 뭘 바꿀지 적어보세요"
+              maxlength="2000"
+            ></textarea>
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="ghost-btn danger" id="deleteVongoleLogBtn" hidden>삭제</button>
+            <div class="modal-actions-right">
+              <button type="button" class="ghost-btn" id="cancelVongoleLogBtn">취소</button>
+              <button type="submit" class="primary-btn">저장</button>
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
-  </div>
 
-  <script src="scripts/toast.js"></script>
-  <script src="scripts/a11y.js"></script>
-  <script src="scripts/modal-focus-trap.js"></script>
-  <script src="scripts/schedule-recurrence.js"></script>
-  <script src="scripts/calendar-fit.js"></script>
-  <script src="scripts/goal-label-editor.js"></script>
-  <script src="scripts/goal-tree-ui.js"></script>
-  <script src="scripts/goal-tree-logic.js"></script>
-  <script src="scripts/deep-merge.js"></script>
-  <script src="scripts/store.js"></script>
-  <script src="scripts/schedule.js"></script>
-  <script src="scripts/settings.js"></script>
-  <script src="scripts/notifications.js"></script>
-  <script src="scripts/weather.js"></script>
-  <script src="scripts/practice.js"></script>
-  <script src="scripts/study.js"></script>
-  <script src="scripts/exercise.js"></script>
-  <script src="scripts/ledger.js"></script>
-  <script src="scripts/vongole.js"></script>
-  <script src="scripts/routine.js"></script>
-  <script src="scripts/search.js"></script>
-  <script src="scripts/main.js"></script>
+    <script src="scripts/toast.js"></script>
+    <script src="scripts/a11y.js"></script>
+    <script src="scripts/modal-focus-trap.js"></script>
+    <script src="scripts/schedule-recurrence.js"></script>
+    <script src="scripts/calendar-fit.js"></script>
+    <script src="scripts/goal-label-editor.js"></script>
+    <script src="scripts/goal-tree-ui.js"></script>
+    <script src="scripts/goal-tree-logic.js"></script>
+    <script src="scripts/deep-merge.js"></script>
+    <script src="scripts/store.js"></script>
+    <script src="scripts/schedule.js"></script>
+    <script src="scripts/settings.js"></script>
+    <script src="scripts/notifications.js"></script>
+    <script src="scripts/kakao-link.js"></script>
+    <script src="scripts/weather-calc.js"></script>
+    <script src="scripts/weather.js"></script>
+    <script src="scripts/practice.js"></script>
+    <script src="scripts/study.js"></script>
+    <script src="scripts/exercise.js"></script>
+    <script src="scripts/ledger.js"></script>
+    <script src="scripts/vongole.js"></script>
+    <script src="scripts/routine.js"></script>
+    <script src="scripts/search.js"></script>
+    <script src="scripts/main.js"></script>
 
-  <!-- 클라우드 동기화 (Firebase) -->
-  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js" onerror="window.initFeatures && window.initFeatures()"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
-  <script src="scripts/cloud-sync.js" onerror="window.initFeatures && window.initFeatures()"></script>
-</body>
+    <!-- 클라우드 동기화 (Firebase) -->
+    <script
+      src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"
+      onerror="window.initFeatures && window.initFeatures()"
+    ></script>
+    <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
+    <script src="scripts/cloud-sync.js" onerror="window.initFeatures && window.initFeatures()"></script>
+  </body>
 </html>

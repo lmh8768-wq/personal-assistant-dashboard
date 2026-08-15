@@ -79,9 +79,7 @@ mobileMenuBtn.addEventListener("click", () => {
 document.addEventListener("click", (e) => {
   const isMobile = window.matchMedia("(max-width: 720px)").matches;
   if (!isMobile) return;
-  if (sidebar.classList.contains("mobile-open") &&
-      !sidebar.contains(e.target) &&
-      !mobileMenuBtn.contains(e.target)) {
+  if (sidebar.classList.contains("mobile-open") && !sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
     sidebar.classList.remove("mobile-open");
   }
 });
@@ -102,9 +100,11 @@ if (mobileSearchBtn && searchBoxEl) {
   document.addEventListener("click", (e) => {
     const isMobile = window.matchMedia("(max-width: 720px)").matches;
     if (!isMobile) return;
-    if (searchBoxEl.classList.contains("mobile-open") &&
-        !searchBoxEl.contains(e.target) &&
-        !mobileSearchBtn.contains(e.target)) {
+    if (
+      searchBoxEl.classList.contains("mobile-open") &&
+      !searchBoxEl.contains(e.target) &&
+      !mobileSearchBtn.contains(e.target)
+    ) {
       searchBoxEl.classList.remove("mobile-open");
     }
   });
@@ -268,6 +268,7 @@ function showView(viewName) {
     window.SettingsView.refreshCategories();
     window.SettingsView.refreshProfile();
     window.SettingsView.refreshShortcuts();
+    window.SettingsView.refreshKakaoLink();
   }
   if (viewName === "settings" && window.CloudSync) {
     window.CloudSync.renderDebugLog();

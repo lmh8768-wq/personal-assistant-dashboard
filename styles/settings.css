@@ -143,6 +143,38 @@
   color: var(--text-muted);
 }
 
+.settings-kakao-status {
+  margin: -6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.settings-kakao-code {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.settings-kakao-code-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-kakao-code-value {
+  margin: 0;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text);
+}
+
 .accent-swatch-row {
   display: flex;
   gap: 8px;
@@ -273,4 +305,3 @@
   font-weight: 600;
   color: var(--text);
 }
-

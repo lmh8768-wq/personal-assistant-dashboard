@@ -136,8 +136,16 @@
   // color picker — a jarring detour from the app's own look. A small preset
   // swatch grid keeps color choice inline and on-theme instead.
   const CATEGORY_COLOR_PRESETS = [
-    "#7c9eff", "#4ade80", "#f472b6", "#fb923c", "#a78bfa",
-    "#f87171", "#22d3ee", "#fbbf24", "#6366f1", "#9ca3af",
+    "#7c9eff",
+    "#4ade80",
+    "#f472b6",
+    "#fb923c",
+    "#a78bfa",
+    "#f87171",
+    "#22d3ee",
+    "#fbbf24",
+    "#6366f1",
+    "#9ca3af",
   ];
 
   // containerId defaults to the 설정 tab's own list — schedule.js's in-tab
@@ -242,7 +250,10 @@
     const id = containerId || "categoryEditRows";
     const existing = window.CategoryStore.getAll();
     const color = CATEGORY_COLOR_PRESETS[existing.length % CATEGORY_COLOR_PRESETS.length];
-    const label = uniqueCategoryLabel("새 카테고리", existing.map((c) => c.label));
+    const label = uniqueCategoryLabel(
+      "새 카테고리",
+      existing.map((c) => c.label)
+    );
     const created = window.CategoryStore.add(label, color);
     renderCategoryEditor(id);
     if (window.ScheduleView) window.ScheduleView.refreshAll();
@@ -657,6 +668,43 @@
     renderNotificationStatus();
   }
 
+  // ---------- KakaoTalk chatbot link ----------
+  async function renderKakaoLinkStatus() {
+    const statusEl = document.getElementById("kakaoLinkStatusText");
+    const linkBtn = document.getElementById("kakaoLinkBtn");
+    const unlinkBtn = document.getElementById("kakaoUnlinkBtn");
+    const codeBox = document.getElementById("kakaoLinkCodeBox");
+    if (!statusEl || !window.KakaoLink) return;
+
+    // A fresh code request always hides the previous box — once the status
+    // check below resolves, "이미 연동됨" and a stale unused code showing at
+    // the same time would just be confusing.
+    codeBox.hidden = true;
+
+    const { linked, error } = await window.KakaoLink.checkLinkStatus();
+    if (error) {
+      statusEl.textContent = "연동 상태를 확인하지 못했어요";
+    } else {
+      statusEl.textContent = linked ? "연동됨" : "연동 안 됨";
+    }
+    linkBtn.textContent = linked ? "연동 코드 다시 받기" : "연동 코드 받기";
+    unlinkBtn.hidden = !linked;
+  }
+
+  async function handleKakaoLinkRequest() {
+    const result = await window.KakaoLink.requestLinkCode();
+    if (!result) return;
+    const codeBox = document.getElementById("kakaoLinkCodeBox");
+    const codeValue = document.getElementById("kakaoLinkCodeValue");
+    codeValue.textContent = result.code;
+    codeBox.hidden = false;
+  }
+
+  async function handleKakaoUnlink() {
+    const ok = await window.KakaoLink.unlink();
+    if (ok) renderKakaoLinkStatus();
+  }
+
   function init() {
     populateSettingsForm();
     applyProfile();
@@ -667,14 +715,24 @@
     renderNotificationStatus();
     document.getElementById("notificationToggleBtn")?.addEventListener("click", handleNotificationToggle);
 
+    renderKakaoLinkStatus();
+    document.getElementById("kakaoLinkBtn")?.addEventListener("click", handleKakaoLinkRequest);
+    document.getElementById("kakaoUnlinkBtn")?.addEventListener("click", handleKakaoUnlink);
+
     document.getElementById("settingsForm").addEventListener("submit", handleSettingsSubmit);
     document.getElementById("profileForm").addEventListener("submit", handleProfileSubmit);
     document.getElementById("addScheduleCategoryBtn")?.addEventListener("click", () => addScheduleCategory());
     document.getElementById("customShortcutForm").addEventListener("submit", handleAddCustomShortcut);
 
-    document.getElementById("shortcutBlog").addEventListener("click", () => openShortcut("naverBlogUrl", "네이버 블로그"));
-    document.getElementById("shortcutCafe").addEventListener("click", () => openShortcut("naverCafeUrl", "네이버 카페"));
-    document.getElementById("shortcutInstagram").addEventListener("click", () => openShortcut("instagramUrl", "인스타그램"));
+    document
+      .getElementById("shortcutBlog")
+      .addEventListener("click", () => openShortcut("naverBlogUrl", "네이버 블로그"));
+    document
+      .getElementById("shortcutCafe")
+      .addEventListener("click", () => openShortcut("naverCafeUrl", "네이버 카페"));
+    document
+      .getElementById("shortcutInstagram")
+      .addEventListener("click", () => openShortcut("instagramUrl", "인스타그램"));
 
     document.getElementById("exportDataBtn").addEventListener("click", exportData);
     document.getElementById("importDataBtn").addEventListener("click", () => {
@@ -717,5 +775,13 @@
       applyProfile();
     },
     refreshShortcuts: renderCustomShortcuts,
+    // Same "can change from outside this tab" reasoning, plus a more basic
+    // one this checkbox-of-one doesn't share with the others: at init()
+    // time (app startup) Firebase Auth often hasn't resolved a signed-in
+    // user yet, so checkLinkStatus() would silently report "not linked"
+    // even for an already-linked account. Re-running this every time the
+    // Settings tab is opened (not just once at startup) means it always
+    // reflects the truth by the time anyone can actually see it.
+    refreshKakaoLink: renderKakaoLinkStatus,
   };
 })();

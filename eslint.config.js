@@ -87,17 +87,30 @@ module.exports = [
     },
   },
   {
-    // schedule-recurrence.js is a UMD module (see its own header comment) —
-    // consumed as a browser global via window.ScheduleRecurrence *and* as a
-    // Node CommonJS require() from api/send-daily-notifications.js, so its
-    // wrapper references both `module` and `self` on top of the usual
-    // browser globals. Scoped to just this file rather than added to
-    // browserGlobals, since no other script under scripts/** needs either.
-    files: ["scripts/schedule-recurrence.js"],
+    // schedule-recurrence.js and weather-calc.js are both UMD modules (see
+    // each file's own header comment) — consumed as a browser global via
+    // window.ScheduleRecurrence/window.WeatherCalc *and* as a Node
+    // CommonJS require() from api/*.js, so their wrapper references both
+    // `module` and `self` on top of the usual browser globals. Scoped to
+    // just these files rather than added to browserGlobals, since no other
+    // script under scripts/** needs either.
+    files: ["scripts/schedule-recurrence.js", "scripts/weather-calc.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "script",
       globals: { ...browserGlobals, module: "readonly", self: "readonly" },
+    },
+  },
+  {
+    // kakao-commands.js is plain Node/CommonJS (see its own header comment)
+    // — unlike every other file under scripts/**, nothing in the browser
+    // app loads it, so it gets api/**'s nodeGlobals instead of
+    // browserGlobals rather than a UMD dual-mode like the two files above.
+    files: ["scripts/kakao-commands.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "commonjs",
+      globals: nodeGlobals,
     },
   },
   {
