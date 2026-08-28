@@ -52,6 +52,24 @@
     return `bp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
+  // A value only counts as a genuine pre-migration free-text label (see
+  // migrateBodyPartsToKeys below) if it couldn't possibly be a real,
+  // now-orphaned key instead — otherwise deleting a body part that still
+  // had exercise log history or a routine note attached (both intentionally
+  // left in place; see getBodyPartLabel's "삭제된 부위" fallback below) gets
+  // its own internal key (this shape) or one of the fixed DEFAULT_BODY_PARTS
+  // keys mistaken for old free text, and "migrated" into a brand new body
+  // part literally labeled with that raw key — e.g. "bp_1735689000_a1b2c3"
+  // or the English word "chest" showing up as a nonsense 부위 in the list.
+  // A real label typed before this migration existed was always the body
+  // part's actual (Korean) display name, which can never collide with
+  // either shape, so this is safe.
+  const GENERATED_KEY_RE = /^bp_\d+_[a-z0-9]+$/;
+  const DEFAULT_BODY_PART_KEYS = new Set(DEFAULT_BODY_PARTS.map((p) => p.key));
+  function looksLikeOrphanedKey(value) {
+    return GENERATED_KEY_RE.test(value) || DEFAULT_BODY_PART_KEYS.has(value);
+  }
+
   let bodyPartsCache = null;
   window.__resetStoreCaches.push(() => {
     bodyPartsCache = null;
@@ -118,14 +136,25 @@
     const routines = loadBodyPartRoutines();
 
     const labelsToMigrate = new Set();
-    logs.forEach((entry) => entry.bodyPart && !existingKeys.has(entry.bodyPart) && labelsToMigrate.add(entry.bodyPart));
-    Object.keys(routines).forEach((label) => !existingKeys.has(label) && labelsToMigrate.add(label));
+    logs.forEach(
+      (entry) =>
+        entry.bodyPart &&
+        !existingKeys.has(entry.bodyPart) &&
+        !looksLikeOrphanedKey(entry.bodyPart) &&
+        labelsToMigrate.add(entry.bodyPart)
+    );
+    Object.keys(routines).forEach(
+      (label) => !existingKeys.has(label) && !looksLikeOrphanedKey(label) && labelsToMigrate.add(label)
+    );
 
     if (labelsToMigrate.size === 0) return;
 
     const labelToKey = new Map();
     labelsToMigrate.forEach((label) => {
-      labelToKey.set(label, existingByLabel.has(label) ? existingByLabel.get(label) : window.BodyPartStore.add(label).key);
+      labelToKey.set(
+        label,
+        existingByLabel.has(label) ? existingByLabel.get(label) : window.BodyPartStore.add(label).key
+      );
     });
 
     logs.forEach((entry) => {
@@ -142,6 +171,12 @@
     });
     saveBodyPartRoutines(migratedRoutines);
   }
+
+  // Exposed purely so tests/exercise-bodypart-migration.test.js can call
+  // this directly instead of driving init()/onShow() (which need a DOM this
+  // test's sandbox doesn't have) — same reasoning weather.js's own
+  // window.__weatherLocationForTest uses.
+  window.__migrateBodyPartsToKeysForTest = migrateBodyPartsToKeys;
 
   // ---------- Exercise log (which body part(s) were worked, and when) ----------
   // A dated, id-keyed list — createEntityStore (store.js, loaded before this
@@ -334,7 +369,11 @@
 
     const today = new Date();
     const currentWeekSunday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
-    const start = new Date(currentWeekSunday.getFullYear(), currentWeekSunday.getMonth(), currentWeekSunday.getDate() - 14);
+    const start = new Date(
+      currentWeekSunday.getFullYear(),
+      currentWeekSunday.getMonth(),
+      currentWeekSunday.getDate() - 14
+    );
 
     const entriesByDate = {};
     window.ExerciseLogStore.getAll().forEach((entry) => {
@@ -471,7 +510,10 @@
       removeBtn.type = "button";
       removeBtn.className = "checklist-item-remove goal-year-remove" + (armed ? " confirm-armed" : "");
       removeBtn.textContent = armed ? "확인" : "×";
-      removeBtn.setAttribute("aria-label", armed ? `${part.label} 삭제 확인 (다시 누르면 삭제됩니다)` : `${part.label} 삭제`);
+      removeBtn.setAttribute(
+        "aria-label",
+        armed ? `${part.label} 삭제 확인 (다시 누르면 삭제됩니다)` : `${part.label} 삭제`
+      );
       removeBtn.addEventListener("click", () => {
         if (bodyPartDeleteArmed !== part.key) {
           bodyPartDeleteArmed = part.key;
@@ -487,7 +529,14 @@
         }
         clearTimeout(bodyPartDeleteArmedTimer);
         bodyPartDeleteArmed = null;
+        // Captured before removal and cleared right after — otherwise this
+        // key's routine note just sits there forever, unreachable through
+        // any UI, and (before the looksLikeOrphanedKey guard above existed)
+        // used to get mistaken by migrateBodyPartsToKeys for genuine old
+        // free-text data and resurrected as a nonsense new body part.
+        const routineText = window.BodyPartRoutineStore.get(part.key);
         const removed = window.BodyPartStore.remove(part.key);
+        window.BodyPartRoutineStore.update(part.key, "");
         renderBodyPartManager();
         renderBodyPartRoutines();
         populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
@@ -496,6 +545,7 @@
             actionLabel: "실행취소",
             onAction: () => {
               window.BodyPartStore.restore(removed.item, removed.index);
+              if (routineText) window.BodyPartRoutineStore.update(part.key, routineText);
               renderBodyPartManager();
               renderBodyPartRoutines();
               populateBodyPartSelect(document.getElementById("exerciseLogBodyPartInput"));
@@ -598,7 +648,8 @@
     // out a couple pixels shorter than the content actually needs, leaving
     // exactly the sliver of internal scroll this is meant to eliminate.
     const borderHeight =
-      parseFloat(getComputedStyle(el).borderTopWidth || "0") + parseFloat(getComputedStyle(el).borderBottomWidth || "0");
+      parseFloat(getComputedStyle(el).borderTopWidth || "0") +
+      parseFloat(getComputedStyle(el).borderBottomWidth || "0");
     el.style.height = `${el.scrollHeight + borderHeight}px`;
   }
 
@@ -733,7 +784,9 @@
     document.getElementById("exerciseLogAddBtn")?.addEventListener("click", handleExerciseLogAdd);
 
     document.getElementById("exerciseLogCalendarBtn")?.addEventListener("click", openExerciseLogCalendarModal);
-    document.getElementById("closeExerciseLogCalendarModalBtn")?.addEventListener("click", closeExerciseLogCalendarModal);
+    document
+      .getElementById("closeExerciseLogCalendarModalBtn")
+      ?.addEventListener("click", closeExerciseLogCalendarModal);
     document.getElementById("exerciseLogCalendarModalOverlay")?.addEventListener("click", (e) => {
       if (e.target.id === "exerciseLogCalendarModalOverlay") closeExerciseLogCalendarModal();
     });
