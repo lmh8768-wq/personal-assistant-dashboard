@@ -2409,6 +2409,42 @@ test("calendar-fit: MIN_WIDTH still respects the day panel's own minimum width n
   }
 });
 
+test("calendar-fit: a barely-different width is ignored (minChangeThreshold), a genuinely large one still applies — the actual feature", { skip: !RUN }, async () => {
+  // 가계부's 목표 소비 panel recomputes this on every category add/remove and
+  // expand/collapse — most of those nudge the available height only a
+  // little, and applying every single nudge read as distracting jitter
+  // rather than a meaningful resize. ledger.js passes minChangeThreshold;
+  // schedule.js doesn't (defaults to 0, always applies) since nothing above
+  // its own calendar changes height on its own the way 목표 소비 does.
+  const { page, close } = await launchApp();
+  try {
+    await page.setViewportSize({ width: 1400, height: 1100 }); // tall enough for real headroom to shrink into
+    await page.evaluate(() => document.querySelector('[data-view="ledger"]')?.click());
+    await page.waitForTimeout(300);
+
+    const { baseline, afterTinyBump, afterBigBump } = await page.evaluate(() => {
+      const layout = document.getElementById("ledgerLayout");
+      const fitArgs = { layoutId: "ledgerLayout", panelId: "ledgerCalendarPanel", gridId: "ledgerCalendarGrid" };
+
+      window.CalendarFit.apply({ ...fitArgs, extraHeight: () => 0 });
+      const baseline = parseFloat(layout.style.gridTemplateColumns);
+
+      window.CalendarFit.apply({ ...fitArgs, minChangeThreshold: 40, extraHeight: () => 20 }); // 20px < 40px threshold
+      const afterTinyBump = parseFloat(layout.style.gridTemplateColumns);
+
+      window.CalendarFit.apply({ ...fitArgs, minChangeThreshold: 40, extraHeight: () => 300 }); // well above it
+      const afterBigBump = parseFloat(layout.style.gridTemplateColumns);
+
+      return { baseline, afterTinyBump, afterBigBump };
+    });
+
+    assert.equal(afterTinyBump, baseline, "a sub-threshold height change should leave the applied width untouched");
+    assert.notEqual(afterBigBump, baseline, "an above-threshold height change should still resize the calendar");
+  } finally {
+    await close();
+  }
+});
+
 test("calendar-fit: the day panel is capped at a max width instead of claiming all leftover space on a wide window — the actual bug fix", { skip: !RUN }, async () => {
   // The calendar's own width is driven purely by fitting its fixed 6-row
   // height into the available vertical space (via the fixed 3:4 cell

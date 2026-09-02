@@ -803,6 +803,14 @@
     }
   }
 
+  // Below this, a recomputed calendar width isn't worth actually resizing
+  // for — roughly half a typical cell's width, small enough to be
+  // imperceptible in passing but large enough that a genuinely substantial
+  // change (several categories' worth of 목표 소비 rows, or fully expanding/
+  // collapsing the section) still clears it easily. See CalendarFit.apply's
+  // own comment on minChangeThreshold for why this can't accumulate drift.
+  const LEDGER_CALENDAR_MIN_CHANGE_PX = 40;
+
   // The actual compute/apply logic lives in scripts/calendar-fit.js now —
   // shared with schedule.js, which used to hand-maintain an identical copy.
   // The one thing this view needs on top: the 목표 소비 budget section sits
@@ -814,6 +822,7 @@
       layoutId: "ledgerLayout",
       panelId: "ledgerCalendarPanel",
       gridId: "ledgerCalendarGrid",
+      minChangeThreshold: LEDGER_CALENDAR_MIN_CHANGE_PX,
       extraHeight: () => {
         // Its own margin-bottom (20px, see .ledger-total-budget-section)
         // needs to come along — that gap disappears too if absent.

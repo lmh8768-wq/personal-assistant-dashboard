@@ -105,7 +105,25 @@
     return { width: targetWidth, dayPanelWidth, marginTop };
   }
 
-  function apply({ layoutId, panelId, gridId, extraHeight }) {
+  // minChangeThreshold: skip actually applying a recomputed width that's
+  // barely different from what's already on screen — used by ledger.js,
+  // whose 목표 소비 budget panel recomputes this on every category add/
+  // remove and every expand/collapse transition-end, most of which nudge
+  // the available height by just a little. Without a floor on "worth
+  // resizing for," each of those nudges still visibly (if subtly) resized
+  // the calendar every time, which read as distracting jitter rather than
+  // a meaningful size change. schedule.js doesn't pass this (defaults to
+  // 0, i.e. always apply) since it has no equivalent frequently-changing
+  // panel above its calendar.
+  //
+  // Compared against whatever's CURRENTLY applied, not the previous
+  // *ideal* — compute() is always a fresh, from-scratch calculation with
+  // no memory of earlier calls, so this can't accumulate drift the way
+  // comparing against a chain of near-equal deltas could: a genuine trend
+  // (a window being resized steadily smaller, say) still crosses the
+  // threshold and applies exactly once accumulated real change exceeds it,
+  // every time.
+  function apply({ layoutId, panelId, gridId, extraHeight, minChangeThreshold = 0 }) {
     const layout = document.getElementById(layoutId);
     if (!layout || layout.getBoundingClientRect().width === 0) return; // view not visible yet
 
@@ -120,6 +138,12 @@
     }
 
     const fit = compute({ panelId, gridId, layoutId, extraHeight });
+
+    if (minChangeThreshold > 0) {
+      const currentWidth = parseFloat(layout.style.gridTemplateColumns) || 0;
+      if (Math.abs(fit.width - currentWidth) < minChangeThreshold) return;
+    }
+
     layout.style.gridTemplateColumns = `${fit.width}px ${fit.dayPanelWidth}px`;
     layout.style.marginTop = fit.marginTop ? fit.marginTop + "px" : "";
   }
