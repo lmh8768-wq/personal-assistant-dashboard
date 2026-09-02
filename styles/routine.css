@@ -46,6 +46,41 @@
   gap: 14px;
 }
 
+/* Same pill-tab look as ledger.css's .ledger-period-tab — a separate
+   (near-identical) definition rather than reusing that class name directly,
+   since it's scoped to a different tab and this app's existing "settings
+   editors that look alike but live in different tabs stay separate copies"
+   precedent (see ledger.js's own category editor comment). */
+.routine-day-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.routine-day-tab {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.routine-day-tab:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.routine-day-tab.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .routine-add-trigger-btn {
   border: none;
   background: transparent;

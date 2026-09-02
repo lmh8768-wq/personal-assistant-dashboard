@@ -170,6 +170,54 @@ test("routine: adding a checklist item and toggling it done both persist", { ski
   }
 });
 
+test("routine: the 어제 tab checks/unchecks yesterday's history without touching today's — the actual feature", { skip: !RUN }, async () => {
+  const { page, close } = await launchApp();
+  try {
+    await page.evaluate(() => document.querySelector('[data-view="routine"]')?.click());
+    await page.waitForTimeout(150);
+
+    const itemId = await page.evaluate(() => window.RoutineStore.addItem("routine", "UI어제항목").id);
+    await page.evaluate(() => window.RoutineView.onShow());
+    await page.waitForTimeout(150);
+
+    // 오늘 is the default tab, and unchecked.
+    const checkbox = page.locator("#routineChecklistList li", { hasText: "UI어제항목" }).locator("input[type=checkbox]");
+    assert.equal(await checkbox.isChecked(), false);
+
+    await page.click('#routineDayTabs .routine-day-tab[data-day="yesterday"]');
+    await page.waitForTimeout(100);
+    assert.equal(
+      await page.evaluate(() => document.querySelector("#routineDayTabs .routine-day-tab.active")?.dataset.day),
+      "yesterday"
+    );
+    // Switching tabs alone must not have checked anything yet.
+    assert.equal(await checkbox.isChecked(), false);
+
+    await checkbox.click();
+    await page.waitForTimeout(150);
+
+    const afterCheck = await page.evaluate((id) => {
+      const pad2 = (n) => String(n).padStart(2, "0");
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      const yStr = `${y.getFullYear()}-${pad2(y.getMonth() + 1)}-${pad2(y.getDate())}`;
+      const t = new Date();
+      const tStr = `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`;
+      return { yesterday: window.RoutineStore.isDone("routine", id, yStr), today: window.RoutineStore.isDone("routine", id, tStr) };
+    }, itemId);
+    assert.equal(afterCheck.yesterday, true, "checking on the 어제 tab should mark yesterday done");
+    assert.equal(afterCheck.today, false, "today's history must stay untouched");
+
+    // Switching back to 오늘 shows the (still unchecked) today state, not
+    // yesterday's — confirms the checkbox reflects whichever tab is active.
+    await page.click('#routineDayTabs .routine-day-tab[data-day="today"]');
+    await page.waitForTimeout(100);
+    assert.equal(await checkbox.isChecked(), false);
+  } finally {
+    await close();
+  }
+});
+
 test("routine: checklist items can be reordered by dragging, both by mouse (native DnD) and Alt+↑/↓ — the actual bug fix", { skip: !RUN }, async () => {
   const { page, close } = await launchApp();
   try {

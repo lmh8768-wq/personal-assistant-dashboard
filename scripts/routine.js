@@ -113,6 +113,23 @@
     return toDateStr(new Date());
   }
 
+  function yesterdayStr() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return toDateStr(d);
+  }
+
+  // Which day the two checklists below (루틴/생활 — always shown together,
+  // switched together) are currently showing/editing. Deliberately not
+  // persisted across reloads: someone who flips to 어제 to catch up on a
+  // missed day almost certainly wants back on 오늘 the next time they open
+  // the app, not to land on a now-stale "yesterday" that's actually two
+  // days old.
+  let checklistShowsYesterday = false;
+  function checklistDateStr() {
+    return checklistShowsYesterday ? yesterdayStr() : todayStr();
+  }
+
   function emptyRoutine() {
     return { items: [], history: {} };
   }
@@ -329,16 +346,18 @@
       });
       saveAll(data);
     },
-    isDone(type, id) {
+    // dateStr defaults to today — every caller except renderList's own
+    // 오늘/어제 toggle just wants "is this done today," same as before this
+    // parameter existed.
+    isDone(type, id, dateStr = todayStr()) {
       const routine = loadAll()[type];
-      return (routine.history[todayStr()] || []).includes(id);
+      return (routine.history[dateStr] || []).includes(id);
     },
-    toggleDone(type, id) {
+    toggleDone(type, id, dateStr = todayStr()) {
       const data = loadAll();
       const routine = data[type];
-      const today = todayStr();
-      if (!routine.history[today]) routine.history[today] = [];
-      const doneIds = routine.history[today];
+      if (!routine.history[dateStr]) routine.history[dateStr] = [];
+      const doneIds = routine.history[dateStr];
       const pos = doneIds.indexOf(id);
       if (pos === -1) doneIds.push(id);
       else doneIds.splice(pos, 1);
@@ -383,11 +402,12 @@
     if (!list) return;
     list.innerHTML = "";
 
+    const dateStr = checklistDateStr();
     const snapshot = RoutineStore.getSnapshot()[type];
-    const doneToday = new Set(snapshot.history[todayStr()] || []);
+    const doneOnDate = new Set(snapshot.history[dateStr] || []);
 
     snapshot.items.forEach((item) => {
-      const done = doneToday.has(item.id);
+      const done = doneOnDate.has(item.id);
       const li = document.createElement("li");
       li.className = "checklist-item" + (done ? " done" : "");
       li.dataset.routineItemId = item.id;
@@ -455,9 +475,15 @@
       // Without this a screen reader only ever announced "checkbox, not
       // checked" for every single item, with no indication which item it
       // toggles — schedule.js's equivalent checkbox already sets this.
-      checkbox.setAttribute("aria-label", item.label || "체크리스트 항목");
+      // Appends "(어제)" while that tab is active — otherwise a screen
+      // reader user has no way to tell which day's box they just heard,
+      // since visually that context only lives in the 오늘/어제 tab above.
+      checkbox.setAttribute(
+        "aria-label",
+        (item.label || "체크리스트 항목") + (checklistShowsYesterday ? " (어제)" : "")
+      );
       checkbox.addEventListener("change", () => {
-        RoutineStore.toggleDone(type, item.id);
+        RoutineStore.toggleDone(type, item.id, dateStr);
         renderAll();
       });
       li.appendChild(checkbox);
@@ -672,6 +698,18 @@
       }
 
       grid.appendChild(cell);
+    });
+  }
+
+  // Keeps the 오늘/어제 tab buttons in sync with checklistShowsYesterday —
+  // separate from renderList() itself since the tabs live outside either
+  // checklist and only need updating on an actual toggle, not on every
+  // add/edit/delete that re-renders the lists.
+  function renderChecklistDayTabs() {
+    document.querySelectorAll("#routineDayTabs .routine-day-tab").forEach((btn) => {
+      const active = (btn.dataset.day === "yesterday") === checklistShowsYesterday;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-selected", String(active));
     });
   }
 
@@ -1102,6 +1140,16 @@
     document.getElementById("toggleRoutineCalendarBtn")?.addEventListener("click", () => {
       const section = document.getElementById("routineCalendarSection");
       setCalendarExpanded(section.hidden);
+    });
+
+    document.querySelectorAll("#routineDayTabs .routine-day-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const showYesterday = btn.dataset.day === "yesterday";
+        if (showYesterday === checklistShowsYesterday) return;
+        checklistShowsYesterday = showYesterday;
+        renderChecklistDayTabs();
+        TYPES.forEach((t) => renderList(t.key));
+      });
     });
 
     window.addEventListener("resize", () => {
