@@ -2410,12 +2410,16 @@ test("calendar-fit: MIN_WIDTH still respects the day panel's own minimum width n
 });
 
 test("calendar-fit: a barely-different width is ignored (minChangeThreshold), a genuinely large one still applies — the actual feature", { skip: !RUN }, async () => {
-  // 가계부's 목표 소비 panel recomputes this on every category add/remove and
-  // expand/collapse — most of those nudge the available height only a
-  // little, and applying every single nudge read as distracting jitter
-  // rather than a meaningful resize. ledger.js passes minChangeThreshold;
-  // schedule.js doesn't (defaults to 0, always applies) since nothing above
-  // its own calendar changes height on its own the way 목표 소비 does.
+  // General-purpose safety net against any small height fluctuation
+  // resizing 가계부's calendar (e.g. the empty-state "지출 카테고리를
+  // 추가해주세요" header vs the normal one) — ledger.js passes
+  // minChangeThreshold; schedule.js doesn't (defaults to 0, always
+  // applies), since nothing above its own calendar changes height the way
+  // 목표 소비 does. Separate from — and now largely superseded for the
+  // expand/collapse case specifically by — the next test below: ledger.js
+  // no longer measures the collapsible category-row list's height at all,
+  // so expanding/collapsing 목표 소비 doesn't reach this threshold check in
+  // the first place anymore, it just never recomputes anything.
   const { page, close } = await launchApp();
   try {
     await page.setViewportSize({ width: 1400, height: 1100 }); // tall enough for real headroom to shrink into
@@ -2440,6 +2444,52 @@ test("calendar-fit: a barely-different width is ignored (minChangeThreshold), a 
 
     assert.equal(afterTinyBump, baseline, "a sub-threshold height change should leave the applied width untouched");
     assert.notEqual(afterBigBump, baseline, "an above-threshold height change should still resize the calendar");
+  } finally {
+    await close();
+  }
+});
+
+test("ledger: expanding 목표 소비 never resizes the calendar, even fully expanded on a short viewport — the actual feature", { skip: !RUN }, async () => {
+  // Per explicit direction: reverses the earlier "shrink the calendar to
+  // keep avoiding a page scroll while 목표 소비 is expanded" design outright
+  // for this specific case, rather than merely dampening it — expanding/
+  // collapsing the category list must never change the calendar's size at
+  // all, a page scroll is accepted instead. applyLedgerCalendarFit() now
+  // measures only #ledgerTotalBudgetRow (the always-visible header), never
+  // the collapsible #ledgerCategoryRowsRegion below it, so there's nothing
+  // for a toggle to even feed into the size calculation.
+  const { page, close } = await launchApp();
+  try {
+    await page.setViewportSize({ width: 1400, height: 900 }); // short enough that the old behavior would visibly shrink it
+    await page.evaluate(() => document.querySelector('[data-view="ledger"]')?.click());
+    await page.waitForTimeout(300);
+
+    const width = () =>
+      page.evaluate(() => parseFloat(document.getElementById("ledgerLayout").style.gridTemplateColumns));
+    const resting = await width();
+
+    // Every category gets a budget, so the fully expanded list is as tall
+    // as it can get — the case that most aggressively used to shrink this.
+    await page.evaluate(() => {
+      window.LedgerCategoryStore.getByType("expense").forEach((c) =>
+        window.LedgerCategoryStore.update(c.key, { budget: 100000 })
+      );
+    });
+
+    await page.click(".ledger-expand-btn");
+    await page.waitForTimeout(500);
+    const expanded = await width();
+    const scrolls = await page.evaluate(() => {
+      const content = document.querySelector(".content");
+      return content.scrollHeight > content.clientHeight;
+    });
+
+    assert.equal(expanded, resting, "the calendar must stay exactly its resting size while 목표 소비 is expanded");
+    assert.equal(scrolls, true, "a page scroll is the accepted trade-off instead of resizing");
+
+    await page.click(".ledger-expand-btn");
+    await page.waitForTimeout(500);
+    assert.equal(await width(), resting, "collapsing back changes nothing either, since nothing ever moved");
   } finally {
     await close();
   }

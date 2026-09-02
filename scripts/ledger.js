@@ -804,11 +804,11 @@
   }
 
   // Below this, a recomputed calendar width isn't worth actually resizing
-  // for — roughly half a typical cell's width, small enough to be
-  // imperceptible in passing but large enough that a genuinely substantial
-  // change (several categories' worth of 목표 소비 rows, or fully expanding/
-  // collapsing the section) still clears it easily. See CalendarFit.apply's
-  // own comment on minChangeThreshold for why this can't accumulate drift.
+  // for — small enough to be imperceptible in passing, large enough that a
+  // genuinely substantial change (e.g. the empty-state "지출 카테고리를
+  // 추가해주세요" header replacing the normal one) still clears it easily.
+  // See CalendarFit.apply's own comment on minChangeThreshold for why this
+  // can't accumulate drift.
   const LEDGER_CALENDAR_MIN_CHANGE_PX = 40;
 
   // The actual compute/apply logic lives in scripts/calendar-fit.js now —
@@ -817,6 +817,24 @@
   // above the calendar here (schedule has nothing above its layout), so its
   // rendered height has to be subtracted from the space the calendar gets
   // to fit into as well.
+  //
+  // Deliberately measures ONLY #ledgerTotalBudgetRow (the always-visible
+  // header: title, total spent/budget, progress track, expand button) —
+  // never #ledgerCategoryRowsRegion, the collapsible list of individual
+  // category rows right below it. That was the earlier design (measuring
+  // the whole section, rows included), and it meant expanding 목표 소비
+  // shrank the calendar to keep avoiding a page scroll — down to the
+  // MIN_WIDTH floor in the extreme case, which no longer even bought back
+  // enough width to be worth it. Per explicit direction, that trade is
+  // reversed here instead of merely dampened: expanding/collapsing the
+  // category list no longer affects the calendar's size AT ALL — a page
+  // scroll while it's expanded is accepted outright, and the calendar
+  // stays exactly where it was. ledgerTotalBudgetRow's own height doesn't
+  // depend on whether rowsRegion is expanded or collapsed (they're
+  // siblings, not parent/child), so reading it directly — instead of the
+  // wrapping section — gives the "as if always collapsed" height
+  // unconditionally, with no need to special-case which state it's
+  // actually in.
   function applyLedgerCalendarFit() {
     window.CalendarFit.apply({
       layoutId: "ledgerLayout",
@@ -826,69 +844,13 @@
       extraHeight: () => {
         // Its own margin-bottom (20px, see .ledger-total-budget-section)
         // needs to come along — that gap disappears too if absent.
-        const budgetSection = document.getElementById("ledgerTotalBudgetSection");
-        return budgetSection ? budgetSection.getBoundingClientRect().height + 20 : 0;
+        const totalRow = document.getElementById("ledgerTotalBudgetRow");
+        return totalRow ? totalRow.getBoundingClientRect().height + 20 : 0;
       },
     });
   }
 
   let ledgerResizeTimer = null;
-  let budgetCollapseFitTimer = null;
-
-  // applyLedgerCalendarFit() reads ledgerTotalBudgetSection's height
-  // synchronously to reserve space for the calendar below it — fine as a
-  // first pass, but when THIS call is what just toggled rowsRegion's
-  // .collapsed class (the 목표 소비 expand/collapse button, or the
-  // zero-categories empty-state forcing a collapse), that first pass reads
-  // the section mid-transition: a CSS transition's value read synchronously
-  // in the same tick it starts is still the PRE-toggle one (no real time
-  // has elapsed on it yet), so the calendar gets fit against the section's
-  // OLD height, not where it's actually headed. Nothing else ever
-  // re-measures on its own, so that wrong fit used to stick around forever
-  // — most visibly, collapsing right after an expand left the calendar
-  // shrunk small (over-reserving space for a section that had just gone
-  // tall) with nothing to ever correct it.
-  //
-  // Re-running the fit once the transition genuinely ends fixes most of
-  // that, but not quite all of it in one more pass: CalendarFit's own
-  // compute() infers the calendar panel's "chrome" height (everything
-  // besides the grid — the month header, weekday row) from the panel's
-  // CURRENTLY rendered width, and while the budget section is expanded the
-  // calendar panel can get squeezed narrow enough that its own header text
-  // wraps to two lines — taller than normal. A refit right at transitionend
-  // still reads that stale, still-narrow, still-wrapped panel (its own
-  // resize hasn't been applied yet — that's what this call is about to do),
-  // so it over-estimates chrome height and under-sizes the calendar. The
-  // NEXT call reads that (still possibly too-narrow) result and corrects
-  // further, and so on — each pass measures against whatever the previous
-  // pass just applied, so how many passes it takes to fully unwrap depends
-  // on how extreme the starting width was (one pass was enough after a
-  // simple collapse; a full expand followed immediately by deleting every
-  // category needed three, confirmed empirically). Looping until two
-  // consecutive computed widths agree — capped, so a genuine oscillation
-  // can't hang this forever — converges reliably regardless.
-  //
-  // The setTimeout is a fallback for the (normally unreachable) case
-  // transitionend never fires — same dedup pattern as renderCalendarGrid's
-  // finishGridAnim above.
-  function refitCalendarAfterBudgetCollapse(rowsRegion) {
-    if (!rowsRegion) return;
-    clearTimeout(budgetCollapseFitTimer);
-    const finish = () => {
-      clearTimeout(budgetCollapseFitTimer);
-      rowsRegion.removeEventListener("transitionend", finish);
-      const layout = document.getElementById("ledgerLayout");
-      let previous = null;
-      for (let i = 0; i < 5; i++) {
-        applyLedgerCalendarFit();
-        const current = layout ? layout.style.gridTemplateColumns : null;
-        if (current === previous) break;
-        previous = current;
-      }
-    };
-    rowsRegion.addEventListener("transitionend", finish, { once: true });
-    budgetCollapseFitTimer = setTimeout(finish, 500);
-  }
 
   // ---------- Category budget progress (expense categories, calendarViewDate's month) ----------
   function renderCategoryProgress() {
@@ -932,7 +894,6 @@
       totalRow.appendChild(empty);
       if (rowsRegion) rowsRegion.classList.add("collapsed");
       applyLedgerCalendarFit();
-      refitCalendarAfterBudgetCollapse(rowsRegion);
       return;
     }
 
@@ -998,12 +959,14 @@
       // ever reaching renderCategoryProgress() below, leaving the arrow
       // icon and the variable disagreeing about the expanded state.
       window.safeSetLocalStorage(CATEGORY_PROGRESS_EXPANDED_KEY, String(categoryProgressExpanded));
+      // renderCategoryProgress() (and the applyLedgerCalendarFit() it ends
+      // with) already reflects the new expanded/collapsed state correctly
+      // on this one synchronous call — unlike the section-height-based
+      // measurement this used to read, ledgerTotalBudgetRow's own height
+      // (what applyLedgerCalendarFit() actually measures now) never
+      // depends on rowsRegion's collapse state, so there's nothing further
+      // to catch up to once its CSS transition finishes.
       renderCategoryProgress();
-      // See refitCalendarAfterBudgetCollapse's own comment — corrects the
-      // calendar fit renderCategoryProgress() just computed against
-      // rowsRegion's pre-toggle height, once its collapse/expand transition
-      // actually finishes.
-      refitCalendarAfterBudgetCollapse(rowsRegion);
     });
     trackRow.appendChild(expandBtn);
 
