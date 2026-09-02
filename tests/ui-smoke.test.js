@@ -2314,38 +2314,48 @@ test("a11y: makeKeyboardActivatable fires once per Space press-release, not once
   }
 });
 
-test("calendar-fit: on a short viewport, MIN_WIDTH is only applied when it still fits — the actual bug fix", { skip: !RUN }, async () => {
-  // Regression test scoped to the specific bug: MIN_WIDTH used to be
-  // applied unconditionally, ignoring the (much taller) grid height that
-  // width implies via the fixed 3:4 cell aspect ratio — so the calendar
-  // PANEL ITSELF rendered taller than the content area had room for. This
-  // checks the panel's own height against the content area's, independent
-  // of any other unrelated chrome (filter bar, chips, ...) that might also
-  // be sitting above .schedule-layout and contributing to page-level
-  // scroll — that's a separate concern from what this fix addresses.
+test("calendar-fit: on a short viewport, the calendar never shrinks below MIN_WIDTH — a page scroll is accepted instead — the actual bug fix", { skip: !RUN }, async () => {
+  // Reversed behavior, per explicit user direction (2026-09): a calendar
+  // shrunk past MIN_WIDTH (420) stops being readable at all — date numbers
+  // and event dots too small to make out — which is a worse outcome than a
+  // page needing to scroll a little. This used to do the opposite
+  // (shrink further, however small, specifically to avoid ever causing
+  // that scroll) — see calendar-fit.js's own comment on this exact clamp
+  // for the full history.
   const { page, close } = await launchApp();
   try {
     await page.setViewportSize({ width: 1400, height: 500 }); // wide, short
     await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
     await page.waitForTimeout(300);
 
-    const { panelHeight, contentClientHeight, appliedWidth } = await page.evaluate(() => {
-      const content = document.querySelector(".content");
-      const panel = document.getElementById("calendarPanel");
+    const appliedWidth = await page.evaluate(() => {
       const layout = document.getElementById("scheduleLayout");
-      return {
-        panelHeight: panel.getBoundingClientRect().height,
-        contentClientHeight: content.clientHeight,
-        appliedWidth: parseFloat(getComputedStyle(layout).gridTemplateColumns),
-      };
+      return parseFloat(getComputedStyle(layout).gridTemplateColumns);
     });
-    assert.ok(
-      panelHeight <= contentClientHeight,
-      `calendar panel (${panelHeight}px) should fit within the content area (${contentClientHeight}px)`
-    );
-    // On this short a viewport, the fix should have kept the width BELOW
-    // MIN_WIDTH (420) rather than forcing it up and overflowing.
-    assert.ok(appliedWidth < 420, `expected width to stay below MIN_WIDTH on a short viewport, got ${appliedWidth}px`);
+    assert.ok(appliedWidth >= 420, `expected width to stay at or above MIN_WIDTH, got ${appliedWidth}px`);
+  } finally {
+    await close();
+  }
+});
+
+test("calendar-fit: MIN_WIDTH still respects the day panel's own minimum width near the mobile breakpoint", { skip: !RUN }, async () => {
+  // Guards the boundary case calendar-fit.js's comment on this clamp
+  // warns about: right above the 960px stacking breakpoint, blindly
+  // forcing the calendar up to MIN_WIDTH could squeeze the day panel
+  // narrower than ITS OWN 280px minimum — trading one readability problem
+  // for another. The floor should back off (staying below MIN_WIDTH,
+  // scrolling vertically instead) rather than ever letting that happen.
+  const { page, close } = await launchApp();
+  try {
+    await page.setViewportSize({ width: 970, height: 700 }); // just above the stacking breakpoint
+    await page.evaluate(() => document.querySelector('[data-view="schedule"]')?.click());
+    await page.waitForTimeout(300);
+
+    const dayPanelWidth = await page.evaluate(() => {
+      const layout = document.getElementById("scheduleLayout");
+      return layout.children[1].getBoundingClientRect().width;
+    });
+    assert.ok(dayPanelWidth >= 280, `day panel should never shrink below its own 280px minimum, got ${dayPanelWidth}px`);
   } finally {
     await close();
   }

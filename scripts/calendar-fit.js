@@ -69,27 +69,36 @@
     let targetWidth = 7 * cellWidth + 6 * GRID_GAP + chromeWidth;
 
     const available = layout.getBoundingClientRect().width;
-    targetWidth = Math.min(targetWidth, available - LAYOUT_GAP - DAY_PANEL_MIN_WIDTH);
+    // How wide the calendar is ever allowed to get without squeezing the
+    // day panel below its own DAY_PANEL_MIN_WIDTH — a horizontal ceiling
+    // independent of, and checked before, the readability floor below.
+    const maxWidthKeepingDayPanelMin = available - LAYOUT_GAP - DAY_PANEL_MIN_WIDTH;
+    targetWidth = Math.min(targetWidth, maxWidthKeepingDayPanelMin);
 
-    // MIN_WIDTH is a floor for readability, but blindly clamping up to it
-    // ignored what height THAT width actually implies via the fixed 3:4
-    // cell aspect ratio. On a short-but-wide viewport, targetWidth (and
-    // the smaller cell size it came from) was deliberately kept small
-    // specifically to fit the available vertical space — forcing it back
-    // up to MIN_WIDTH re-introduced the exact overflow this function
-    // exists to prevent (the actual rendered grid ends up taller than
-    // targetPanelHeight, since CSS drives height from width here, not the
-    // other way around). Only apply the floor when it still fits.
-    if (targetWidth < MIN_WIDTH) {
-      const minWidthCellSize = (MIN_WIDTH - chromeWidth - 6 * GRID_GAP) / 7;
-      const minWidthGridHeight = minWidthCellSize * CELL_ASPECT * ROWS + (ROWS - 1) * GRID_GAP;
-      if (minWidthGridHeight + chromeHeight <= targetPanelHeight) {
-        targetWidth = MIN_WIDTH;
-      }
-    }
+    // MIN_WIDTH is a floor for readability — below it, date numbers and
+    // event dots get too small to actually read, so the calendar stops
+    // being useful at all, not just less comfortable. This used to only
+    // raise a too-small targetWidth back up to MIN_WIDTH when doing so
+    // still fit inside targetPanelHeight (avoiding the panel rendering
+    // taller than the content area, since CSS drives height from width
+    // here, not the other way around) — trading "shrink further, however
+    // small that gets" for "never cause a page scroll." That trade-off is
+    // reversed on purpose now, per explicit direction: a calendar shrunk
+    // well past readability (e.g. 가계부's month grid while its 목표 소비
+    // budget panel is fully expanded, leaving little vertical room) is a
+    // worse outcome than a page that needs to scroll a little. Auto-fit
+    // still shrinks the calendar to use whatever room IS available, all
+    // the way down to this floor — it just no longer goes past it.
+    //
+    // Still capped at maxWidthKeepingDayPanelMin, not blindly MIN_WIDTH —
+    // a genuinely narrow window (just above the 960px stacking breakpoint)
+    // could otherwise have this floor push the calendar wide enough to
+    // squeeze the day panel below ITS OWN minimum, trading one readability
+    // problem for another.
+    targetWidth = Math.max(targetWidth, Math.min(MIN_WIDTH, maxWidthKeepingDayPanelMin));
 
     // Whatever's left after the calendar, capped at DAY_PANEL_MAX_WIDTH —
-    // the targetWidth clamp above already guarantees at least
+    // the targetWidth clamps above already guarantee at least
     // DAY_PANEL_MIN_WIDTH remains, so this is never smaller than that.
     const dayPanelWidth = Math.min(available - targetWidth - LAYOUT_GAP, DAY_PANEL_MAX_WIDTH);
 
